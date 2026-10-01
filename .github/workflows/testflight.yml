@@ -45,13 +45,11 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: bundle exec fastlane beta
 
-      - name: Upload build logs
+      # Printed to the console, where GitHub masks secrets. An uploaded
+      # artifact would not be masked, and this repo is public.
+      - name: Show build log
         if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: ~/Library/Logs/gym
-          if-no-files-found: ignore
+        run: tail -n 300 ~/Library/Logs/gym/*.log 2>/dev/null || true
 
       - name: Remove API key
         if: always()

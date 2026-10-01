@@ -16,6 +16,7 @@ platform :ios do
     key_id = ENV["ASC_KEY_ID"]
     issuer_id = ENV["ASC_ISSUER_ID"]
     team_id = ENV["APPLE_TEAM_ID"].strip
+    UI.user_error!("APPLE_TEAM_ID is set to the API key ID") if team_id == key_id.strip
 
     api_key = app_store_connect_api_key(
       key_id: key_id,
