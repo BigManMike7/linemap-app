@@ -1,0 +1,33 @@
+# XcodeGen output (regenerated from project.yml)
+*.xcodeproj/
+App/Info.plist
+
+# Xcode and SwiftPM
+build/
+DerivedData/
+xcuserdata/
+.build/
+.swiftpm/
+*.xcresult
+
+# fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/test_output/
+
+# Secrets: never commit these (the repo is public)
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+.env
+.env.*
+
+# OS and editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Claude Code per-user settings
+.claude/settings.local.json
