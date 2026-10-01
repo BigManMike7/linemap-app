@@ -32,6 +32,9 @@ platform :ios do
 
     # Lets xcodebuild create and download signing assets with the API key.
     # Cloud-managed signing needs an API key with the Admin role.
+    # The archive is built unsigned and signed only at export: automatic
+    # signing would otherwise archive with a development profile, which
+    # needs a registered device. App Store signing needs none.
     auth = [
       "-allowProvisioningUpdates",
       "-authenticationKeyPath #{key_path}",
@@ -46,7 +49,7 @@ platform :ios do
       export_method: "app-store",
       export_team_id: team_id,
       export_options: { signingStyle: "automatic", teamID: team_id },
-      xcargs: "#{auth} DEVELOPMENT_TEAM=#{team_id} CURRENT_PROJECT_VERSION=#{build_number}",
+      xcargs: "CODE_SIGNING_ALLOWED=NO DEVELOPMENT_TEAM=#{team_id} CURRENT_PROJECT_VERSION=#{build_number}",
       export_xcargs: auth,
       output_directory: "build",
       output_name: "LineMap.ipa"
