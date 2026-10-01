@@ -11,16 +11,15 @@ struct BarSheet: View {
     private var isInLineElsewhere: Bool { model.activeWait != nil && !isInLineHere }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                header
-                TimelineView(.periodic(from: .now, by: 30)) { context in
-                    summary(BarSummary(estimate: model.estimate(for: bar.id), now: context.date))
-                }
-                actions
+        VStack(alignment: .leading, spacing: 20) {
+            header
+            TimelineView(.periodic(from: .now, by: 30)) { context in
+                summary(BarSummary(estimate: model.estimate(for: bar.id), now: context.date))
             }
-            .padding(20)
+            actions
         }
+        .padding(20)
+        .sheetFitsContent()
         .accessibilityIdentifier("bar-sheet")
         .onAppear { model.logBarView(bar) }
         .confirmationDialog(

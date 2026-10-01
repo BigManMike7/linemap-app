@@ -107,7 +107,7 @@ These are summaries. The PRD has the details.
 
 - **Rate limit.** One report per bar every 10 minutes per person, enforced on the server. Exceptions: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in (FR-13).
 - **Sessions.** Only one open wait session at a time (FR-14). Tapping "I'm inside" with an open session at that bar counts as I'm in (FR-15). Sessions become unfinished after 90 minutes (FR-10).
-- **Answers.** Each one is saved immediately. "I can't tell" is stored separately from skipped (FR-12).
+- **Answers.** Each one is saved immediately and can be skipped (FR-12). The app no longer offers "I can't tell" or "Can't see the end", but their stored codes stay reserved and never change meaning.
 - **Offline queue.** Every report and session event has a client-generated ID, so retries never duplicate. The queue survives restarts (FR-16).
 
 **Estimates**

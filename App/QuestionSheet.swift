@@ -2,7 +2,11 @@ import LineMapCore
 import SwiftUI
 
 /// The optional questions after a report. Each answer is saved as soon as it's
-/// given, and every question can be skipped or answered "I can't tell" (FR-12).
+/// given, and every question can be skipped (FR-12). Right after I'm in line,
+/// Cancel line discards the whole line (FR-39).
+///
+/// Not offered (Max's call, 2026-10-01): "Can't see the end" (line size code 5)
+/// and "I can't tell". Their stored codes stay reserved and keep their meaning.
 struct QuestionSheet: View {
     @Environment(AppModel.self) private var model
     let question: Question
@@ -10,13 +14,14 @@ struct QuestionSheet: View {
     var body: some View {
         switch question {
         case .lineSize(let target):
+            let cancel: (() -> Void)? = target == .start ? { model.cancelLine() } : nil
             OptionsView(
                 id: "lineSize",
                 title: target == .start ? "How long is the line?" : "How long is the line now?",
                 subtitle: "Roughly how many people are ahead of you?",
-                options: LineSize.allCases.map { (Labels.option($0), Answer.answered($0)) },
-                cantTell: .cantTell,
-                skip: .skipped
+                options: LineSize.offered.map { (Labels.option($0), Answer.answered($0)) },
+                skip: .skipped,
+                onCancel: cancel
             ) { answer in
                 model.answerLineSize(answer, for: target)
             }
@@ -28,8 +33,8 @@ struct QuestionSheet: View {
                 options: [("Just got here", nil)] + StartOffset.allCases.map { offset -> (String, StartOffset?) in
                     (Labels.option(offset), offset)
                 },
-                cantTell: nil,
-                skip: nil
+                skip: nil,
+                onCancel: { model.cancelLine() }
             ) { offset in
                 model.answerStartOffset(offset)
             }
@@ -39,7 +44,6 @@ struct QuestionSheet: View {
                 title: "How busy is it inside?",
                 subtitle: "Compared with how big the bar is.",
                 options: Busyness.allCases.map { (Labels.option($0), Answer.answered($0)) },
-                cantTell: .cantTell,
                 skip: .skipped
             ) { answer in
                 model.answerBusyness(answer, for: report)
@@ -50,12 +54,18 @@ struct QuestionSheet: View {
                 title: "How long did it take to get in?",
                 subtitle: "Including the ID check and cover.",
                 options: RecalledWait.allCases.map { (Labels.option($0), Answer.answered($0)) },
-                cantTell: .cantTell,
                 skip: .skipped
             ) { answer in
                 model.answerRecalledWait(answer, for: report)
             }
         }
+    }
+}
+
+extension LineSize {
+    /// The line sizes the app offers. `.cantSeeEnd` stays a valid stored code.
+    static var offered: [LineSize] {
+        allCases.filter { $0 != .cantSeeEnd }
     }
 }
 
@@ -65,49 +75,80 @@ struct OptionsView<Value: Hashable>: View {
     let title: String
     let subtitle: String
     let options: [(String, Value)]
-    /// The "I can't tell" answer, or nil to leave it out.
-    let cantTell: Value?
     /// The Skip answer, or nil to leave Skip out.
     let skip: Value?
+    /// Shows "Cancel line", which discards a line started by mistake.
+    var onCancel: (() -> Void)? = nil
     let onAnswer: (Value) -> Void
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(title)
-                    .font(.title2.bold())
-                    .accessibilityAddTraits(.isHeader)
-                Text(subtitle)
-                    .foregroundStyle(.secondary)
-                    .padding(.bottom, 8)
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
+            Text(subtitle)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 8)
 
-                ForEach(Array(options.enumerated()), id: \.offset) { index, option in
-                    Button {
-                        onAnswer(option.1)
-                    } label: {
-                        Text(option.0).frame(maxWidth: .infinity, minHeight: 34)
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.large)
-                    .accessibilityIdentifier("option-\(index)")
+            ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+                Button {
+                    onAnswer(option.1)
+                } label: {
+                    Text(option.0).frame(maxWidth: .infinity, minHeight: 34)
                 }
-
-                HStack {
-                    if let cantTell {
-                        Button(Labels.cantTell) { onAnswer(cantTell) }
-                            .accessibilityIdentifier("option-cant-tell")
-                    }
-                    Spacer()
-                    if let skip {
-                        Button(Labels.skip) { onAnswer(skip) }
-                            .accessibilityIdentifier("option-skip")
-                    }
-                }
-                .buttonStyle(.borderless)
-                .padding(.top, 4)
+                .buttonStyle(.bordered)
+                .controlSize(.large)
+                .accessibilityIdentifier("option-\(index)")
             }
-            .padding(20)
+
+            HStack {
+                if let onCancel {
+                    Button("Cancel line", role: .destructive, action: onCancel)
+                        .accessibilityHint("Discards this line. Nothing is saved.")
+                        .accessibilityIdentifier("cancel-line")
+                }
+                Spacer()
+                if let skip {
+                    Button(Labels.skip) { onAnswer(skip) }
+                        .accessibilityIdentifier("option-skip")
+                }
+            }
+            .buttonStyle(.borderless)
+            .padding(.top, 4)
         }
+        .padding(20)
+        .sheetFitsContent()
         .accessibilityIdentifier("question-\(id)")
+    }
+}
+
+/// Sizes a sheet to its content instead of letting it pull to the top of the
+/// screen. Taller content (large text sizes) scrolls.
+struct FitsContentHeight: ViewModifier {
+    @State private var contentHeight: CGFloat = 320
+    @State private var bottomInset: CGFloat = 0
+
+    func body(content: Content) -> some View {
+        ScrollView {
+            content
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.height
+                } action: { height in
+                    contentHeight = height
+                }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.safeAreaInsets.bottom
+        } action: { inset in
+            bottomInset = inset
+        }
+        .presentationDetents([.height(contentHeight + bottomInset)])
+    }
+}
+
+extension View {
+    func sheetFitsContent() -> some View {
+        modifier(FitsContentHeight())
     }
 }

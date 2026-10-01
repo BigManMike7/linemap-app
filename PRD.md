@@ -51,7 +51,7 @@ This file is the full product spec. `CLAUDE.md` holds the working rules and poin
 - As a viewer, I'm told plainly when there isn't enough data, so I don't trust a stale number.
 - As a reporter in line, I tap once to start a timer and tap again when I get in, so my wait is measured without guessing.
 - As a reporter inside, I can say how busy it is in one tap.
-- As a reporter, I can skip any question or answer "I can't tell."
+- As a reporter, I can skip any question, or cancel a line I started by mistake.
 - As any user, I can use the app without an account or giving my age, and delete my data from Settings.
 - As the admin, I can add a bar, change a threshold, or hide a report from the dashboard without shipping an app update.
 
@@ -86,16 +86,17 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 
 | ID | Requirement |
 | --- | --- |
-| FR-6 | **I'm in line** starts a wait session saved on the server, then optionally asks line size: 0, 1–10, 10–25, 25–50, 50+, or can't see the end. |
+| FR-6 | **I'm in line** starts a wait session saved on the server, then optionally asks line size: 0, 1–10, 10–25, 25–50, or 50+. ("Can't see the end" was dropped from the app on 2026-10-01; its stored code 5 stays reserved.) |
 | FR-7 | **"Been here a while?"** is optional. Choosing ~5, ~10, or ~20 min moves the session's start time back by that much. |
 | FR-8 | **I'm in** ends the session as entered. Measured wait = end time − adjusted start time. It then optionally asks busyness. |
 | FR-9 | **Gave up** ends the session as gave up. |
 | FR-10 | **Unanswered sessions.** After 90 minutes the server marks the session unfinished. A later "I'm in" does nothing. |
 | FR-11 | **I'm inside** optionally asks busyness: Quiet, Comfortable, Busy, or Packed, relative to the bar's size. If the user didn't time their wait, it also asks how long it took to get in: under 5, 5–15, 15–30, 30–60, or 60+ min, including ID check and cover. |
-| FR-12 | **Answers.** Every question is optional and offers "I can't tell", which is stored separately from skipping. Each answer is saved as soon as it's given. |
+| FR-12 | **Answers.** Every question is optional and can be skipped; a skip is stored. Each answer is saved as soon as it's given. ("I can't tell" was dropped from the app on 2026-10-01; the stored `cant_tell` state stays reserved.) |
 | FR-13 | **Rate limit.** One report per bar every 10 minutes per person, enforced on the server. Exceptions: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in. |
 | FR-14 | **One line at a time.** Starting a line at another bar closes the open session as gave up. |
 | FR-15 | **I'm inside with an open session** at that bar counts as I'm in. |
+| FR-39 | **Cancel line.** Right after I'm in line, and on the wait card, Cancel line discards a line started by mistake: the server deletes the session and its reports, so nothing from it counts, including toward the rate limit. A finished wait can't be cancelled. |
 | FR-16 | **Offline queue.** Reports and session events queue on the phone when offline and retry with a client-generated ID, so nothing is saved twice. The queue survives app restarts. Late reports are always stored, but count toward live estimates only if their phone time is within the freshness window. |
 
 ### 5.3 Estimates (computed on the server)
@@ -183,7 +184,7 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 
 ### 7.2 Server functions and jobs
 
-**Functions the app calls.** These are the only way the app reaches the database: get bars, get estimates, submit report, start session, update line size, end session, send feedback, register install, log view, delete my data.
+**Functions the app calls.** These are the only way the app reaches the database: get bars, get estimates, submit report, start session, update line size, end session, cancel session, send feedback, register install, log view, delete my data.
 
 **Scheduled jobs**
 

@@ -90,13 +90,12 @@ struct MapScreen: View {
         switch sheet {
         case .bar(let id):
             if let bar = model.bar(id) {
+                // Both size themselves to their content (sheetFitsContent).
                 BarSheet(bar: bar)
-                    .presentationDetents([.medium, .large])
                     .presentationDragIndicator(.visible)
             }
         case .question(let question):
             QuestionSheet(question: question)
-                .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
         case .settings:
             SettingsView()

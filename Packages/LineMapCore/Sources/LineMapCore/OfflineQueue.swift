@@ -330,7 +330,7 @@ extension PendingCall {
         case .updateLineSize(let c): c.location
         case .endSession(let c): c.location
         case .submitReport(let c): c.location
-        case .sendFeedback, .registerInstall, .logView: nil
+        case .sendFeedback, .registerInstall, .logView, .cancelSession: nil
         }
     }
 }

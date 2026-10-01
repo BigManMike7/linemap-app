@@ -8,13 +8,14 @@ struct WaitCard: View {
     let wait: ActiveWait
     let bar: Bar
     @State private var confirmsGiveUp = false
+    @State private var confirmsCancel = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Button {
-                model.sheet = .bar(bar.id)
-            } label: {
-                HStack {
+            HStack(alignment: .top) {
+                Button {
+                    model.sheet = .bar(bar.id)
+                } label: {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("In line at \(bar.name)")
                             .font(.subheadline)
@@ -24,24 +25,29 @@ struct WaitCard: View {
                                 .font(.system(.largeTitle, design: .rounded).monospacedDigit().weight(.semibold))
                         }
                     }
-                    Spacer()
-                    Image(systemName: "chevron.up")
-                        .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(.rect)
                 }
-                .contentShape(.rect)
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens \(bar.name)")
+
+                // Cancel (FR-39): for a line started by mistake.
+                Button {
+                    confirmsCancel = true
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.title2)
+                        .symbolRenderingMode(.hierarchical)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Cancel line")
+                .accessibilityHint("Discards this timer. Nothing is saved.")
+                .accessibilityIdentifier("wait-cancel")
             }
-            .buttonStyle(.plain)
-            .accessibilityHint("Opens \(bar.name)")
 
             HStack(spacing: 10) {
-                Button {
-                    model.imIn()
-                } label: {
-                    Text("I'm in").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("wait-im-in")
-
                 Button {
                     model.askLineSizeUpdate()
                 } label: {
@@ -50,6 +56,14 @@ struct WaitCard: View {
                 .buttonStyle(.bordered)
                 .accessibilityLabel("Update line size")
                 .accessibilityIdentifier("wait-update-line")
+
+                Button {
+                    model.imIn()
+                } label: {
+                    Text("I'm in").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("wait-im-in")
 
                 Button(role: .destructive) {
                     confirmsGiveUp = true
@@ -73,6 +87,12 @@ struct WaitCard: View {
             Button("Keep waiting", role: .cancel) {}
         } message: {
             Text("Your wait won't be counted.")
+        }
+        .confirmationDialog("Cancel this line?", isPresented: $confirmsCancel, titleVisibility: .visible) {
+            Button("Cancel line", role: .destructive) { model.cancelLine() }
+            Button("Keep timer", role: .cancel) {}
+        } message: {
+            Text("Use this if you started it by mistake. Nothing from it is saved.")
         }
     }
 }

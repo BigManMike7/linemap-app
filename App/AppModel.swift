@@ -256,6 +256,17 @@ final class AppModel {
                 locate: true)
     }
 
+    /// Cancel (FR-39): discards a line started by mistake. The server deletes
+    /// the session and its reports, so nothing from it counts.
+    func cancelLine() {
+        if case .question = sheet {
+            sheet = nil
+        }
+        guard let wait = activeWait, let anonId else { return }
+        setActiveWait(nil)
+        enqueue(.cancelSession(CancelSessionCall(clientSessionId: wait.clientSessionId, anonId: anonId)))
+    }
+
     /// Opens the line-size question from the wait card.
     func askLineSizeUpdate() {
         guard activeWait != nil else { return }

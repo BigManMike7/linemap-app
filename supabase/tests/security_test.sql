@@ -1,5 +1,5 @@
 -- Security model (NFR-5) and no stored coordinates (FR-26).
--- The app reaches data only through the 10 API functions in PRD 7.2; every
+-- The app reaches data only through the 11 API functions in PRD 7.2; every
 -- table is private, has RLS on, and no role but the owner can touch it.
 
 begin;
@@ -61,9 +61,9 @@ select is(
    where n.nspname = 'public'
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
-                       'register_install', 'log_view', 'delete_my_data')),
-  10::bigint,
-  'each of the 10 API functions exists exactly once (no overloads)');
+                       'register_install', 'log_view', 'delete_my_data', 'cancel_session')),
+  11::bigint,
+  'each of the 11 API functions exists exactly once (no overloads)');
 
 -- Functions created by the migrations' owner in public that anon can run.
 select set_eq(
@@ -73,8 +73,9 @@ select set_eq(
       and p.proowner = (select q.proowner from pg_proc q where q.oid = 'public.get_bars(uuid)'::regprocedure)
       and has_function_privilege('anon', p.oid, 'execute')$$,
   array['get_bars', 'get_estimates', 'submit_report', 'start_session', 'update_line_size',
-        'end_session', 'send_feedback', 'register_install', 'log_view', 'delete_my_data'],
-  'anon can execute exactly the 10 API functions');
+        'end_session', 'send_feedback', 'register_install', 'log_view', 'delete_my_data',
+        'cancel_session'],
+  'anon can execute exactly the 11 API functions');
 
 select is(
   (select array_agg(p.proname::text order by p.proname::text)
@@ -82,7 +83,7 @@ select is(
    where n.nspname = 'public'
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
-                       'register_install', 'log_view', 'delete_my_data')
+                       'register_install', 'log_view', 'delete_my_data', 'cancel_session')
      and has_function_privilege('authenticated', p.oid, 'execute')),
   null::text[],
   'authenticated cannot execute any API function');
@@ -93,7 +94,7 @@ select is(
    where n.nspname = 'public'
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
-                       'register_install', 'log_view', 'delete_my_data')
+                       'register_install', 'log_view', 'delete_my_data', 'cancel_session')
      and not p.prosecdef),
   null::text[],
   'every API function is SECURITY DEFINER');
@@ -104,7 +105,7 @@ select is(
    where n.nspname = 'public'
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
-                       'register_install', 'log_view', 'delete_my_data')
+                       'register_install', 'log_view', 'delete_my_data', 'cancel_session')
      and not (coalesce(p.proconfig, '{}'::text[])
               && array['search_path=""', 'search_path=', $q$search_path=''$q$])),
   null::text[],

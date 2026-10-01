@@ -10,7 +10,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(191);
+select plan(201);
 
 -- Helpers ----------------------------------------------------------------------------
 
@@ -275,6 +275,37 @@ insert into res values ('p40_end', pg_temp.end_line(40, 1401, 'entered', pg_temp
 select is(pg_temp.r('p40_end') ->> 'status', 'entered', 'an I''m in from 50 minutes after the start still counts');
 select is(pg_temp.r('p40_end') ->> 'measured_wait_seconds', '3000', 'its measured wait is 50 minutes');
 select is((pg_temp.session(1401)).ended_by, 'im_in', 'ended_by becomes im_in');
+
+-- Person 41: cancel a line started by mistake (FR-39) -----------------------------------------
+
+create function pg_temp.cancel(p_person integer, p_session integer) returns jsonb
+language sql as $$
+  select public.cancel_session(p_client_session_id => pg_temp.uid(p_session),
+                               p_anon_id => pg_temp.uid(p_person))
+$$;
+
+insert into res values ('p41_start', pg_temp.start(41, 1411, 2411, pg_temp.bar(1), pg_temp.ago(300)));
+insert into res values ('p41_line', pg_temp.line(41, 2412, 1411, pg_temp.ago(299), 'answered', 3));
+insert into res values ('p41_cancel', pg_temp.cancel(41, 1411));
+
+select is(pg_temp.r('p41_cancel') ->> 'ok', 'true', 'cancel_session succeeds');
+select is(pg_temp.r('p41_cancel') ->> 'removed', 'true', 'cancel_session removes the session');
+select is((select count(*) from app.wait_sessions s where s.anon_id = pg_temp.uid(41)), 0::bigint,
+  'the cancelled session is deleted');
+select is((select count(*) from app.reports r where r.anon_id = pg_temp.uid(41)), 0::bigint,
+  'the cancelled session''s reports are deleted');
+
+insert into res values ('p41_again', pg_temp.start(41, 1413, 2413, pg_temp.bar(1), pg_temp.ago(298)));
+select is(pg_temp.r('p41_again') ->> 'ok', 'true', 'a cancelled line does not count toward the rate limit');
+
+select is(pg_temp.cancel(41, 1499) ->> 'removed', 'false', 'cancelling an unknown session is a no-op');
+select is(pg_temp.cancel(42, 1413) ->> 'removed', 'false', 'nobody can cancel someone else''s session');
+select is((select count(*) from app.wait_sessions s where s.client_session_id = pg_temp.uid(1413)), 1::bigint,
+  'the other person''s session is untouched');
+
+insert into res values ('p41_end', pg_temp.end_line(41, 1413, 'entered', pg_temp.ago(290)));
+select is(pg_temp.cancel(41, 1413) ->> 'error', 'session_not_open', 'a finished wait cannot be cancelled');
+select is((pg_temp.session(1413)).status, 'entered', 'the finished wait stays');
 
 -- Person 5: one line at a time (FR-14) ------------------------------------------------------
 

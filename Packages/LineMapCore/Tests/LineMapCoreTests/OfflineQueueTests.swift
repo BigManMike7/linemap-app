@@ -386,3 +386,18 @@ struct OfflineQueueTests {
         #expect(await queue.count == 0)
     }
 }
+
+@Test func cancelSessionCallParameters() {
+    let session = UUID()
+    let anon = UUID()
+    let call = PendingCall.cancelSession(CancelSessionCall(clientSessionId: session, anonId: anon))
+    #expect(call.function == "cancel_session")
+    #expect(call.parameters == [
+        "p_client_session_id": .string(session.uuidString.lowercased()),
+        "p_anon_id": .string(anon.uuidString.lowercased()),
+    ])
+    #expect(call.clientSessionId == session)
+    let other = UUID()
+    #expect(call.replacingSession(session, with: other).clientSessionId == other)
+    #expect(call.withLocation(.denied) == call)
+}

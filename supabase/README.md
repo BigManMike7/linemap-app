@@ -9,7 +9,7 @@ Postgres on Supabase. The server is the source of truth for estimates and the ni
 | `migrations/*_schema.sql` | Tables, indexes, row-level security, settings log |
 | `migrations/*_helpers.sql` | Settings lookups, night boundary, active window, location math |
 | `migrations/*_estimates.sql` | Estimate rules and snapshots |
-| `migrations/*_api.sql` | The 10 functions the app calls |
+| `migrations/*_api.sql`, `*_cancel_session.sql` | The 11 functions the app calls |
 | `migrations/*_jobs.sql` | Scheduled jobs (`pg_cron`) |
 | `migrations/*_starting_data.sql` | Default settings and the three starting bars |
 | `tests/` | pgTAP tests, run in CI on every push |
@@ -33,6 +33,8 @@ CI runs the tests on a local database, then applies new migrations to the live p
 | Been here a while | 5, 10, or 20 minutes |
 | Answer state | `answered`, `cant_tell`, `skipped`; empty if not asked |
 
+Since 2026-10-01 the app no longer offers line size 5 ("can't see the end") or `cant_tell`. Both stay valid on the server and keep their meaning, so older rows read the same.
+
 Two answers agree when their codes are at most one apart (FR-19).
 
 ## API
@@ -47,6 +49,7 @@ Call with `POST /rest/v1/rpc/<name>` and named JSON parameters. Writes return `{
 | `start_session(...)` | I'm in line. Creates the session and its first report. Re-send the same `p_client_session_id` to set "been here a while" or the first line size |
 | `update_line_size(...)` | Line-size update in an open session. Re-send the same report ID to change the answer |
 | `end_session(p_outcome)` | `entered` (I'm in) or `gave_up` |
+| `cancel_session(...)` | Cancel line (FR-39): deletes an open session and its reports, so nothing counts. A finished wait returns `session_not_open` |
 | `submit_report(...)` | I'm inside. With an open session at that bar it counts as I'm in. Pass `p_client_session_id` for the busyness answer after I'm in. Re-send the same report ID to add answers |
 | `send_feedback(...)` | This looks wrong |
 | `log_view(...)` | A map or bar-sheet view |

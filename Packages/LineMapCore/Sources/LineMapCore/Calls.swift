@@ -138,6 +138,17 @@ public struct EndSessionCall: Codable, Sendable, Hashable {
     }
 }
 
+/// Cancel a line started by mistake (FR-39): the server deletes the session and its reports.
+public struct CancelSessionCall: Codable, Sendable, Hashable {
+    public var clientSessionId: UUID
+    public var anonId: UUID
+
+    public init(clientSessionId: UUID, anonId: UUID) {
+        self.clientSessionId = clientSessionId
+        self.anonId = anonId
+    }
+}
+
 /// I'm inside (FR-11, FR-15), or the busyness answer after I'm in (pass
 /// `clientSessionId`). Re-send the same `clientReportId` to add answers.
 public struct SubmitReportCall: Codable, Sendable, Hashable {
@@ -242,6 +253,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
     case sendFeedback(SendFeedbackCall)
     case registerInstall(RegisterInstallCall)
     case logView(LogViewCall)
+    case cancelSession(CancelSessionCall)
 
     /// The SQL function this call runs.
     public var function: String {
@@ -253,6 +265,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
         case .sendFeedback: "send_feedback"
         case .registerInstall: "register_install"
         case .logView: "log_view"
+        case .cancelSession: "cancel_session"
         }
     }
 
@@ -277,6 +290,11 @@ public enum PendingCall: Codable, Sendable, Hashable {
             p["p_line_size"] = c.lineSize.map { .int(Int64($0)) }
             p["p_line_size_state"] = .string(c.lineSizeState.rawValue)
             return p
+        case .cancelSession(let c):
+            return [
+                "p_client_session_id": .uuid(c.clientSessionId),
+                "p_anon_id": .uuid(c.anonId),
+            ]
         case .endSession(let c):
             var p = c.location.parameters
             p["p_client_session_id"] = .uuid(c.clientSessionId)
@@ -334,6 +352,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
         case .startSession(let c): c.clientSessionId
         case .updateLineSize(let c): c.clientSessionId
         case .endSession(let c): c.clientSessionId
+        case .cancelSession(let c): c.clientSessionId
         case .submitReport(let c): c.clientSessionId
         case .sendFeedback, .registerInstall, .logView: nil
         }
@@ -355,6 +374,9 @@ public enum PendingCall: Codable, Sendable, Hashable {
         case .submitReport(var c) where c.clientSessionId == old:
             c.clientSessionId = new
             return .submitReport(c)
+        case .cancelSession(var c) where c.clientSessionId == old:
+            c.clientSessionId = new
+            return .cancelSession(c)
         default:
             return self
         }
@@ -367,7 +389,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
         case .updateLineSize(var c): c.location = fix; return .updateLineSize(c)
         case .endSession(var c): c.location = fix; return .endSession(c)
         case .submitReport(var c): c.location = fix; return .submitReport(c)
-        case .sendFeedback, .registerInstall, .logView: return self
+        case .sendFeedback, .registerInstall, .logView, .cancelSession: return self
         }
     }
 }
