@@ -126,7 +126,6 @@ struct OptionsView<Value: Hashable>: View {
 /// screen. Taller content (large text sizes) scrolls.
 struct FitsContentHeight: ViewModifier {
     @State private var contentHeight: CGFloat = 320
-    @State private var bottomInset: CGFloat = 0
 
     func body(content: Content) -> some View {
         ScrollView {
@@ -138,12 +137,8 @@ struct FitsContentHeight: ViewModifier {
                 }
         }
         .scrollBounceBehavior(.basedOnSize)
-        .onGeometryChange(for: CGFloat.self) { proxy in
-            proxy.safeAreaInsets.bottom
-        } action: { inset in
-            bottomInset = inset
-        }
-        .presentationDetents([.height(contentHeight + bottomInset)])
+        // The sheet's height already includes the bottom safe area.
+        .presentationDetents([.height(contentHeight)])
     }
 }
 
