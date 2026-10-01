@@ -36,12 +36,17 @@ jobs:
           # Newest iOS runtime; prefer a "Pro" iPhone, else any iPhone.
           UDID=$(xcrun simctl list devices available -j | jq -r '
             .devices | to_entries
-            | map(select(.key | test("SimRuntime\.iOS-")))
+            | map(select(.key | test("SimRuntime\\.iOS-")))
             | sort_by(.key | capture("iOS-(?<maj>[0-9]+)-(?<min>[0-9]+)") | [(.maj | tonumber), (.min | tonumber)])
             | last | .value
             | map(select(.name | startswith("iPhone")))
             | (map(select(.name | test(" Pro$"))) + .)
             | first | "\(.udid)"')
+          if [ -z "$UDID" ] || [ "$UDID" = "null" ]; then
+            echo "No iPhone simulator found. Available devices:"
+            xcrun simctl list devices available
+            exit 1
+          fi
           echo "Using simulator $UDID"
           xcrun simctl list devices | grep "$UDID"
           echo "udid=$UDID" >> "$GITHUB_OUTPUT"
