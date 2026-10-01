@@ -51,6 +51,11 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CODE_SIGN_STYLE: Automatic
         # DEVELOPMENT_TEAM is passed in by fastlane from the APPLE_TEAM_ID secret.
+      configs:
+        # Archive straight to App Store signing so CI needs no development
+        # profile, which would require a registered device.
+        Release:
+          CODE_SIGN_IDENTITY: "Apple Distribution"
 
   LineMapUITests:
     type: bundle.ui-testing
