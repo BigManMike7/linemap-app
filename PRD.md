@@ -79,15 +79,15 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 | FR-1 | **Map home screen.** The app opens straight to an Apple Map (MapKit, no API key needed), centered on downtown State College and framing every active bar. Each bar is a pin labeled with its name and line time, e.g. "The Phyrst · 25 min". There is no separate list screen. The map shows the user's location dot only if location permission was already granted. It never asks for permission on launch. |
 | FR-2 | **Pin labels.** Line time is the bar's current wait estimate (FR-17 to FR-19): either the last measured wait ("25 min") or a reported range ("15–30 min"). If there's no wait estimate but there is a fresh line size, the label shows the line size ("~10–25 in line"). Otherwise it shows "No data", "Closed", or "Outside hours". Labels based on reports 30–60 minutes old are grayed out. |
 | FR-3 | **Bar sheet.** Tapping a pin opens a bottom sheet over the map. It shows: line size now; the wait, matching the pin (a measured wait like "25 min, got in 10 min ago", or a reported range); busyness; freshness as "N people · latest X min ago"; a **This looks wrong** button; and **I'm in line** and **I'm inside** buttons. No trend arrows in v1. |
-| FR-4 | **Wait card.** While a wait session is open, a card floats over the map every time the app opens. It shows the running timer, **I'm in**, **Gave up**, and a way to update line size. Tapping the card opens that bar's sheet. |
+| FR-4 | **Wait card.** While a wait session is open, a card floats over the map every time the app opens. It shows the running timer, a large **I'm in**, then **Line size**, **Adjust time**, and **Gave up**, plus a ✕ to cancel (FR-39). Tapping the timer opens that bar's sheet. |
 | FR-5 | **Settings.** Opened from a small gear button on the map. Contains Delete my data, links to the privacy policy and support page, and the contact email. |
 
 ### 5.2 Reporting
 
 | ID | Requirement |
 | --- | --- |
-| FR-6 | **I'm in line** starts a wait session saved on the server, then optionally asks line size: 0, 1–10, 10–25, 25–50, or 50+. ("Can't see the end" was dropped from the app on 2026-10-01; its stored code 5 stays reserved.) |
-| FR-7 | **"Been here a while?"** is optional. Choosing ~5, ~10, or ~20 min moves the session's start time back by that much. |
+| FR-6 | **I'm in line** starts a wait session saved on the server in one tap and asks nothing else. **Line size** on the wait card reports it at any time while waiting: 0, 1–10, 10–25, 25–50, or 50+. ("Can't see the end" was dropped from the app on 2026-10-01; its stored code 5 stays reserved.) |
+| FR-7 | **Adjust time** on the wait card asks how long the person was in line before starting the timer: just started, ~5, ~10, or ~20 min. It moves the session's start time back by that much, and can be changed or undone while the session is open. |
 | FR-8 | **I'm in** ends the session as entered. Measured wait = end time − adjusted start time. It then optionally asks busyness. |
 | FR-9 | **Gave up** ends the session as gave up. |
 | FR-10 | **Unanswered sessions.** After 90 minutes the server marks the session unfinished. A later "I'm in" does nothing. |
@@ -96,7 +96,7 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 | FR-13 | **Rate limit.** One report per bar every 10 minutes per person, enforced on the server. Exceptions: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in. |
 | FR-14 | **One line at a time.** Starting a line at another bar closes the open session as gave up. |
 | FR-15 | **I'm inside with an open session** at that bar counts as I'm in. |
-| FR-39 | **Cancel line.** Right after I'm in line, and on the wait card, Cancel line discards a line started by mistake: the server deletes the session and its reports, so nothing from it counts, including toward the rate limit. A finished wait can't be cancelled. |
+| FR-39 | **Cancel line.** The ✕ on the wait card, after a confirmation, discards a line started by mistake: the server deletes the session and its reports, so nothing from it counts, including toward the rate limit. A finished wait can't be cancelled. |
 | FR-16 | **Offline queue.** Reports and session events queue on the phone when offline and retry with a client-generated ID, so nothing is saved twice. The queue survives app restarts. Late reports are always stored, but count toward live estimates only if their phone time is within the freshness window. |
 
 ### 5.3 Estimates (computed on the server)

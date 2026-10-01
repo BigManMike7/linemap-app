@@ -46,7 +46,7 @@ Call with `POST /rest/v1/rpc/<name>` and named JSON parameters. Writes return `{
 | `get_bars(p_anon_id?)` | Active bars with door pins |
 | `get_estimates(p_anon_id?)` | Every bar's current estimate (shape below) |
 | `register_install(...)` | On launch: anon ID, install ID, versions, device model |
-| `start_session(...)` | I'm in line. Creates the session and its first report. Re-send the same `p_client_session_id` to set "been here a while" or the first line size |
+| `start_session(...)` | I'm in line. Creates the session and its first report. Re-send the same `p_client_session_id` to set or undo Adjust time (`p_start_offset_minutes`, 0 undoes it) |
 | `update_line_size(...)` | Line-size update in an open session. Re-send the same report ID to change the answer |
 | `end_session(p_outcome)` | `entered` (I'm in) or `gave_up` |
 | `cancel_session(...)` | Cancel line (FR-39): deletes an open session and its reports, so nothing counts. A finished wait returns `session_not_open` |

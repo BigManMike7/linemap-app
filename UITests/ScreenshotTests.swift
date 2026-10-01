@@ -26,28 +26,31 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(inLine.waitForExistence(timeout: 5))
         saveScreenshot(named: "02-BarSheet", app: app)
 
-        // I'm in line → line size (FR-6).
+        // I'm in line: one tap, straight to the wait card (FR-4, FR-6).
         inLine.tap()
-        XCTAssertTrue(app.buttons["option-2"].waitForExistence(timeout: 5))
-        saveScreenshot(named: "03-LineSize", app: app)
-
-        // → Been here a while? (FR-7)
-        app.buttons["option-2"].tap()
-        XCTAssertTrue(app.staticTexts["Been here a while?"].waitForExistence(timeout: 5))
-        saveScreenshot(named: "04-BeenHereAWhile", app: app)
-
-        // → Wait card on the map (FR-4).
-        app.buttons["option-1"].tap()
         let imIn = app.buttons["wait-im-in"]
         XCTAssertTrue(imIn.waitForExistence(timeout: 5))
         sleep(1)
-        saveScreenshot(named: "05-WaitCard", app: app)
+        saveScreenshot(named: "03-WaitCard", app: app)
 
-        // Line-size update from the card.
+        // Line size from the card (FR-6).
         app.buttons["wait-update-line"].tap()
-        XCTAssertTrue(app.staticTexts["How long is the line now?"].waitForExistence(timeout: 5))
-        saveScreenshot(named: "06-LineSizeUpdate", app: app)
-        app.buttons["option-skip"].tap()
+        XCTAssertTrue(app.staticTexts["How long is the line?"].waitForExistence(timeout: 5))
+        saveScreenshot(named: "04-LineSize", app: app)
+        app.buttons["option-2"].tap()
+
+        // Adjust time from the card (FR-7).
+        let adjust = app.buttons["wait-adjust-time"]
+        XCTAssertTrue(adjust.waitForExistence(timeout: 5))
+        adjust.tap()
+        XCTAssertTrue(app.staticTexts["Adjust time"].waitForExistence(timeout: 5))
+        saveScreenshot(named: "05-AdjustTime", app: app)
+        app.buttons["option-2"].tap()
+
+        // The timer now includes the ~10 minutes.
+        XCTAssertTrue(imIn.waitForExistence(timeout: 5))
+        sleep(1)
+        saveScreenshot(named: "06-WaitCardAdjusted", app: app)
 
         // I'm in → busyness (FR-8, FR-11).
         XCTAssertTrue(imIn.waitForExistence(timeout: 5))
@@ -70,23 +73,28 @@ final class ScreenshotTests: XCTestCase {
         saveScreenshot(named: "09-RecalledWait", app: app)
         app.buttons["option-skip"].tap()
 
-        // A line started by mistake: Cancel line discards it (FR-39).
+        // A line started by mistake: the ✕ discards it (FR-39).
         let thirdPin = app.buttons["pin-2"]
         XCTAssertTrue(thirdPin.waitForExistence(timeout: 5))
         thirdPin.tap()
         XCTAssertTrue(app.buttons["in-line-button"].waitForExistence(timeout: 5))
         app.buttons["in-line-button"].tap()
-        let cancelLine = app.buttons["cancel-line"]
-        XCTAssertTrue(cancelLine.waitForExistence(timeout: 5))
-        cancelLine.tap()
+        let cancel = app.buttons["wait-cancel"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+        cancel.tap()
+        let discard = app.buttons["Discard line"]
+        XCTAssertTrue(discard.waitForExistence(timeout: 5))
+        saveScreenshot(named: "10-CancelLine", app: app)
+        discard.tap()
         XCTAssertTrue(app.buttons["settings-button"].waitForExistence(timeout: 5))
+        sleep(1)
         XCTAssertFalse(app.buttons["wait-im-in"].exists, "a cancelled line leaves no wait card")
 
         // Settings (FR-5).
         let settings = app.buttons["settings-button"]
         settings.tap()
         XCTAssertTrue(app.buttons["delete-data-button"].waitForExistence(timeout: 5))
-        saveScreenshot(named: "10-Settings", app: app)
+        saveScreenshot(named: "11-Settings", app: app)
         app.buttons["settings-done"].tap()
     }
 

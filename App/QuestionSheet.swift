@@ -1,9 +1,9 @@
 import LineMapCore
 import SwiftUI
 
-/// The optional questions after a report. Each answer is saved as soon as it's
-/// given, and every question can be skipped (FR-12). Right after I'm in line,
-/// Cancel line discards the whole line (FR-39).
+/// The optional questions. I'm in line asks nothing; Line size and Adjust time
+/// open from the wait card. Each answer is saved as soon as it's given, and
+/// every question can be skipped or swiped away (FR-12).
 ///
 /// Not offered (Max's call, 2026-10-01): "Can't see the end" (line size code 5)
 /// and "I can't tell". Their stored codes stay reserved and keep their meaning.
@@ -13,30 +13,28 @@ struct QuestionSheet: View {
 
     var body: some View {
         switch question {
-        case .lineSize(let target):
-            let cancel: (() -> Void)? = target == .start ? { model.cancelLine() } : nil
+        case .lineSize:
             OptionsView(
                 id: "lineSize",
-                title: target == .start ? "How long is the line?" : "How long is the line now?",
+                title: "How long is the line?",
                 subtitle: "Roughly how many people are ahead of you?",
                 options: LineSize.offered.map { (Labels.option($0), Answer.answered($0)) },
-                skip: .skipped,
-                onCancel: cancel
+                skip: .skipped
             ) { answer in
-                model.answerLineSize(answer, for: target)
+                model.answerLineSize(answer)
             }
-        case .startOffset:
+        case .adjustTime:
             OptionsView<StartOffset?>(
-                id: "startOffset",
-                title: "Been here a while?",
-                subtitle: "We'll start your timer earlier.",
-                options: [("Just got here", nil)] + StartOffset.allCases.map { offset -> (String, StartOffset?) in
+                id: "adjustTime",
+                title: "Adjust time",
+                subtitle: "How long were you in line before you started the timer?",
+                options: [("Just started", nil)] + StartOffset.allCases.map { offset -> (String, StartOffset?) in
                     (Labels.option(offset), offset)
                 },
                 skip: nil,
-                onCancel: { model.cancelLine() }
+                selected: .some(model.activeWait?.offset)
             ) { offset in
-                model.answerStartOffset(offset)
+                model.adjustTime(offset)
             }
         case .busyness(let report):
             OptionsView(
@@ -77,8 +75,8 @@ struct OptionsView<Value: Hashable>: View {
     let options: [(String, Value)]
     /// The Skip answer, or nil to leave Skip out.
     let skip: Value?
-    /// Shows "Cancel line", which discards a line started by mistake.
-    var onCancel: (() -> Void)? = nil
+    /// The current answer, shown highlighted.
+    var selected: Value? = nil
     let onAnswer: (Value) -> Void
 
     var body: some View {
@@ -91,30 +89,29 @@ struct OptionsView<Value: Hashable>: View {
                 .padding(.bottom, 8)
 
             ForEach(Array(options.enumerated()), id: \.offset) { index, option in
+                let isSelected = selected == option.1
                 Button {
                     onAnswer(option.1)
                 } label: {
                     Text(option.0).frame(maxWidth: .infinity, minHeight: 34)
                 }
                 .buttonStyle(.bordered)
+                .tint(isSelected ? .accentColor : nil)
+                .fontWeight(isSelected ? .semibold : .regular)
                 .controlSize(.large)
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
                 .accessibilityIdentifier("option-\(index)")
             }
 
-            HStack {
-                if let onCancel {
-                    Button("Cancel line", role: .destructive, action: onCancel)
-                        .accessibilityHint("Discards this line. Nothing is saved.")
-                        .accessibilityIdentifier("cancel-line")
-                }
-                Spacer()
-                if let skip {
+            if let skip {
+                HStack {
+                    Spacer()
                     Button(Labels.skip) { onAnswer(skip) }
+                        .buttonStyle(.borderless)
                         .accessibilityIdentifier("option-skip")
                 }
+                .padding(.top, 4)
             }
-            .buttonStyle(.borderless)
-            .padding(.top, 4)
         }
         .padding(20)
         .sheetFitsContent()

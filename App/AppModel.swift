@@ -33,17 +33,12 @@ nonisolated struct InsideReport: Hashable {
 
 /// A question shown in a sheet.
 nonisolated enum Question: Hashable {
-    case lineSize(LineSizeQuestion)
-    case startOffset
+    /// Line size, from the wait card (FR-6).
+    case lineSize
+    /// Adjust time, from the wait card (FR-7).
+    case adjustTime
     case busyness(InsideReport)
     case recalledWait(InsideReport)
-}
-
-nonisolated enum LineSizeQuestion: Hashable {
-    /// The first answer after I'm in line, saved on the session's start report.
-    case start
-    /// An update from the wait card.
-    case update
 }
 
 nonisolated enum AppSheet: Hashable, Identifiable {
@@ -202,19 +197,15 @@ final class AppModel {
 
     // MARK: - Reporting
 
-    /// I'm in line (FR-6). Starting a line at another bar ends the old one as
-    /// gave up on the server (FR-14).
+    /// I'm in line (FR-6): one tap starts the timer and nothing else is asked.
+    /// Line size and Adjust time are on the wait card. Starting a line at
+    /// another bar ends the old one as gave up on the server (FR-14).
     func startLine(at bar: Bar) {
-        guard let meta = reportMeta() else { return }
-        if activeWait?.barId == bar.id {
-            sheet = nil
-            return
-        }
-        let now = Date()
+        sheet = nil
+        guard let meta = reportMeta(), activeWait?.barId != bar.id else { return }
         let wait = ActiveWait(clientSessionId: UUID(), startReportId: UUID(), barId: bar.id,
-                              startedAt: now, offset: nil)
+                              startedAt: Date(), offset: nil)
         setActiveWait(wait)
-        sheet = .question(.lineSize(.start))
         enqueue(.startSession(startCall(for: wait, meta: meta)), locate: true)
     }
 
@@ -256,53 +247,44 @@ final class AppModel {
                 locate: true)
     }
 
-    /// Cancel (FR-39): discards a line started by mistake. The server deletes
-    /// the session and its reports, so nothing from it counts.
+    /// The ✕ on the wait card (FR-39): discards a line started by mistake. The
+    /// server deletes the session and its reports, so nothing from it counts.
     func cancelLine() {
-        if case .question = sheet {
-            sheet = nil
-        }
         guard let wait = activeWait, let anonId else { return }
         setActiveWait(nil)
         enqueue(.cancelSession(CancelSessionCall(clientSessionId: wait.clientSessionId, anonId: anonId)))
     }
 
-    /// Opens the line-size question from the wait card.
-    func askLineSizeUpdate() {
+    /// Line size on the wait card (FR-6).
+    func askLineSize() {
         guard activeWait != nil else { return }
-        sheet = .question(.lineSize(.update))
+        sheet = .question(.lineSize)
     }
 
-    func answerLineSize(_ answer: Answer<LineSize>, for question: LineSizeQuestion) {
-        guard let wait = activeWait, let meta = reportMeta() else {
-            sheet = nil
-            return
-        }
-        switch question {
-        case .start:
-            var call = startCall(for: wait, meta: meta)
-            call.lineSize = answer.code
-            call.lineSizeState = answer.state
-            enqueue(.startSession(call))
-            sheet = .question(.startOffset)
-        case .update:
-            sheet = nil
-            // Skipping an update has nothing to save.
-            guard answer != .skipped else { return }
-            enqueue(.updateLineSize(UpdateLineSizeCall(
-                clientReportId: UUID(), clientSessionId: wait.clientSessionId, phoneTime: Date(),
-                location: .noFix, meta: meta, lineSize: answer)), locate: true)
-        }
-    }
-
-    /// "Been here a while?" (FR-7). Nil means just got here.
-    func answerStartOffset(_ offset: StartOffset?) {
+    /// Each answer is its own line-size report in the session (FR-13 exempt).
+    func answerLineSize(_ answer: Answer<LineSize>) {
         sheet = nil
-        guard var wait = activeWait, let offset, let meta = reportMeta() else { return }
+        // Skipping has nothing to save.
+        guard let wait = activeWait, let meta = reportMeta(), answer != .skipped else { return }
+        enqueue(.updateLineSize(UpdateLineSizeCall(
+            clientReportId: UUID(), clientSessionId: wait.clientSessionId, phoneTime: Date(),
+            location: .noFix, meta: meta, lineSize: answer)), locate: true)
+    }
+
+    /// Adjust time on the wait card (FR-7).
+    func askAdjustTime() {
+        guard activeWait != nil else { return }
+        sheet = .question(.adjustTime)
+    }
+
+    /// Moves the timer's start back by the offset; nil (just started) undoes it.
+    func adjustTime(_ offset: StartOffset?) {
+        sheet = nil
+        guard var wait = activeWait, wait.offset != offset, let meta = reportMeta() else { return }
         wait.offset = offset
         setActiveWait(wait)
         var call = startCall(for: wait, meta: meta)
-        call.startOffsetMinutes = offset.rawValue
+        call.startOffsetMinutes = offset?.rawValue ?? 0
         enqueue(.startSession(call))
     }
 

@@ -2,7 +2,8 @@ import LineMapCore
 import SwiftUI
 
 /// Floats over the map while a wait session is open (FR-4): the running timer,
-/// I'm in, Gave up, and a line-size update. Tapping it opens the bar's sheet.
+/// a big I'm in, then Line size, Adjust time, and Gave up. The ✕ cancels a line
+/// started by mistake (FR-39). Tapping the timer opens the bar's sheet.
 struct WaitCard: View {
     @Environment(AppModel.self) private var model
     let wait: ActiveWait
@@ -11,7 +12,7 @@ struct WaitCard: View {
     @State private var confirmsCancel = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
                 Button {
                     model.sheet = .bar(bar.id)
@@ -31,7 +32,6 @@ struct WaitCard: View {
                 .buttonStyle(.plain)
                 .accessibilityHint("Opens \(bar.name)")
 
-                // Cancel (FR-39): for a line started by mistake.
                 Button {
                     confirmsCancel = true
                 } label: {
@@ -47,36 +47,36 @@ struct WaitCard: View {
                 .accessibilityIdentifier("wait-cancel")
             }
 
-            HStack(spacing: 10) {
-                Button {
-                    model.askLineSizeUpdate()
-                } label: {
-                    Text("Line size").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-                .accessibilityLabel("Update line size")
-                .accessibilityIdentifier("wait-update-line")
+            Button {
+                model.imIn()
+            } label: {
+                Text("I'm in")
+                    .font(.title3.weight(.semibold))
+                    .frame(maxWidth: .infinity, minHeight: 40)
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.large)
+            .accessibilityIdentifier("wait-im-in")
 
-                Button {
-                    model.imIn()
-                } label: {
-                    Text("I'm in").frame(maxWidth: .infinity)
+            HStack(spacing: 8) {
+                secondaryButton("Line size", id: "wait-update-line") {
+                    model.askLineSize()
                 }
-                .buttonStyle(.borderedProminent)
-                .accessibilityIdentifier("wait-im-in")
+                .accessibilityLabel("Report line size")
 
-                Button(role: .destructive) {
+                secondaryButton("Adjust time", id: "wait-adjust-time") {
+                    model.askAdjustTime()
+                }
+                .accessibilityHint("Starts your timer earlier if you were already in line")
+
+                secondaryButton("Gave up", role: .destructive, id: "wait-gave-up") {
                     confirmsGiveUp = true
-                } label: {
-                    Text("Gave up").frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("wait-gave-up")
             }
             .controlSize(.large)
         }
         .padding(16)
-        .background(.regularMaterial, in: .rect(cornerRadius: 20))
+        .background(.regularMaterial, in: .rect(cornerRadius: 22))
         .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
         .padding(.horizontal, 12)
         .padding(.bottom, 4)
@@ -89,10 +89,23 @@ struct WaitCard: View {
             Text("Your wait won't be counted.")
         }
         .confirmationDialog("Cancel this line?", isPresented: $confirmsCancel, titleVisibility: .visible) {
-            Button("Cancel line", role: .destructive) { model.cancelLine() }
+            Button("Discard line", role: .destructive) { model.cancelLine() }
             Button("Keep timer", role: .cancel) {}
         } message: {
             Text("Use this if you started it by mistake. Nothing from it is saved.")
         }
+    }
+
+    private func secondaryButton(_ title: String, role: ButtonRole? = nil, id: String,
+                                 action: @escaping () -> Void) -> some View {
+        Button(role: role, action: action) {
+            Text(title)
+                .font(.subheadline.weight(.medium))
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier(id)
     }
 }
