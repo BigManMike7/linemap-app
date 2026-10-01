@@ -37,6 +37,8 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSLocationWhenInUseUsageDescription: "LineMap checks your location only when you send a report, to confirm you're near the bar. Your exact location is never stored."
         UILaunchScreen: {}
+        # Always dark (Max, 2026-10-01): map, sheets, alerts, and Settings.
+        UIUserInterfaceStyle: Dark
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false
         UISupportedInterfaceOrientations:
