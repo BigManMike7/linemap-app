@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ios:
+    name: Swift tests and screenshots
+    runs-on: macos-26
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: LineMapCore unit tests
+        run: swift test --package-path Packages/LineMapCore
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Pick an iPhone simulator
+        id: sim
+        run: |
+          # Newest iOS runtime; prefer a "Pro" iPhone, else any iPhone.
+          UDID=$(xcrun simctl list devices available -j | jq -r '
+            .devices | to_entries
+            | map(select(.key | test("SimRuntime\.iOS-")))
+            | sort_by(.key | capture("iOS-(?<maj>[0-9]+)-(?<min>[0-9]+)") | [(.maj | tonumber), (.min | tonumber)])
+            | last | .value
+            | map(select(.name | startswith("iPhone")))
+            | (map(select(.name | test(" Pro$"))) + .)
+            | first | "\(.udid)"')
+          echo "Using simulator $UDID"
+          xcrun simctl list devices | grep "$UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Build app and run screenshot UI test
+        run: |
+          xcodebuild test -quiet \
+            -project LineMap.xcodeproj \
+            -scheme LineMap \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -resultBundlePath build/UITests.xcresult
+
+      - name: Export screenshots
+        if: always()
+        run: |
+          [ -d build/UITests.xcresult ] || exit 0
+          mkdir -p build/screenshots
+          xcrun xcresulttool export attachments \
+            --path build/UITests.xcresult \
+            --output-path build/screenshots
+          # Rename exported files to their readable attachment names (e.g. 01-Home_...png).
+          cd build/screenshots
+          jq -r '.[].attachments[] | [.exportedFileName, .suggestedHumanReadableName] | @tsv' manifest.json |
+            while IFS=$'\t' read -r from to; do mv "$from" "$to"; done
+          ls -la
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots
+          path: build/screenshots
+          if-no-files-found: warn
