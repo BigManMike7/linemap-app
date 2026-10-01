@@ -1,0 +1,77 @@
+# XcodeGen spec. Edit this file, never the generated LineMap.xcodeproj.
+# Generate with: xcodegen generate
+name: LineMap
+
+options:
+  bundleIdPrefix: com.maxsroka
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    MARKETING_VERSION: "0.1.0"
+    # CI overrides this with the next TestFlight build number.
+    CURRENT_PROJECT_VERSION: "1"
+
+packages:
+  LineMapCore:
+    path: Packages/LineMapCore
+
+targets:
+  LineMap:
+    type: application
+    platform: iOS
+    sources:
+      - App
+    dependencies:
+      - package: LineMapCore
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: LineMap
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        ITSAppUsesNonExemptEncryption: false
+        NSLocationWhenInUseUsageDescription: "LineMap checks your location only when you send a report, to confirm you're near the bar. Your exact location is never stored."
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.maxsroka.linemap
+        PRODUCT_NAME: LineMap
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        CODE_SIGN_STYLE: Automatic
+        # DEVELOPMENT_TEAM is passed in by fastlane from the APPLE_TEAM_ID secret.
+
+  LineMapUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - UITests
+    dependencies:
+      - target: LineMap
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.maxsroka.linemap.uitests
+        TARGETED_DEVICE_FAMILY: "1"
+        CODE_SIGN_STYLE: Automatic
+
+schemes:
+  LineMap:
+    build:
+      targets:
+        LineMap: all
+    test:
+      targets:
+        - LineMapUITests
+    archive:
+      config: Release
