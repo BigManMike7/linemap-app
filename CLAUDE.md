@@ -72,7 +72,7 @@ App/                       # SwiftUI app target: views, MapKit, location, Keycha
 Packages/LineMapCore/      # pure Swift logic + tests
 supabase/migrations/       # tables, RLS, functions, cron jobs (SQL)
 supabase/tests/            # pgTAP tests
-supabase/seed.sql          # the three starting bars + default config
+supabase/migrations/*_starting_data.sql  # the three starting bars + default config
 fastlane/
 .github/workflows/         # ci.yml (tests + screenshots), testflight.yml, keepalive.yml
 ```

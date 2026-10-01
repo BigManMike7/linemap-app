@@ -1,0 +1,28 @@
+name: Keepalive
+
+# NFR-7: a daily call so the free Supabase project never pauses.
+# Uses the public project URL and publishable key from repository variables.
+on:
+  schedule:
+    - cron: "17 14 * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    name: Call get_bars
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: ${{ vars.SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ vars.SUPABASE_PUBLISHABLE_KEY }}
+    steps:
+      - name: Call the database
+        run: |
+          if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "SUPABASE_URL or SUPABASE_PUBLISHABLE_KEY variable not set; skipping."
+            exit 0
+          fi
+          curl --fail-with-body -sS -X POST "$SUPABASE_URL/rest/v1/rpc/get_bars" \
+            -H "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            -H "Content-Type: application/json" \
+            -d '{}'
