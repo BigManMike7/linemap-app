@@ -1,6 +1,6 @@
 default_platform(:ios)
 
-APP_ID = "com.maxsroka.linemap"
+APP_ID = "io.github.bigmanmike7.linemap"
 
 platform :ios do
   desc "Build with cloud-managed signing and upload to TestFlight (runs in GitHub Actions)"

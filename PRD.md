@@ -252,7 +252,7 @@ In order: averages and history, then throughput-based wait predictions, then out
 | Item | Value |
 | --- | --- |
 | App name | LineMap. If taken, use "LineMap: State College"; the home-screen name stays LineMap |
-| Bundle ID | `com.maxsroka.linemap`. Permanent after the first upload |
+| Bundle ID | `io.github.bigmanmike7.linemap`. Permanent after the first upload |
 | Contact and feedback email | line.map.support@gmail.com |
 | Privacy policy URL | `https://<github-username>.github.io/<repo>/privacy` |
 | Support URL | `https://<github-username>.github.io/<repo>/support` |
