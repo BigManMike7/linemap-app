@@ -7,10 +7,15 @@ platform :ios do
   lane :beta do
     setup_ci # temporary keychain for the signing certificate Xcode fetches
 
-    key_path = ENV.fetch("ASC_KEY_PATH")
-    key_id = ENV.fetch("ASC_KEY_ID")
-    issuer_id = ENV.fetch("ASC_ISSUER_ID")
-    team_id = ENV.fetch("APPLE_TEAM_ID")
+    # Fail fast on a missing or blank secret instead of a confusing signing error later.
+    required = %w[ASC_KEY_PATH ASC_KEY_ID ASC_ISSUER_ID APPLE_TEAM_ID]
+    blank = required.select { |name| ENV[name].to_s.strip.empty? }
+    UI.user_error!("Missing or empty: #{blank.join(', ')}") unless blank.empty?
+
+    key_path = ENV["ASC_KEY_PATH"]
+    key_id = ENV["ASC_KEY_ID"]
+    issuer_id = ENV["ASC_ISSUER_ID"]
+    team_id = ENV["APPLE_TEAM_ID"].strip
 
     api_key = app_store_connect_api_key(
       key_id: key_id,
