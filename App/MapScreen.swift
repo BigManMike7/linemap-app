@@ -19,7 +19,7 @@ struct MapScreen: View {
             }
             ForEach(model.bars) { bar in
                 Annotation(bar.name, coordinate: bar.coordinate, anchor: .bottom) {
-                    BarPin(bar: bar, label: PinLabel(estimate: model.estimate(for: bar.id))) {
+                    BarPin(bar: bar, estimate: model.estimate(for: bar.id)) {
                         model.sheet = .bar(bar.id)
                     }
                 }
@@ -140,8 +140,17 @@ extension Bar {
 /// A bar's pin with its label, e.g. "The Phyrst · 25 min" (FR-2).
 struct BarPin: View {
     let bar: Bar
-    let label: PinLabel
+    let estimate: BarEstimate?
     let action: () -> Void
+
+    private var label: PinLabel { PinLabel(estimate: estimate) }
+
+    /// Colored only when the pin shows a fresh line or wait; gray for older
+    /// reports, no data, closed, and outside hours.
+    private var isLive: Bool {
+        guard let estimate, estimate.display == .estimate, !label.isGrayed else { return false }
+        return estimate.wait != nil || estimate.lineSize != nil
+    }
 
     var body: some View {
         Button(action: action) {
@@ -156,7 +165,7 @@ struct BarPin: View {
                 Image(systemName: "mappin.circle.fill")
                     .font(.title)
                     .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, label.isGrayed ? Color.gray : Color.accentColor)
+                    .foregroundStyle(.white, isLive ? Color.accentColor : Color.gray)
             }
             .contentShape(.rect)
         }

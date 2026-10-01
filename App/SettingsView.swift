@@ -1,4 +1,5 @@
 import LineMapCore
+import UIKit
 import SwiftUI
 
 /// Settings (FR-5): Delete my data, the privacy policy and support pages, and the contact email.
@@ -37,6 +38,22 @@ struct SettingsView: View {
                         Link(AppConfig.contactEmail, destination: mail)
                     }
                     LabeledContent("Version", value: version)
+                }
+
+                if let anonId = model.anonId?.uuidString {
+                    Section {
+                        Text(anonId)
+                            .font(.footnote.monospaced())
+                            .textSelection(.enabled)
+                            .accessibilityLabel("Anonymous ID")
+                        Button("Copy ID") {
+                            UIPasteboard.general.string = anonId
+                        }
+                    } header: {
+                        Text("Anonymous ID")
+                    } footer: {
+                        Text("A random ID that isn't linked to you. Support may ask for it.")
+                    }
                 }
             }
             .navigationTitle("Settings")

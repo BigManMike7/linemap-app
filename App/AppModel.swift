@@ -84,7 +84,8 @@ final class AppModel {
     private let queue: OfflineQueue
     private let anonStore = AnonymousIDStore()
     private let isUITesting: Bool
-    @ObservationIgnored private var anonId: UUID?
+    /// Shown in Settings so Max can add his own ID to test_anon_ids (FR-38).
+    private(set) var anonId: UUID?
     @ObservationIgnored private var installId = UUID()
     @ObservationIgnored private var appOpenId = UUID()
     @ObservationIgnored private var enqueueChain: Task<Void, Never>?
