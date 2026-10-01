@@ -139,10 +139,10 @@ The data model before launch, the database tests, location on a real phone, that
 ## Status
 
 - [x] **M1. Setup:** repo, XcodeGen project, LineMapCore package, CI pipeline. Done when an empty app builds in CI and installs on Max's iPhone through TestFlight.
-- [ ] **M2. Backend:** tables, RLS, functions, cron jobs, seed bars, pgTAP tests.
+- [x] **M2. Backend:** tables, RLS, functions, cron jobs, seed bars, pgTAP tests.
 - [ ] **M3. App:** map, bar sheet, report flow, wait card, location, IDs, offline queue, feedback, Settings.
 - [ ] **M4. Polish:** dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
 - [ ] **M5. Field test:** downtown testing, then Beta App Review.
 - [ ] **M6. Launch:** public TestFlight link.
 
-**Current milestone: M2** (waiting for Max to say start).
+**Current milestone: M3** (waiting for Max to say start).
