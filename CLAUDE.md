@@ -122,7 +122,7 @@ These are summaries. The PRD has the details.
 
 ## Fixed values
 
-- App name: LineMap. Bundle ID: `io.github.bigmanmike7.linemap`.
+- App name: LineMap. Bundle ID: `io.github.bigmanmike7.linemapapp`.
 - Contact email: line.map.support@gmail.com
 - Location permission text: "LineMap checks your location only when you send a report, to confirm you're near the bar. Your exact location is never stored."
 - Info.plist: `ITSAppUsesNonExemptEncryption` = NO.
