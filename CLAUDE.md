@@ -136,6 +136,12 @@ These are summaries. The PRD has the details.
 
 The data model before launch, the database tests, location on a real phone, that Delete my data removes rows, and the privacy policy. Point these out when they're ready for review.
 
+- [x] Data model (approved 2026-10-01, as built in M2). Point out any later change to tables, fields, or answer codes again.
+- [x] Database tests (approved 2026-10-01, 493 pgTAP tests).
+- [ ] Location on a real phone (M3/M5)
+- [ ] Delete my data removes rows (M3)
+- [ ] Privacy policy (M4)
+
 ## Status
 
 - [x] **M1. Setup:** repo, XcodeGen project, LineMapCore package, CI pipeline. Done when an empty app builds in CI and installs on Max's iPhone through TestFlight.
@@ -145,4 +151,4 @@ The data model before launch, the database tests, location on a real phone, that
 - [ ] **M5. Field test:** downtown testing, then Beta App Review.
 - [ ] **M6. Launch:** public TestFlight link.
 
-**Current milestone: M3** (waiting for Max to say start).
+**Current milestone: M3.**
