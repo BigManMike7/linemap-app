@@ -151,4 +151,29 @@ The data model before launch, the database tests, location on a real phone, that
 - [ ] **M5. Field test:** downtown testing, then Beta App Review.
 - [ ] **M6. Launch:** public TestFlight link.
 
-**Current milestone: M3.**
+**Current milestone: M3** (built and on TestFlight; waiting for Max's end-to-end check).
+
+## Where we left off (2026-10-01)
+
+**M3 is built.** TestFlight build 6 is the latest. All CI passed: pgTAP (now 503 tests), LineMapCore unit tests, and the screenshot walkthrough. M3 is done when Max confirms the full flow on his phone. Next session:
+
+1. Have Max install build 6 and check: I'm in line (one tap) → Line size → Adjust time → I'm in → busyness; I'm inside → both questions; the ✕ cancels a line; a report made in Airplane Mode sends itself later; Settings → Delete my data.
+2. After Delete my data his phone gets a new anonymous ID. Have him send it from Settings and run the `test_anon_ids` SQL again (`supabase/README.md`, Admin section) so his testing stays marked as test data.
+3. If everything works: tick M3, tick "Delete my data removes rows" above, and stop for Max before M4.
+
+**Decisions made while testing M3** (already in PRD.md):
+
+- I'm in line is one tap and asks nothing (FR-6). The wait card has a large I'm in, then Line size, Adjust time, and Gave up, plus a ✕ (FR-4).
+- "Been here a while?" became **Adjust time** on the wait card: just started, ~5, ~10, ~20 min, changeable or undoable (FR-7).
+- The ✕ cancels a line started by mistake; the new `cancel_session` function deletes it (FR-39). The app now calls 11 functions.
+- The app no longer offers "I can't tell" or "Can't see the end" (FR-12, FR-6). Their stored codes stay reserved.
+- The whole app is always dark (`UIUserInterfaceStyle: Dark` in `project.yml`). Polish contrast in M4.
+- No-data pins are gray. Sheets size to their content. Settings shows the anonymous ID with a Copy button.
+
+**Handy facts**
+
+- Ship a build: `gh workflow run testflight.yml`. CI deploys passing migrations to Supabase automatically.
+- Supabase project ref `jjsccwmvgfzsxozhjlrt`. There is no local database access: the password lives only in GitHub Secrets, so Max runs one-off SQL in the dashboard SQL Editor.
+- Max's test anonymous ID: `cb1d32c5-1a2d-4d7d-898e-dcb9871ef2d7` (in `test_anon_ids`).
+- The privacy and support links in Settings point at GitHub Pages pages that M4 still has to write.
+- On 2026-10-01 Max was given SQL to delete all of his testing data (bars, settings, and settings history kept). Next session, confirm it ran: `app.reports`, `app.wait_sessions`, `app.views`, `app.feedback`, and `app.installs` should only hold rows from after that.
