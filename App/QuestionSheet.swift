@@ -17,8 +17,8 @@ struct QuestionSheet: View {
         case .lineSize:
             OptionsView(
                 id: "lineSize",
-                title: "How long is the line?",
-                subtitle: "Roughly how many people are ahead of you?",
+                // The whole line, not just the people ahead (2026-10-04, see supabase/README.md).
+                title: "How many people are in line?",
                 options: LineSize.offered.map { (Labels.option($0), Answer.answered($0)) },
                 skip: .skipped
             ) { answer in
@@ -43,7 +43,7 @@ extension LineSize {
 struct OptionsView<Value: Hashable>: View {
     let id: String
     let title: String
-    let subtitle: String
+    var subtitle: String? = nil
     let options: [(String, Value)]
     /// The Skip answer, or nil to leave Skip out.
     let skip: Value?
@@ -151,7 +151,7 @@ struct ConditionsForm: View {
             QuestionHeader(title: "Report conditions",
                            subtitle: "\(model.bar(barId)?.name ?? "This bar"). Answer one or both.")
 
-            Text("How long is the line?")
+            Text("How many people are in line?")
                 .font(.headline)
             ChoiceGrid(options: LineSize.offered, columns: typeSize.isAccessibilitySize ? 2 : 5,
                        selection: $lineSize, idPrefix: "line",
@@ -186,18 +186,21 @@ struct ConditionsForm: View {
     }
 }
 
-/// A title and a gray line under it.
+/// A title and, if given, a gray line under it.
 private struct QuestionHeader: View {
     let title: String
-    let subtitle: String
+    var subtitle: String? = nil
 
     var body: some View {
         Text(title)
             .font(.title2.bold())
             .accessibilityAddTraits(.isHeader)
-        Text(subtitle)
-            .foregroundStyle(.secondary)
-            .padding(.bottom, 8)
+            .padding(.bottom, subtitle == nil ? 8 : 0)
+        if let subtitle {
+            Text(subtitle)
+                .foregroundStyle(.secondary)
+                .padding(.bottom, 8)
+        }
     }
 }
 

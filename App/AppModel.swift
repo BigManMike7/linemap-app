@@ -273,8 +273,10 @@ final class AppModel {
         self.thanks = thanks
         UIAccessibility.post(notification: .announcement, argument: text)
         thanksTask?.cancel()
+        // Longer under UI testing, so the screenshot catches it after the test waits for idle.
+        let shownFor: Duration = isUITesting ? .seconds(10) : .seconds(3)
         thanksTask = Task {
-            try? await Task.sleep(for: .seconds(3))
+            try? await Task.sleep(for: shownFor)
             guard !Task.isCancelled, self.thanks?.id == thanks.id else { return }
             self.thanks = nil
         }
@@ -513,10 +515,18 @@ final class AppModel {
             guard let reportId, refusedReports.insert(reportId).inserted else { return }
             let seconds = reply["retry_after_seconds"]?.intValue ?? 600
             let minutes = max(1, Int((Double(seconds) / 60).rounded(.up)))
-            alert = AppAlert(
-                title: "Already reported",
-                message: "You can report this bar again in \(minutes) min.",
-                closesQuestion: true)
+            // Timed lines and reports have separate 10-minute limits (FR-13).
+            if case .startSession = call {
+                alert = AppAlert(
+                    title: "Already timed here",
+                    message: "You already timed a line here. You can start another in \(minutes) min.",
+                    closesQuestion: true)
+            } else {
+                alert = AppAlert(
+                    title: "Already reported",
+                    message: "You already reported this bar. You can report it again in \(minutes) min.",
+                    closesQuestion: true)
+            }
         case "session_not_found", "session_not_open":
             if let session = call.clientSessionId, activeWait?.clientSessionId == session {
                 setActiveWait(nil)

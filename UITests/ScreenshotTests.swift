@@ -36,7 +36,7 @@ final class ScreenshotTests: XCTestCase {
 
         // Line size from the card (FR-6).
         app.buttons["wait-update-line"].tap()
-        XCTAssertTrue(app.staticTexts["How long is the line?"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["How many people are in line?"].waitForExistence(timeout: 5))
         saveScreenshot(named: "04-LineSize", app: app)
         app.buttons["option-2"].tap()
 
