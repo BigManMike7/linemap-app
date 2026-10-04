@@ -368,7 +368,7 @@ select is((pg_temp.report(2001)).accuracy_m, 12::real, 'accuracy is stored');
 select is((pg_temp.report(2001)).location_status, 'precise', 'location status is stored');
 
 insert into res values ('p21', public.report_conditions(
-  p_client_report_id    => pg_temp.uid(2101),
+  p_client_report_id    => pg_temp.uid(2111),
   p_anon_id             => pg_temp.uid(21),
   p_install_id          => pg_temp.uid(521),
   p_bar_id              => pg_temp.bar(1),
@@ -380,8 +380,8 @@ insert into res values ('p21', public.report_conditions(
   p_busyness_state      => 'answered'));
 
 select is(pg_temp.r('p21') ->> 'ok', 'true', 'a report with no fix is accepted, not rejected (FR-27)');
-select is((pg_temp.report(2101)).uncertain, true, 'a report with no fix is uncertain');
-select is((pg_temp.report(2101)).distance_m, null::real, 'a report with no fix has no distance');
+select is((pg_temp.report(2111)).uncertain, true, 'a report with no fix is uncertain');
+select is((pg_temp.report(2111)).distance_m, null::real, 'a report with no fix has no distance');
 
 insert into res values ('p22', pg_temp.cond(22, 2201, pg_temp.bar(1), now() + interval '2 hours',
                                             p_busy => 2, p_busy_state => 'answered'));
