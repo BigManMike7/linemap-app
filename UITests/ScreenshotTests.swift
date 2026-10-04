@@ -27,7 +27,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.buttons["directions-button"].exists, "the bar sheet has Directions (FR-40)")
         saveScreenshot(named: "02-BarSheet", app: app)
 
-        // I'm in line: one tap, straight to the wait card (FR-4, FR-6).
+        // Start line timer: one tap, straight to the wait card (FR-4, FR-6).
         inLine.tap()
         XCTAssertTrue(app.buttons["wait-im-in"].waitForExistence(timeout: 5))
         sleep(1)

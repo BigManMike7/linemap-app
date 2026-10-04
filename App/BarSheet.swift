@@ -1,7 +1,7 @@
 import LineMapCore
 import SwiftUI
 
-/// A bar's line, wait, crowd, and freshness, with I'm in line and Report
+/// A bar's line, wait, crowd, and freshness, with Start line timer and Report
 /// conditions (FR-3). While in line here, Report conditions becomes I'm in.
 struct BarSheet: View {
     @Environment(AppModel.self) private var model
@@ -36,15 +36,11 @@ struct BarSheet: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(bar.name)
-                    .font(.title2.bold())
-                    .accessibilityAddTraits(.isHeader)
-                Text(bar.address)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
+        HStack {
+            // Name only; the address stays in the data for door pins (Max, 2026-10-04).
+            Text(bar.name)
+                .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
             Spacer()
             Button {
                 bar.openDirections()
@@ -101,7 +97,7 @@ struct BarSheet: View {
                         model.startLine(at: bar)
                     }
                 } label: {
-                    Text("I'm in line").frame(maxWidth: .infinity, minHeight: 34)
+                    Text("Start line timer").frame(maxWidth: .infinity, minHeight: 34)
                 }
                 .buttonStyle(.borderedProminent)
                 .accessibilityHint("Starts a timer for your wait")

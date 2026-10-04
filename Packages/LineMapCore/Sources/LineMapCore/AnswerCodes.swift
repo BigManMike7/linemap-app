@@ -12,7 +12,7 @@ public enum AnswerState: String, Codable, Sendable, Hashable {
     case skipped
 }
 
-/// Line size, asked after I'm in line and in line-size updates (FR-6).
+/// Line size, asked after Start line timer and in line-size updates (FR-6).
 public enum LineSize: Int, Codable, Sendable, Hashable, CaseIterable {
     case nobody = 0
     case oneToTen = 1

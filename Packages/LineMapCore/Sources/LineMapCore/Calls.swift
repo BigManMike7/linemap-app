@@ -64,7 +64,7 @@ public struct ReportMeta: Codable, Sendable, Hashable {
     }
 }
 
-/// I'm in line (FR-6). Re-send with the same `clientSessionId` to save
+/// Start line timer (FR-6). Re-send with the same `clientSessionId` to save
 /// Adjust time (FR-7) or the first line-size answer.
 public struct StartSessionCall: Codable, Sendable, Hashable {
     public var clientSessionId: UUID

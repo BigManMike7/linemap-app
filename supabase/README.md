@@ -43,7 +43,7 @@ Two answers agree when their codes are at most one apart (FR-19).
 
 | Kind | Position | What | Rate limit (FR-13) |
 | --- | --- | --- | --- |
-| `line_start` | `line` | I'm in line | Timed clock |
+| `line_start` | `line` | Start line timer | Timed clock |
 | `line_update` | `line` | Line-size update in an open session | Exempt |
 | `inside` | `inside` | I'm inside (older builds only) | Manual clock |
 | `inside_after_entry` | `inside` | Busyness after I'm in, or I'm inside that ended a session (older builds only) | Exempt |
@@ -54,7 +54,7 @@ Since 2026-10-04 there are two separate clocks per person per bar, each `rate_li
 - **Timed clock:** `line_start`. `start_session` checks only this one.
 - **Manual clock:** `conditions` and `inside`. `report_conditions` and `submit_report` check only this one.
 
-Two reports on the same clock at the same bar within 10 minutes: the second is refused. A manual report never blocks I'm in line, and a line never blocks a manual report. `app.rate_limit_wait(anon_id, bar_id, at, clock)` takes `'timed'` or `'manual'`; any other clock name is bad input. (Before 2026-10-04 all counted reports shared one clock.)
+Two reports on the same clock at the same bar within 10 minutes: the second is refused. A manual report never blocks Start line timer, and a line never blocks a manual report. `app.rate_limit_wait(anon_id, bar_id, at, clock)` takes `'timed'` or `'manual'`; any other clock name is bad input. (Before 2026-10-04 all counted reports shared one clock.)
 
 Only `line_start`, `line_update`, and `inside_after_entry` belong to a wait session.
 
@@ -73,7 +73,7 @@ Call with `POST /rest/v1/rpc/<name>` and named JSON parameters. Writes return `{
 | `get_bars(p_anon_id?)` | Active bars with door pins |
 | `get_estimates(p_anon_id?)` | Every bar's current estimate (shape below) |
 | `register_install(...)` | On launch: anon ID, install ID, versions, device model |
-| `start_session(...)` | I'm in line. Creates the session and its first report. Rate-limited on the timed clock. Re-send the same `p_client_session_id` to set or undo Adjust time (`p_start_offset_minutes`, 0 to 90; 0 undoes it) |
+| `start_session(...)` | Start line timer. Creates the session and its first report. Rate-limited on the timed clock. Re-send the same `p_client_session_id` to set or undo Adjust time (`p_start_offset_minutes`, 0 to 90; 0 undoes it) |
 | `update_line_size(...)` | Line-size update in an open session. Re-send the same report ID to change the answer |
 | `end_session(p_outcome)` | `entered` (I'm in) or `gave_up` |
 | `cancel_session(...)` | Cancel line (FR-39): deletes an open session and its reports, so nothing counts. A finished wait returns `session_not_open` |
@@ -127,7 +127,7 @@ A JSON array (empty `[]` when there is nothing). Times are Postgres ISO 8601 wit
 ```
 
 - `report`: a standalone Report conditions (`kind: conditions`) or I'm inside from older builds (`kind: inside`). `at` is its phone time.
-- `wait`: a finished wait, `status` `entered`, `gave_up`, or `unfinished`. `at` is when I'm in line was tapped. `line_size` is the newest answered line size in the wait, `busyness` the answer after I'm in. Open waits are not listed.
+- `wait`: a finished wait, `status` `entered`, `gave_up`, or `unfinished`. `at` is when Start line timer was tapped. `line_size` is the newest answered line size in the wait, `busyness` the answer after I'm in. Open waits are not listed.
 - Hidden reports are still listed: they are the person's own.
 
 ## Admin in the dashboard (FR-37)

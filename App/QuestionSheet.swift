@@ -2,7 +2,7 @@ import LineMapCore
 import SwiftUI
 import UIKit
 
-/// The optional questions. I'm in line and I'm in ask nothing; Line size and
+/// The optional questions. Start line timer and I'm in ask nothing; Line size and
 /// Adjust time open from the wait card, and Report conditions from the bar
 /// sheet. Every answer can be left out or swiped away (FR-12).
 ///

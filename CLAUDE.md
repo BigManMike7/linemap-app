@@ -1,6 +1,6 @@
 # LineMap
 
-An iPhone beta that shows live, community-reported lines and crowds at State College bars. People at a bar tap "I'm in line" or "Report conditions", and everyone else sees each bar's line and wait on a map. This is a learning project: keep it simple, polished, and modular.
+An iPhone beta that shows live, community-reported lines and crowds at State College bars. People at a bar tap "Start line timer" or "Report conditions", and everyone else sees each bar's line and wait on a map. This is a learning project: keep it simple, polished, and modular.
 
 **The full spec is `PRD.md`.** Read it before starting any milestone. Requirement IDs (FR-x, NFR-x) refer to it. If the PRD and the code disagree, or the PRD is unclear, ask Max. Don't guess.
 
@@ -106,7 +106,7 @@ These are summaries. The PRD has the details.
 
 **Reporting**
 
-- **Rate limit.** Two separate 10-minute limits per person per bar, enforced on the server: timed lines (I'm in line) and manual reports (Report conditions). Neither blocks the other. Not limited: line-size updates in an open session (each its own row), I'm in, Gave up, and the busyness answer after I'm in, which only older builds send (FR-13).
+- **Rate limit.** Two separate 10-minute limits per person per bar, enforced on the server: timed lines (Start line timer) and manual reports (Report conditions). Neither blocks the other. Not limited: line-size updates in an open session (each its own row), I'm in, Gave up, and the busyness answer after I'm in, which only older builds send (FR-13).
 - **Sessions.** Only one open wait session at a time (FR-14). Report conditions never touches a session; the server's I'm inside rule (FR-15) remains only for older builds. Sessions become unfinished after 90 minutes (FR-10). Adjust time moves the start back 0–90 minutes (FR-7).
 - **Answers.** Every answer can be skipped (FR-12). Line size and Adjust time save immediately; Report conditions sends once. The app no longer offers "I can't tell", "Can't see the end", or the recalled-wait question, but their stored codes stay reserved and never change meaning.
 - **Offline queue.** Every report and session event has a client-generated ID, so retries never duplicate. The queue survives restarts (FR-16).
@@ -160,11 +160,11 @@ The data model before launch, the database tests, location on a real phone, that
 **M3 is built.** TestFlight build 8 is the latest. All CI passed: pgTAP (793 tests), LineMapCore unit tests, the 15-screen screenshot walkthrough, and the database deploy. M3 is done when Max confirms the full flow on his phone. Next session:
 
 1. Have Max install build 8 and check:
-   - I'm in line (one tap) → Line size → Adjust time (~5, ~10, More… wheel) → I'm in (no question, thank-you shows).
+   - Start line timer (one tap) → Line size → Adjust time (~5, ~10, More… wheel) → I'm in (no question, thank-you shows).
    - Report conditions: one screen, Send off until an answer is picked, thank-you shows.
    - The ✕ on the wait card: "I gave up on the line" and "Started it by mistake".
    - Directions on the bar sheet and wait card open Apple Maps.
-   - Report conditions, then I'm in line at the same bar right away: allowed (separate limits, FR-13). A second Report conditions there within 10 minutes is refused.
+   - Report conditions, then Start line timer at the same bar right away: allowed (separate limits, FR-13). A second Report conditions there within 10 minutes is refused.
    - Settings → Made a wrong report? lists and deletes a report; reporting that bar again within 10 minutes is still refused.
    - A report made in Airplane Mode says it will send later, then sends itself.
    - Settings → Delete my data.

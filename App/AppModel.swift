@@ -206,7 +206,7 @@ final class AppModel {
 
     // MARK: - Reporting
 
-    /// I'm in line (FR-6): one tap starts the timer and nothing else is asked.
+    /// Start line timer (FR-6): one tap starts the timer and nothing else is asked.
     /// Line size and Adjust time are on the wait card. Starting a line at
     /// another bar ends the old one as gave up on the server (FR-14).
     func startLine(at bar: Bar) {
