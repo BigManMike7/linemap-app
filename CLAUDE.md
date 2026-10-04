@@ -92,6 +92,7 @@ These are summaries. The PRD has the details.
 - **Anonymous ID** lives in the Keychain, device-only, not synced, so it survives reinstalling (FR-29).
 - **Install ID** lives in regular app storage and is new on every install (FR-30).
 - **Delete my data** deletes everything tied to the anonymous ID, logs a count with no ID, then creates a new anonymous ID (FR-32).
+- **Made a wrong report?** in Settings deletes one report or finished wait from the last 24 hours, for real. The rate limit keeps running through a short-lived hold (anon ID, bar, time only), and the deletion logs a count with no ID (FR-41).
 
 **Time**
 
@@ -115,6 +116,7 @@ These are summaries. The PRD has the details.
 - **Freshness.** Fresh up to 30 minutes, grayed out from 30 to 60, then "Not enough data" (FR-17).
 - **Counting.** Count distinct people, not reports (FR-18). The newest report wins unless 2 or more fresh reports from other people disagree; then the majority wins (FR-19).
 - **Thresholds** live in the `config` table, not in code. Log every change to `config_history`.
+- **History (M4)** is computed from reports as of each past moment, never from snapshots, so deleted and hidden reports never show. Only combined estimates, never individual reports (FR-43).
 
 **Data hygiene**
 
@@ -140,14 +142,14 @@ The data model before launch, the database tests, location on a real phone, that
 - [x] Database tests (approved 2026-10-01, 493 pgTAP tests).
 - [ ] Location on a real phone (M3/M5)
 - [ ] Delete my data removes rows (M3)
-- [ ] Privacy policy (M4)
+- [ ] Privacy policy (M4). Must cover Made a wrong report? (FR-41) and history (FR-43).
 
 ## Status
 
 - [x] **M1. Setup:** repo, XcodeGen project, LineMapCore package, CI pipeline. Done when an empty app builds in CI and installs on Max's iPhone through TestFlight.
 - [x] **M2. Backend:** tables, RLS, functions, cron jobs, seed bars, pgTAP tests.
-- [ ] **M3. App:** map, bar sheet, report flow, wait card, location, IDs, offline queue, feedback, Settings.
-- [ ] **M4. Polish:** dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
+- [ ] **M3. App:** map, bar sheet, report flow, wait card, location, IDs, offline queue, feedback, Settings, Directions (FR-40), Made a wrong report? (FR-41), thank-you (FR-42).
+- [ ] **M4. Polish:** bar history by night (FR-43), dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
 - [ ] **M5. Field test:** downtown testing, then Beta App Review.
 - [ ] **M6. Launch:** public TestFlight link.
 

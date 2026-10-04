@@ -22,7 +22,7 @@ This file is the full product spec. `CLAUDE.md` holds the working rules and poin
 **Non-goals for the beta**
 
 - Making money, ads, or bar partnerships.
-- Averages, history, or predictions. The beta is live-only.
+- Averages or predictions. The beta shows live estimates and each bar's past nights (FR-43), never averages across nights.
 - Accounts, social features, or messaging.
 - Android or web.
 
@@ -49,9 +49,11 @@ This file is the full product spec. `CLAUDE.md` holds the working rules and poin
 
 - As a viewer, I can see each bar's line size, wait, busyness, and how fresh that is, so I can pick where to go.
 - As a viewer, I'm told plainly when there isn't enough data, so I don't trust a stale number.
+- As a viewer, I can look back at earlier tonight or any past night at a bar, so reports stay useful after they go stale.
+- As a viewer, I can get walking directions to a bar in one tap.
 - As a reporter in line, I tap once to start a timer and tap again when I get in, so my wait is measured without guessing.
 - As a reporter at a bar, I can report the line size and how busy it is on one screen, answering either or both.
-- As a reporter, I can skip any question, or cancel a line I started by mistake.
+- As a reporter, I can skip any question, cancel a line I started by mistake, or delete a wrong report I made in the last 24 hours.
 - As any user, I can use the app without an account or giving my age, and delete my data from Settings.
 - As the admin, I can add a bar, change a threshold, or hide a report from the dashboard without shipping an app update.
 
@@ -59,7 +61,7 @@ This file is the full product spec. `CLAUDE.md` holds the working rules and poin
 
 | In v1 | Later (Phase 2) | Out of scope for the beta |
 | --- | --- | --- |
-| Map with bar pins, and bar sheet | Live Activity lock-screen timer | Averages, history, and predictions |
+| Map with bar pins, and bar sheet | Live Activity lock-screen timer | Averages and predictions |
 | Report flow with timed waits | Event nights in the active window | Machine learning |
 | Live estimates with freshness | More bars (up to 5–8) | Geofencing and passive detection |
 | Location check on reports | Threshold tuning from data | Notifications and alerts |
@@ -67,6 +69,8 @@ This file is the full product spec. `CLAUDE.md` holds the working rules and poin
 | "This looks wrong" feedback | | Android and web |
 | Offline report queue | | Accounts and social features |
 | Logging, snapshots, admin via dashboard | | |
+| Directions, Delete a report, thank-you | | |
+| Bar history by night (M4) | | |
 
 ## 5. Functional requirements
 
@@ -78,9 +82,10 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 | --- | --- |
 | FR-1 | **Map home screen.** The app opens straight to an Apple Map (MapKit, no API key needed), centered on downtown State College and framing every active bar. Each bar is a pin labeled with its name and line time, e.g. "The Phyrst · 25 min". There is no separate list screen. The map shows the user's location dot only if location permission was already granted. It never asks for permission on launch. |
 | FR-2 | **Pin labels.** Line time is the bar's current wait estimate (FR-17 to FR-19): either the last measured wait ("25 min") or a reported range ("15–30 min"). If there's no wait estimate but there is a fresh line size, the label shows the line size ("~10–25 in line"). Otherwise it shows "No data", "Closed", or "Outside hours". Labels based on reports 30–60 minutes old are grayed out. |
-| FR-3 | **Bar sheet.** Tapping a pin opens a bottom sheet over the map. It shows: line size now; the wait, matching the pin (a measured wait like "25 min, got in 10 min ago", or a reported range); busyness; freshness as "N people · latest X min ago"; a **This looks wrong** button; and **I'm in line** and **Report conditions** buttons. While the person is in line at that bar, Report conditions is replaced by **I'm in**. No trend arrows in v1. |
-| FR-4 | **Wait card.** While a wait session is open, a card floats over the map every time the app opens. It shows the running timer, a large **I'm in**, then **Line size** and **Adjust time**, plus a large ✕ that stops the timer: it asks whether the person gave up (FR-9) or started the line by mistake (FR-39). Tapping the timer opens that bar's sheet. |
-| FR-5 | **Settings.** Opened from a small gear button on the map. Contains Delete my data, links to the privacy policy and support page, and the contact email. |
+| FR-3 | **Bar sheet.** Tapping a pin opens a bottom sheet over the map. It shows: line size now; the wait, matching the pin (a measured wait like "25 min, got in 10 min ago", or a reported range); busyness; freshness as "N people · latest X min ago"; a **This looks wrong** button; and **I'm in line** and **Report conditions** buttons. While the person is in line at that bar, Report conditions is replaced by **I'm in**. It also has **Directions** (FR-40) and **History** (FR-43); when tonight has no data it links to the same night last week. No trend arrows in v1. |
+| FR-4 | **Wait card.** While a wait session is open, a card floats over the map every time the app opens. It shows the running timer, a large **I'm in**, then **Line size** and **Adjust time**, plus a large ✕ that stops the timer: it asks whether the person gave up (FR-9) or started the line by mistake (FR-39), and **Directions** (FR-40). Tapping the timer opens that bar's sheet. |
+| FR-5 | **Settings.** Opened from a small gear button on the map. Contains **Made a wrong report?** (FR-41), Delete my data, links to the privacy policy and support page, and the contact email. |
+| FR-40 | **Directions.** A Directions button on the bar sheet and the wait card opens Apple Maps with walking directions to the bar's door pin. It needs no location permission. |
 
 ### 5.2 Reporting
 
@@ -93,10 +98,11 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 | FR-10 | **Unanswered sessions.** After 90 minutes the server marks the session unfinished. A later "I'm in" does nothing. |
 | FR-11 | **Report conditions** opens one screen with two optional answers: line size (0, 1–10, 10–25, 25–50, or 50+) and busyness (Quiet, Comfortable, Busy, or Packed, relative to the bar's size). **Send report** stays off until at least one is picked, and the report is sent once. It works whether the person is in line, inside, or nearby, so its position is stored as unspecified. It never touches a wait session. (It replaced **I'm inside** on 2026-10-04. The app no longer asks how long it took to get in; the recalled-wait codes stay reserved.) |
 | FR-12 | **Answers.** Every question is optional and can be skipped; a skip is stored. Line size and Adjust time are saved as soon as they're given; Report conditions is saved when sent. ("I can't tell" was dropped from the app on 2026-10-01; the stored `cant_tell` state stays reserved.) |
-| FR-13 | **Rate limit.** One report per bar every 10 minutes per person, enforced on the server. Report conditions counts as a report. Exceptions: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in (sent only by builds before 2026-10-04). |
+| FR-13 | **Rate limit.** One report per bar every 10 minutes per person, enforced on the server. Report conditions counts as a report. A report deleted with FR-41 still counts until its 10 minutes are up. Exceptions: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in (sent only by builds before 2026-10-04). |
 | FR-14 | **One line at a time.** Starting a line at another bar closes the open session as gave up. |
 | FR-15 | **I'm inside with an open session** at that bar counts as I'm in. The app no longer has I'm inside (2026-10-04); the server keeps this rule for older builds. |
 | FR-39 | **Cancel line.** "Started it by mistake", chosen from the wait card's ✕, discards the line: the server deletes the session and its reports, so nothing from it counts, including toward the rate limit. A finished wait can't be cancelled. |
+| FR-42 | **Thank-you.** After Report conditions or I'm in, once the server has accepted it, a short message shows for 2–3 seconds with a light haptic: "Thanks! Your update is now visible to everyone." If the phone is offline it says "Thanks! Your update will send when you're back online." instead. A refused report shows the usual "Already reported" alert. |
 | FR-16 | **Offline queue.** Reports and session events queue on the phone when offline and retry with a client-generated ID, so nothing is saved twice. The queue survives app restarts. Late reports are always stored, but count toward live estimates only if their phone time is within the freshness window. |
 
 ### 5.3 Estimates (computed on the server)
@@ -108,6 +114,7 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 | FR-19 | **Shown value.** For each signal separately (line size, wait, busyness), the newest report wins. The exception: if it disagrees with 2 or more fresh reports from other people, the majority wins. "Agree" means within one range. |
 | FR-20 | **Uncertain reports** count like any other in v1. |
 | FR-21 | **Server logic.** Estimates are computed by SQL functions on the server. Each response carries a logic version. |
+| FR-43 | **History (M4).** History on the bar sheet opens a screen for any past night that has reports: a night picker (Tonight, Last night, earlier nights with data, and a Same night last week shortcut) and a chart of the night from 9 p.m. to 2 a.m. showing line size, wait, and busyness. Dragging along it shows the values at that time and how many people reported. A night with no reports says so. History is computed from the reports with the same estimate rules as of each moment, so deleted (FR-41) and hidden reports never appear. It shows only combined estimates, never individual reports. |
 
 ### 5.4 Active window
 
@@ -139,7 +146,8 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 | FR-29 | **Anonymous ID.** A random ID stored in the Keychain, on this device only and not synced to iCloud. It survives reinstalling the app. |
 | FR-30 | **Install ID.** A random ID in regular app storage, new on each install. |
 | FR-31 | **No barriers.** No accounts, no sign-in, no age question. |
-| FR-32 | **Delete my data** permanently deletes the anonymous ID's reports, wait sessions, views, install rows, and feedback. It records a deletion count with no ID, then creates a new anonymous ID. |
+| FR-32 | **Delete my data** permanently deletes the anonymous ID's reports, wait sessions, views, install rows, feedback, and rate-limit holds. It records a deletion count with no ID, then creates a new anonymous ID. |
+| FR-41 | **Made a wrong report?** In Settings, lists the person's own reports and finished timed waits from the last 24 hours (bar, time, and answers), each with Delete. Delete permanently removes the report, or the whole wait session and its reports, so it stops counting right away. A wait still running is cancelled from the wait card instead (FR-39). The rate limit keeps running from a deleted report: the server keeps only the anonymous ID, bar, and time until the 10 minutes are up. Each deletion logs a count with no ID. |
 | FR-33 | **Retention.** A daily job deletes data tied to an anonymous ID once it's 1 year old. Estimate snapshots have no IDs and are kept. |
 
 ### 5.7 Logging and admin
@@ -184,11 +192,11 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 
 ### 7.2 Server functions and jobs
 
-**Functions the app calls.** These are the only way the app reaches the database: get bars, get estimates, report conditions, start session, update line size, end session, cancel session, send feedback, register install, log view, delete my data. `submit_report` (I'm inside) stays on the server for builds before 2026-10-04, but the app no longer calls it.
+**Functions the app calls.** These are the only way the app reaches the database: get bars, get estimates, report conditions, start session, update line size, end session, cancel session, send feedback, register install, log view, delete my data, my recent reports, delete report, and (M4) bar history. `submit_report` (I'm inside) stays on the server for builds before 2026-10-04, but the app no longer calls it.
 
 **Scheduled jobs**
 
-- **Every 5 minutes:** mark sessions older than 90 minutes as unfinished.
+- **Every 5 minutes:** mark sessions older than 90 minutes as unfinished, and clear rate-limit holds older than 10 minutes.
 - **Every 5 minutes during the active window:** save estimate snapshots.
 - **Daily:** delete ID-linked data older than 1 year.
 - **Daily (GitHub Action):** call the database so the project doesn't pause.
@@ -209,7 +217,8 @@ Every table also has `id`, `created_at`, and `is_test`. Weather and football dat
 | `event_nights` | Special nights (empty at launch) | date, label, type, window override |
 | `estimate_snapshots` | What each bar showed, every 5 minutes | bar, time, full estimate, logic version |
 | `spot_checks` | Admin ground truth | bar, time, line count seen, wait timed, notes |
-| `deletions` | A count of data deletions | time, rows removed (no ID) |
+| `deletions` | A count of data deletions | time, rows removed, scope (all for Delete my data, one for a single report) (no ID) |
+| `rate_limit_holds` | Keeps the rate limit running after a report is deleted (FR-41) | anon ID, bar, phone time; cleared after 10 minutes |
 
 **Starting bars.** Pins are geocoded from these addresses and can be adjusted later in the dashboard.
 
@@ -229,8 +238,8 @@ Build in order, and test each milestone before starting the next.
 | --- | --- | --- |
 | M1. Setup | Repo, XcodeGen project, LineMapCore package, CI pipeline | An empty app builds in CI and installs on Max's iPhone through TestFlight |
 | M2. Backend | All tables, row-level security, functions, scheduled jobs, the three starting bars | Database tests pass; a bar and a setting can be changed from the dashboard |
-| M3. App | Screens, report flow, wait card, location, IDs, offline queue, feedback, Settings | The full flow works end to end on a phone |
-| M4. Polish | Dark mode, accessibility, empty and error states, privacy policy and support pages on GitHub Pages, App Store Connect filled in | Every screen has been reviewed in CI screenshots and on the phone |
+| M3. App | Screens, report flow, wait card, location, IDs, offline queue, feedback, Settings, Directions, Made a wrong report?, thank-you | The full flow works end to end on a phone |
+| M4. Polish | Bar history (FR-43), dark mode, accessibility, empty and error states, privacy policy and support pages on GitHub Pages, App Store Connect filled in | Every screen has been reviewed in CI screenshots and on the phone |
 | M5. Field test | Downtown on a quiet night and a busy one: location (allow, deny, approximate), offline queue, timers | No blocking bugs; Beta App Review submitted |
 | M6. Launch | Public TestFlight link; 5–10 friends report on opening nights; recruit students | The first busy weekend is live |
 
@@ -246,7 +255,7 @@ Build in order, and test each milestone before starting the next.
 
 ### Phase 3: Only if the beta earns it
 
-In order: averages and history, then throughput-based wait predictions, then outside data (weather, football, calendar), then machine learning once it beats simple averages. Other candidates: geofencing, line-drop alerts, cover charge and specials, more bars or towns, App Attest, Android or web.
+In order: averages across nights, then throughput-based wait predictions, then outside data (weather, football, calendar), then machine learning once it beats simple averages. Other candidates: geofencing, line-drop alerts, cover charge and specials, more bars or towns, App Attest, Android or web.
 
 ## 9. App Store requirements
 
