@@ -44,8 +44,8 @@ public enum RecalledWait: Int, Codable, Sendable, Hashable, CaseIterable {
 public enum StartOffset {
     /// The quick choices, shown as "~5 min" and "~10 min".
     public static let presets = [5, 10]
-    /// The wheel under More… offers every minute after the presets, up to the max.
-    public static let custom = 11...maxMinutes
+    /// The wheel under Other offers every minute up to the max, presets included.
+    public static let custom = 1...maxMinutes
     /// The server accepts 0 to 90 (FR-7).
     public static let maxMinutes = 90
 }

@@ -77,8 +77,8 @@ struct OptionsView<Value: Hashable>: View {
     }
 }
 
-/// Adjust time (FR-7): just started, ~5, ~10, or More… for a wheel of every
-/// minute from 11 to 90. Changeable or undoable while the line is open.
+/// Adjust time (FR-7): just started, ~5, ~10, or Other for a wheel of every
+/// minute from 1 to 90. Changeable or undoable while the line is open.
 struct AdjustTimeView: View {
     @Environment(AppModel.self) private var model
     @State private var showsWheel = false
@@ -123,9 +123,9 @@ struct AdjustTimeView: View {
                         model.adjustTime(minutes: minutes)
                     }
                 }
-                OptionButton(title: currentCustom.map { "\(Labels.startOffset(minutes: $0))…" } ?? "More…",
-                             isSelected: currentCustom != nil, id: "option-more") {
-                    wheelMinutes = currentCustom ?? 15
+                OptionButton(title: currentCustom.map { "\(Labels.startOffset(minutes: $0))…" } ?? "Other",
+                             isSelected: currentCustom != nil, id: "option-other") {
+                    wheelMinutes = current ?? 15
                     showsWheel = true
                 }
                 .accessibilityHint("Pick any time up to \(StartOffset.maxMinutes) minutes")

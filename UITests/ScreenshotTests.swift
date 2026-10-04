@@ -40,13 +40,13 @@ final class ScreenshotTests: XCTestCase {
         saveScreenshot(named: "04-LineSize", app: app)
         app.buttons["option-2"].tap()
 
-        // Adjust time from the card (FR-7): ~5, ~10, or More… for the wheel.
+        // Adjust time from the card (FR-7): ~5, ~10, or Other for the wheel.
         let adjust = app.buttons["wait-adjust-time"]
         XCTAssertTrue(adjust.waitForExistence(timeout: 5))
         adjust.tap()
         XCTAssertTrue(app.staticTexts["Adjust time"].waitForExistence(timeout: 5))
         saveScreenshot(named: "05-AdjustTime", app: app)
-        app.buttons["option-more"].tap()
+        app.buttons["option-other"].tap()
         let set = app.buttons["adjust-set"]
         XCTAssertTrue(set.waitForExistence(timeout: 5))
         saveScreenshot(named: "06-AdjustTimeWheel", app: app)
