@@ -41,6 +41,15 @@ nonisolated enum AppSheet: Hashable, Identifiable {
     var id: Self { self }
 }
 
+/// The thank-you shown after a report (FR-42).
+nonisolated struct Thanks: Identifiable, Hashable {
+    let id = UUID()
+    let text: String
+
+    static let visible = "Thanks! Your update is now visible to everyone."
+    static let offline = "Thanks! Your update will send when you're back online."
+}
+
 nonisolated struct AppAlert: Identifiable, Hashable {
     let id = UUID()
     let title: String
@@ -63,6 +72,7 @@ final class AppModel {
     private(set) var activeWait: ActiveWait?
     var sheet: AppSheet?
     var alert: AppAlert?
+    private(set) var thanks: Thanks?
     private(set) var isDeleting = false
 
     let location: LocationService
@@ -80,6 +90,11 @@ final class AppModel {
     @ObservationIgnored private var refreshSoonTask: Task<Void, Never>?
     @ObservationIgnored private var started = false
     @ObservationIgnored private var refusedReports: Set<UUID> = []
+    /// Reports and timers to thank for once the server accepts them, keyed by
+    /// their client ID, with when they were made (FR-42).
+    @ObservationIgnored private var awaitingThanks: [UUID: Date] = [:]
+    @ObservationIgnored private var thanksTask: Task<Void, Never>?
+    @ObservationIgnored private var isOnline = true
     private let pathMonitor = NWPathMonitor()
     private let appVersion = AppVersion(infoDictionary: Bundle.main.infoDictionary).label
 
@@ -121,10 +136,12 @@ final class AppModel {
         }
 
         pathMonitor.pathUpdateHandler = { [weak self] path in
-            guard path.status == .satisfied else { return }
-            // Back online: send queued reports now instead of waiting out the backoff.
+            let online = path.status == .satisfied
             Task { @MainActor in
                 guard let self else { return }
+                self.isOnline = online
+                guard online else { return }
+                // Back online: send queued reports now instead of waiting out the backoff.
                 await self.queue.resetBackoff()
                 await self.flushQueue()
             }
@@ -211,8 +228,10 @@ final class AppModel {
     func sendConditions(at barId: Int64, lineSize: LineSize?, busyness: Busyness?) {
         sheet = nil
         guard lineSize != nil || busyness != nil, let meta = reportMeta() else { return }
+        let reportId = UUID()
+        thankWhenAccepted(reportId)
         enqueue(.reportConditions(ReportConditionsCall(
-            clientReportId: UUID(), barId: barId, phoneTime: Date(), location: .noFix, meta: meta,
+            clientReportId: reportId, barId: barId, phoneTime: Date(), location: .noFix, meta: meta,
             lineSize: lineSize.map { Answer.answered($0) } ?? .skipped,
             busyness: busyness.map { Answer.answered($0) } ?? .skipped)), locate: true)
     }
@@ -222,9 +241,43 @@ final class AppModel {
         sheet = nil
         guard let wait = activeWait, let anonId else { return }
         setActiveWait(nil)
+        thankWhenAccepted(wait.clientSessionId)
         enqueue(.endSession(EndSessionCall(clientSessionId: wait.clientSessionId, anonId: anonId,
                                            outcome: .entered, phoneTime: Date(), location: .noFix)),
                 locate: true)
+    }
+
+    // MARK: - Thank-you (FR-42)
+
+    /// Offline, thanks right away and says it will send later. Online, waits
+    /// for the server to accept it, so "now visible" is true.
+    private func thankWhenAccepted(_ id: UUID) {
+        if isOnline {
+            awaitingThanks[id] = Date()
+        } else {
+            showThanks(Thanks.offline)
+        }
+    }
+
+    /// Thanks for an accepted report, unless it took so long (a retry after a
+    /// dropped connection) that the message would come out of nowhere.
+    private func deliveredForThanks(_ id: UUID?, accepted: Bool) {
+        guard let id, let madeAt = awaitingThanks.removeValue(forKey: id) else { return }
+        if accepted && Date().timeIntervalSince(madeAt) < 90 {
+            showThanks(Thanks.visible)
+        }
+    }
+
+    private func showThanks(_ text: String) {
+        let thanks = Thanks(text: text)
+        self.thanks = thanks
+        UIAccessibility.post(notification: .announcement, argument: text)
+        thanksTask?.cancel()
+        thanksTask = Task {
+            try? await Task.sleep(for: .seconds(3))
+            guard !Task.isCancelled, self.thanks?.id == thanks.id else { return }
+            self.thanks = nil
+        }
     }
 
     /// Gave up (FR-9), from the ✕ on the wait card.
@@ -311,6 +364,24 @@ final class AppModel {
             logicVersion: estimates?.logicVersion)))
     }
 
+    // MARK: - Made a wrong report? (FR-41)
+
+    /// The person's own reports and finished waits from the last 24 hours.
+    func recentReports() async throws -> [MyReport] {
+        guard let anonId else { return [] }
+        return try await api.myRecentReports(anonId: anonId)
+    }
+
+    /// Deletes one report or finished wait for good. Already gone counts as deleted.
+    func deleteReport(_ item: MyReport) async throws -> DeleteReportResult {
+        guard let anonId else { return .notFound }
+        let result = try await api.deleteReport(anonId: anonId, target: item.target)
+        if result == .deleted {
+            refreshSoon()
+        }
+        return result
+    }
+
     // MARK: - Delete my data (FR-32)
 
     func deleteMyData() async {
@@ -390,8 +461,15 @@ final class AppModel {
 
     private func handle(_ delivery: OfflineQueue.Delivery) {
         let call = delivery.item.call
+        let thanksId: UUID? = switch call {
+        case .reportConditions(let c): c.clientReportId
+        case .endSession(let c) where c.outcome == .entered: c.clientSessionId
+        default: nil
+        }
         switch delivery.outcome {
         case .ok(let reply):
+            // A timer past 90 minutes isn't counted, so it gets the alert below instead.
+            deliveredForThanks(thanksId, accepted: reply["status"]?.stringValue != "unfinished")
             if case .startSession(let start) = call,
                reply["already_open"]?.boolValue == true,
                let kept = reply["client_session_id"]?.stringValue.flatMap(UUID.init(uuidString:)),
@@ -411,9 +489,10 @@ final class AppModel {
             }
             refreshSoon()
         case .refused(let error, let reply):
+            deliveredForThanks(thanksId, accepted: false)
             handleRefusal(error, reply: reply, call: call)
         case .rejected:
-            break
+            deliveredForThanks(thanksId, accepted: false)
         }
     }
 

@@ -41,10 +41,18 @@ struct MapScreen: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if let wait = model.activeWait, let bar = model.activeWaitBar {
-                WaitCard(wait: wait, bar: bar)
+            VStack(spacing: 8) {
+                if let thanks = model.thanks {
+                    ThanksMessage(text: thanks.text)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                }
+                if let wait = model.activeWait, let bar = model.activeWaitBar {
+                    WaitCard(wait: wait, bar: bar)
+                }
             }
+            .animation(.snappy, value: model.thanks)
         }
+        .sensoryFeedback(.success, trigger: model.thanks) { _, new in new != nil }
         .sheet(item: $model.sheet) { sheet in
             sheetContent(sheet)
                 .modifier(AlertPresenter(isTopmost: true))
@@ -107,6 +115,24 @@ struct MapScreen: View {
         guard !hasFramedBars, !model.bars.isEmpty else { return }
         hasFramedBars = true
         position = .region(Downtown.region(framing: model.bars))
+    }
+}
+
+/// The short thank-you after a report is accepted (FR-42). It needs no action
+/// and goes away on its own.
+struct ThanksMessage: View {
+    let text: String
+
+    var body: some View {
+        Label(text, systemImage: "checkmark.circle.fill")
+            .font(.subheadline.weight(.medium))
+            .symbolRenderingMode(.hierarchical)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(.regularMaterial, in: .capsule)
+            .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
+            .padding(.horizontal, 16)
+            .accessibilityIdentifier("thanks-message")
     }
 }
 

@@ -36,13 +36,26 @@ struct BarSheet: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(bar.name)
-                .font(.title2.bold())
-                .accessibilityAddTraits(.isHeader)
-            Text(bar.address)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(bar.name)
+                    .font(.title2.bold())
+                    .accessibilityAddTraits(.isHeader)
+                Text(bar.address)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Button {
+                bar.openDirections()
+            } label: {
+                Label("Directions", systemImage: "figure.walk")
+                    .font(.subheadline.weight(.medium))
+            }
+            .buttonStyle(.bordered)
+            .buttonBorderShape(.capsule)
+            .accessibilityHint("Opens walking directions in Apple Maps")
+            .accessibilityIdentifier("directions-button")
         }
     }
 

@@ -19,6 +19,10 @@ nonisolated struct FixtureTransport: RPCTransport {
             reply = #"{"ok": true, "status": "entered", "measured_wait_seconds": 600}"#
         case "delete_my_data":
             reply = #"{"ok": true, "rows_removed": 7}"#
+        case "my_recent_reports":
+            reply = Self.recentReports(now: Date())
+        case "delete_report":
+            reply = #"{"ok": true, "rows_removed": 1}"#
         default:
             reply = #"{"ok": true}"#
         }
@@ -35,6 +39,23 @@ nonisolated struct FixtureTransport: RPCTransport {
            "door_lat": 40.7931773, "door_lon": -77.8630037, "size_class": "medium", "display_order": 3}
         ]
         """
+
+    /// A Report conditions at Cafe 210 and a timed wait at Doggie's (FR-41).
+    private static func recentReports(now: Date) -> String {
+        func ago(_ minutes: Double) -> String {
+            ServerDate.format(now.addingTimeInterval(-minutes * 60))
+        }
+        return """
+            [
+              {"type": "report", "kind": "conditions",
+               "client_report_id": "11111111-1111-4111-8111-111111111111", "bar_id": 3,
+               "at": "\(ago(12))", "line_size": 2, "busyness": 3, "recalled_wait": null},
+              {"type": "wait", "client_session_id": "22222222-2222-4222-8222-222222222222", "bar_id": 1,
+               "at": "\(ago(95))", "ended_at": "\(ago(72))", "status": "entered",
+               "measured_wait_seconds": 1380, "start_offset_minutes": 0, "line_size": 1, "busyness": null}
+            ]
+            """
+    }
 
     /// Doggie's: a fresh measured wait. The Phyrst: older (grayed) reports. Cafe 210: no data.
     private static func estimates(now: Date) -> String {

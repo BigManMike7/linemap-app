@@ -2,7 +2,8 @@ import LineMapCore
 import UIKit
 import SwiftUI
 
-/// Settings (FR-5): Delete my data, the privacy policy and support pages, and the contact email.
+/// Settings (FR-5): Made a wrong report? (FR-41), Delete my data, the privacy
+/// policy and support pages, and the contact email.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
@@ -13,6 +14,15 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                Section {
+                    NavigationLink("Made a wrong report?") {
+                        RecentReportsView()
+                    }
+                    .accessibilityIdentifier("recent-reports-link")
+                } footer: {
+                    Text("Delete a report you made in the last 24 hours.")
+                }
+
                 Section {
                     Button(role: .destructive) {
                         confirmsDelete = true

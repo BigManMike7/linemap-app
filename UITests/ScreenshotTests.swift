@@ -24,12 +24,14 @@ final class ScreenshotTests: XCTestCase {
         pin.tap()
         let inLine = app.buttons["in-line-button"]
         XCTAssertTrue(inLine.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["directions-button"].exists, "the bar sheet has Directions (FR-40)")
         saveScreenshot(named: "02-BarSheet", app: app)
 
         // I'm in line: one tap, straight to the wait card (FR-4, FR-6).
         inLine.tap()
         XCTAssertTrue(app.buttons["wait-im-in"].waitForExistence(timeout: 5))
         sleep(1)
+        XCTAssertTrue(app.buttons["wait-directions"].exists, "the wait card has Directions (FR-40)")
         saveScreenshot(named: "03-WaitCard", app: app)
 
         // Line size from the card (FR-6).
@@ -56,8 +58,11 @@ final class ScreenshotTests: XCTestCase {
         sleep(1)
         saveScreenshot(named: "07-WaitCardAdjusted", app: app)
 
-        // I'm in ends the timer and asks nothing (FR-8).
+        // I'm in ends the timer and asks nothing, then says thanks (FR-8, FR-42).
         imIn.tap()
+        let thanks = app.descendants(matching: .any)["thanks-message"]
+        XCTAssertTrue(thanks.waitForExistence(timeout: 10))
+        saveScreenshot(named: "08-Thanks", app: app)
         XCTAssertTrue(app.buttons["settings-button"].waitForExistence(timeout: 5))
         sleep(1)
         XCTAssertFalse(app.buttons["wait-im-in"].exists, "I'm in closes the wait card")
@@ -69,16 +74,16 @@ final class ScreenshotTests: XCTestCase {
         otherPin.tap()
         let conditions = app.buttons["conditions-button"]
         XCTAssertTrue(conditions.waitForExistence(timeout: 5))
-        saveScreenshot(named: "08-BarSheetNoData", app: app)
+        saveScreenshot(named: "09-BarSheetNoData", app: app)
         conditions.tap()
         let send = app.buttons["conditions-send"]
         XCTAssertTrue(send.waitForExistence(timeout: 5))
         XCTAssertFalse(send.isEnabled, "Send waits for at least one answer")
-        saveScreenshot(named: "09-ConditionsEmpty", app: app)
+        saveScreenshot(named: "10-ConditionsEmpty", app: app)
         app.buttons["line-2"].tap()
         app.buttons["crowd-2"].tap()
         XCTAssertTrue(send.isEnabled)
-        saveScreenshot(named: "10-ConditionsAnswered", app: app)
+        saveScreenshot(named: "11-ConditionsAnswered", app: app)
         send.tap()
 
         // The ✕ stops a line: gave up, or started by mistake (FR-9, FR-39).
@@ -93,7 +98,7 @@ final class ScreenshotTests: XCTestCase {
         let discard = app.buttons["Started it by mistake"]
         XCTAssertTrue(discard.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["I gave up on the line"].exists)
-        saveScreenshot(named: "11-StopTimer", app: app)
+        saveScreenshot(named: "12-StopTimer", app: app)
         discard.tap()
         XCTAssertTrue(app.buttons["settings-button"].waitForExistence(timeout: 5))
         sleep(1)
@@ -103,7 +108,24 @@ final class ScreenshotTests: XCTestCase {
         let settings = app.buttons["settings-button"]
         settings.tap()
         XCTAssertTrue(app.buttons["delete-data-button"].waitForExistence(timeout: 5))
-        saveScreenshot(named: "12-Settings", app: app)
+        saveScreenshot(named: "13-Settings", app: app)
+
+        // Made a wrong report?: delete one of the last 24 hours' reports (FR-41).
+        app.buttons["recent-reports-link"].tap()
+        let deleteButtons = app.buttons.matching(identifier: "delete-report-button")
+        XCTAssertTrue(deleteButtons.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(deleteButtons.count, 2)
+        saveScreenshot(named: "14-RecentReports", app: app)
+        deleteButtons.firstMatch.tap()
+        let confirm = app.buttons["Delete"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        saveScreenshot(named: "15-DeleteReport", app: app)
+        confirm.tap()
+        let oneLeft = NSPredicate(format: "count == 1")
+        expectation(for: oneLeft, evaluatedWith: deleteButtons)
+        waitForExpectations(timeout: 5)
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(app.buttons["settings-done"].waitForExistence(timeout: 5))
         app.buttons["settings-done"].tap()
     }
 

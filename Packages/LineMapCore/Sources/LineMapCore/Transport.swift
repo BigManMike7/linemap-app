@@ -52,7 +52,7 @@ public enum APIError: Error, Sendable, Hashable {
 }
 
 /// The calls that need an answer right away and don't go through the queue:
-/// reading bars and estimates, and Delete my data.
+/// reading bars and estimates, Delete my data, and Made a wrong report?.
 public struct APIClient: Sendable {
     public let transport: any RPCTransport
 
@@ -77,6 +77,27 @@ public struct APIClient: Sendable {
             throw APIError.badReply
         }
         return rows
+    }
+
+    /// The person's own reports and finished waits from the last 24 hours, newest first (FR-41).
+    public func myRecentReports(anonId: UUID) async throws -> [MyReport] {
+        try await send("my_recent_reports", ["p_anon_id": .uuid(anonId)])
+    }
+
+    /// Deletes one report, or a finished wait and its reports, for good (FR-41).
+    public func deleteReport(anonId: UUID, target: MyReport.Target) async throws -> DeleteReportResult {
+        var parameters: [String: JSONValue] = ["p_anon_id": .uuid(anonId)]
+        switch target {
+        case .report(let id): parameters["p_client_report_id"] = .uuid(id)
+        case .wait(let id): parameters["p_client_session_id"] = .uuid(id)
+        }
+        let reply: JSONValue = try await send("delete_report", parameters, decoder: JSONDecoder())
+        if reply["ok"]?.boolValue == true { return .deleted }
+        switch reply["error"]?.stringValue {
+        case "not_found": return .notFound
+        case "session_open": return .sessionOpen
+        default: throw APIError.badReply
+        }
     }
 
     /// Sends one queued call. Used by `OfflineQueue`.
