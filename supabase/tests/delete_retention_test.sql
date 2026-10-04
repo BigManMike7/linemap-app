@@ -89,7 +89,7 @@ select is(
   (select array_agg(a.attname::text order by a.attname::text)
    from pg_attribute a
    where a.attrelid = 'app.deletions'::regclass and a.attnum > 0 and not a.attisdropped),
-  array['created_at', 'id', 'is_test', 'reason', 'rows_removed'],
+  array['created_at', 'id', 'is_test', 'reason', 'rows_removed', 'scope'],
   'the deletion log has no column that could hold an ID');
 
 insert into res values ('delete_60_again', public.delete_my_data(pg_temp.uid(60)));

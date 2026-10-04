@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(27);
+select plan(29);
 
 -- Config history (FR-37) ---------------------------------------------------------------
 
@@ -102,6 +102,10 @@ select is((select j.schedule from cron.job j where j.jobname = 'purge-old-data')
   'purge-old-data runs daily after the night boundary');
 select is((select j.command from cron.job j where j.jobname = 'purge-old-data'), 'select app.purge_old_data()',
   'purge-old-data calls app.purge_old_data');
+select is((select j.schedule from cron.job j where j.jobname = 'expire-rate-limit-holds'), '*/5 * * * *',
+  'expire-rate-limit-holds runs every 5 minutes');
+select is((select j.command from cron.job j where j.jobname = 'expire-rate-limit-holds'),
+  'select app.expire_rate_limit_holds()', 'expire-rate-limit-holds calls app.expire_rate_limit_holds');
 
 select * from finish();
 rollback;
