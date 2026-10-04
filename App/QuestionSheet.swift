@@ -25,7 +25,7 @@ struct QuestionSheet: View {
                 model.answerLineSize(answer)
             }
         case .adjustTime:
-            AdjustTimeView()
+            AdjustTimeView(minutes: model.activeWait?.offsetMinutes ?? 0)
         case .conditions(let barId):
             ConditionsForm(barId: barId)
         }
@@ -77,63 +77,33 @@ struct OptionsView<Value: Hashable>: View {
     }
 }
 
-/// Adjust time (FR-7): just started, ~5, ~10, or Other for a wheel of every
-/// minute from 1 to 90. Changeable or undoable while the line is open.
+/// Adjust time (FR-7): one wheel of every minute from 0 to 90, starting on the
+/// current time. It saves when the sheet closes; 0 undoes it.
 struct AdjustTimeView: View {
     @Environment(AppModel.self) private var model
-    @State private var showsWheel = false
-    @State private var wheelMinutes = 15
+    @State private var minutes: Int
 
-    private var current: Int? { model.activeWait?.offsetMinutes }
-    private var currentCustom: Int? { current.flatMap { StartOffset.presets.contains($0) ? nil : $0 } }
+    init(minutes: Int) {
+        _minutes = State(initialValue: minutes)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             QuestionHeader(title: "Adjust time",
                            subtitle: "How long were you in line before you started the timer?")
 
-            if showsWheel {
-                Picker("Minutes in line", selection: $wheelMinutes) {
-                    ForEach(StartOffset.custom, id: \.self) { minutes in
-                        Text("\(minutes) min").tag(minutes)
-                    }
+            Picker("Minutes in line", selection: $minutes) {
+                ForEach(StartOffset.choices, id: \.self) { minutes in
+                    Text(Labels.startOffset(minutes: minutes)).tag(minutes)
                 }
-                .pickerStyle(.wheel)
-                .accessibilityIdentifier("adjust-wheel")
-
-                Button {
-                    model.adjustTime(minutes: wheelMinutes)
-                } label: {
-                    Text("Set \(wheelMinutes) min").frame(maxWidth: .infinity, minHeight: 34)
-                }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.large)
-                .accessibilityIdentifier("adjust-set")
-
-                Button("Back") { showsWheel = false }
-                    .buttonStyle(.borderless)
-                    .frame(maxWidth: .infinity)
-            } else {
-                OptionButton(title: "Just started", isSelected: current == nil, id: "option-0") {
-                    model.adjustTime(minutes: nil)
-                }
-                ForEach(Array(StartOffset.presets.enumerated()), id: \.element) { index, minutes in
-                    OptionButton(title: Labels.startOffset(minutes: minutes), isSelected: current == minutes,
-                                 id: "option-\(index + 1)") {
-                        model.adjustTime(minutes: minutes)
-                    }
-                }
-                OptionButton(title: currentCustom.map { "\(Labels.startOffset(minutes: $0))…" } ?? "Other",
-                             isSelected: currentCustom != nil, id: "option-other") {
-                    wheelMinutes = current ?? 15
-                    showsWheel = true
-                }
-                .accessibilityHint("Pick any time up to \(StartOffset.maxMinutes) minutes")
             }
+            .pickerStyle(.wheel)
+            .accessibilityIdentifier("adjust-wheel")
         }
         .padding(20)
         .sheetFitsContent()
         .accessibilityIdentifier("question-adjustTime")
+        .onDisappear { model.adjustTime(minutes: minutes) }
     }
 }
 

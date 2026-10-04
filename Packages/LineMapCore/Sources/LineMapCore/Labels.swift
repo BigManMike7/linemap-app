@@ -32,9 +32,9 @@ public enum Labels {
         }
     }
 
-    /// "~5 min" for the quick choices, "37 min" for a time picked on the wheel (FR-7).
+    /// "37 min" on the Adjust time wheel (FR-7).
     public static func startOffset(minutes: Int) -> String {
-        StartOffset.presets.contains(minutes) ? "~\(minutes) min" : "\(minutes) min"
+        "\(minutes) min"
     }
 
     /// Line size on one short button: "0", "1–10" … "50+" (FR-11).

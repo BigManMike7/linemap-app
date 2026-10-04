@@ -40,17 +40,18 @@ final class ScreenshotTests: XCTestCase {
         saveScreenshot(named: "04-LineSize", app: app)
         app.buttons["option-2"].tap()
 
-        // Adjust time from the card (FR-7): ~5, ~10, or Other for the wheel.
+        // Adjust time from the card (FR-7): one wheel, 0 to 90, saved when the sheet closes.
         let adjust = app.buttons["wait-adjust-time"]
         XCTAssertTrue(adjust.waitForExistence(timeout: 5))
         adjust.tap()
         XCTAssertTrue(app.staticTexts["Adjust time"].waitForExistence(timeout: 5))
         saveScreenshot(named: "05-AdjustTime", app: app)
-        app.buttons["option-other"].tap()
-        let set = app.buttons["adjust-set"]
-        XCTAssertTrue(set.waitForExistence(timeout: 5))
+        let wheel = app.pickerWheels.firstMatch
+        XCTAssertTrue(wheel.waitForExistence(timeout: 5))
+        wheel.adjust(toPickerWheelValue: "15 min")
         saveScreenshot(named: "06-AdjustTimeWheel", app: app)
-        set.tap()
+        // Tap the map above the sheet to close it.
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
 
         // The timer now includes the 15 minutes from the wheel.
         let imIn = app.buttons["wait-im-in"]

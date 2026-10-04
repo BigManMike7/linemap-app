@@ -61,8 +61,8 @@ struct OptionLabelTests {
     }
 
     @Test(arguments: [
-        (5, "~5 min"),
-        (10, "~10 min"),
+        (0, "0 min"),
+        (5, "5 min"),
         (11, "11 min"),
         (37, "37 min"),
         (90, "90 min"),

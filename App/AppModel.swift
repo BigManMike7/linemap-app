@@ -322,9 +322,8 @@ final class AppModel {
     }
 
     /// Moves the timer's start back by this many minutes (0 to 90); nil or 0
-    /// (just started) undoes it.
+    /// undoes it. Called as the sheet closes, so it leaves the sheet alone.
     func adjustTime(minutes: Int?) {
-        sheet = nil
         let clamped = min(max(minutes ?? 0, 0), StartOffset.maxMinutes)
         let offset: Int? = clamped == 0 ? nil : clamped
         guard var wait = activeWait, wait.offsetMinutes != offset, let meta = reportMeta() else { return }

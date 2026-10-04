@@ -160,7 +160,7 @@ The data model before launch, the database tests, location on a real phone, that
 **M3 is built.** TestFlight build 10 is the latest (it includes the map-pin selection change). All CI passed: pgTAP (793 tests), LineMapCore unit tests, the 15-screen screenshot walkthrough, and the database deploy. M3 is done when Max confirms the full flow on his phone. Next session:
 
 1. Have Max install build 10 and check:
-   - Start line timer (one tap) → Line size → Adjust time (~5, ~10, Other wheel of 1–90) → I'm in (no question, thank-you shows).
+   - Start line timer (one tap) → Line size → Adjust time (one 0–90 wheel, saves when the sheet closes) → I'm in (no question, thank-you shows).
    - Report conditions: one screen, Send off until an answer is picked, thank-you shows.
    - The ✕ on the wait card: "I gave up on the line" and "Started it by mistake".
    - Directions on the bar sheet and wait card open Apple Maps.

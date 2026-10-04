@@ -42,10 +42,8 @@ public enum RecalledWait: Int, Codable, Sendable, Hashable, CaseIterable {
 /// Adjust time moves the session start back by a whole number of minutes (FR-7).
 /// It's a plain number of minutes, not a code.
 public enum StartOffset {
-    /// The quick choices, shown as "~5 min" and "~10 min".
-    public static let presets = [5, 10]
-    /// The wheel under Other offers every minute up to the max, presets included.
-    public static let custom = 1...maxMinutes
+    /// The wheel offers every minute from 0 (just started) to the max.
+    public static let choices = 0...maxMinutes
     /// The server accepts 0 to 90 (FR-7).
     public static let maxMinutes = 90
 }
