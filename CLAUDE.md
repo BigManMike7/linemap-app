@@ -157,19 +157,19 @@ The data model before launch, the database tests, location on a real phone, that
 
 ## Where we left off (2026-10-04)
 
-**M3 is built.** TestFlight build 7 is the latest. All CI passed: pgTAP (731 tests), LineMapCore unit tests, the 15-screen screenshot walkthrough, and the database deploy. M3 is done when Max confirms the full flow on his phone. Next session:
+**M3 is built.** TestFlight build 8 is the latest. All CI passed: pgTAP (793 tests), LineMapCore unit tests, the 15-screen screenshot walkthrough, and the database deploy. M3 is done when Max confirms the full flow on his phone. Next session:
 
-1. Have Max install build 7 and check:
+1. Have Max install build 8 and check:
    - I'm in line (one tap) → Line size → Adjust time (~5, ~10, More… wheel) → I'm in (no question, thank-you shows).
    - Report conditions: one screen, Send off until an answer is picked, thank-you shows.
    - The ✕ on the wait card: "I gave up on the line" and "Started it by mistake".
    - Directions on the bar sheet and wait card open Apple Maps.
+   - Report conditions, then I'm in line at the same bar right away: allowed (separate limits, FR-13). A second Report conditions there within 10 minutes is refused.
    - Settings → Made a wrong report? lists and deletes a report; reporting that bar again within 10 minutes is still refused.
    - A report made in Airplane Mode says it will send later, then sends itself.
    - Settings → Delete my data.
-2. The thank-you screenshot (08-Thanks) caught the screen after the message had gone, so check how it looks on the phone.
-3. After Delete my data his phone gets a new anonymous ID. Have him send it from Settings and run the `test_anon_ids` SQL again (`supabase/README.md`, Admin section) so his testing stays marked as test data.
-4. If everything works: tick M3, tick "Delete my data removes rows" above, and stop for Max before M4. M4 starts with bar history (FR-43).
+2. After Delete my data his phone gets a new anonymous ID. Have him send it from Settings and run the `test_anon_ids` SQL again (`supabase/README.md`, Admin section) so his testing stays marked as test data.
+3. If everything works: tick M3, tick "Delete my data removes rows" above, and stop for Max before M4. M4 starts with bar history (FR-43).
 
 **Decisions made 2026-10-04** (already in PRD.md):
 
