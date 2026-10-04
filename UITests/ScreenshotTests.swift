@@ -31,7 +31,7 @@ final class ScreenshotTests: XCTestCase {
         inLine.tap()
         XCTAssertTrue(app.buttons["wait-im-in"].waitForExistence(timeout: 5))
         sleep(1)
-        XCTAssertTrue(app.buttons["wait-directions"].exists, "the wait card has Directions (FR-40)")
+        XCTAssertFalse(app.buttons["wait-directions"].exists, "the wait card has no Directions (FR-40)")
         saveScreenshot(named: "03-WaitCard", app: app)
 
         // Line size from the card (FR-6).

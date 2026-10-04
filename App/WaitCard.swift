@@ -69,11 +69,6 @@ struct WaitCard: View {
                     model.askAdjustTime()
                 }
                 .accessibilityHint("Starts your timer earlier if you were already in line")
-
-                secondaryButton("Directions", id: "wait-directions") {
-                    bar.openDirections()
-                }
-                .accessibilityHint("Opens walking directions in Apple Maps")
             }
             .controlSize(.large)
         }

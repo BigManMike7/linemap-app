@@ -163,7 +163,7 @@ The data model before launch, the database tests, location on a real phone, that
    - Start line timer (one tap) → Line size → Adjust time (one 0–90 wheel, saves when the sheet closes) → I'm in (no question, thank-you shows).
    - Report conditions: one screen, Send off until an answer is picked, thank-you shows.
    - The ✕ on the wait card: "I gave up on the line" and "Started it by mistake".
-   - Directions on the bar sheet and wait card open Apple Maps.
+   - Directions on the bar sheet opens Apple Maps. The wait card has no Directions.
    - Report conditions, then Start line timer at the same bar right away: allowed (separate limits, FR-13). A second Report conditions there within 10 minutes is refused.
    - Settings → Made a wrong report? lists and deletes a report; reporting that bar again within 10 minutes is still refused.
    - A report made in Airplane Mode says it will send later, then sends itself.
