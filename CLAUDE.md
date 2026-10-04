@@ -180,6 +180,8 @@ The data model before launch, the database tests, location on a real phone, that
 - Max approved the new tables and fields (`conditions` kind, `unspecified` position, 0–90 offset, `rate_limit_holds` with its `kind`, `deletions.scope`) on 2026-10-04.
 - Two rate limits, timed and manual, instead of one (FR-13). Line size now asks "How many people are in line?" everywhere with no subtitle; older in-line answers counted people ahead. The change is noted in `supabase/README.md`, and the definitions version stays 1.
 
+**Reversible change in testing (2026-10-04): map pins use MapKit selection.** Commit `366980e` replaced the pin Buttons with `Map(selection:)` plus `.tag(bar.id)` so a pinch that starts on a label still zooms. It touches only `App/MapScreen.swift` and `UITests/ScreenshotTests.swift`. If pins misbehave on the phone (taps not opening, pins stuck selected, VoiceOver not opening a bar), undo it with `git revert 366980e`. No database or PRD change.
+
 **Handy facts**
 
 - Ship a build: `gh workflow run testflight.yml`. CI deploys passing migrations to Supabase automatically.
