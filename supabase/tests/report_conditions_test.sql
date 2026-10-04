@@ -274,35 +274,28 @@ select throws_ok($$select pg_temp.cond(16, 2601, pg_temp.bar(2), pg_temp.ago(200
 select is((pg_temp.report(2601)).kind, 'line_start', 'the line_start report keeps its kind');
 select is((pg_temp.report(1001)).anon_id, pg_temp.uid(10), 'the conditions report keeps its owner');
 
--- Rate limit (FR-13): conditions counts like I'm in line and I'm inside ---------------------
+-- Rate limit (FR-13): conditions is on the manual clock with I'm inside ----------------------
+-- I'm in line has its own timed clock, so neither blocks the other.
 
 -- Person 17: I'm in line, then Report conditions at the same bar 5 minutes later.
 insert into res values ('p17_start', pg_temp.start(17, 1701, 2701, pg_temp.bar(1), pg_temp.ago(100)));
 insert into res values ('p17_cond', pg_temp.cond(17, 1702, pg_temp.bar(1), pg_temp.ago(95),
                                                  p_busy => 2, p_busy_state => 'answered'));
 
-select is(pg_temp.r('p17_cond') ->> 'ok', 'false', 'Report conditions 5 minutes after I''m in line is refused');
-select is(pg_temp.r('p17_cond') ->> 'error', 'rate_limited', 'the refusal is rate_limited');
-select is(pg_temp.r('p17_cond') ->> 'retry_after_seconds', '300', 'retry_after_seconds is the time left');
-select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(1702)), 0::bigint,
-  'a rate-limited conditions report is not saved');
+select is(pg_temp.r('p17_cond') ->> 'ok', 'true', 'Report conditions 5 minutes after I''m in line is allowed: separate clocks');
+select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(1702)), 1::bigint,
+  'the conditions report is saved');
+select is((pg_temp.session(1701)).status, 'open', 'the line stays open');
+select is((pg_temp.report(1702)).wait_session_id, null::bigint, 'the conditions report is not linked to the line');
 
 insert into res values ('p17_other', pg_temp.cond(17, 1703, pg_temp.bar(2), pg_temp.ago(95),
                                                   p_busy => 2, p_busy_state => 'answered'));
 
 select is(pg_temp.r('p17_other') ->> 'ok', 'true', 'Report conditions at a different bar is fine');
 
--- Person 18: Report conditions, then other reports at the same bar.
+-- Person 18: Report conditions, then other manual reports at the same bar, then I'm in line.
 insert into res values ('p18_cond', pg_temp.cond(18, 1801, pg_temp.bar(1), pg_temp.ago(100),
                                                  p_line => 2, p_line_state => 'answered'));
-insert into res values ('p18_start', pg_temp.start(18, 1802, 2802, pg_temp.bar(1), pg_temp.ago(95)));
-
-select is(pg_temp.r('p18_cond') ->> 'ok', 'true', 'the first conditions report is accepted');
-select is(pg_temp.r('p18_start') ->> 'error', 'rate_limited', 'I''m in line 5 minutes after Report conditions is rate-limited');
-select is(pg_temp.r('p18_start') ->> 'retry_after_seconds', '300', 'I''m in line is told the time left');
-select is((select count(*) from app.wait_sessions s where s.anon_id = pg_temp.uid(18)), 0::bigint,
-  'the rate-limited line start creates no session');
-
 insert into res values ('p18_cond_again', pg_temp.cond(18, 1803, pg_temp.bar(1), pg_temp.ago(97),
                                                        p_line => 3, p_line_state => 'answered'));
 insert into res values ('p18_inside', public.submit_report(
@@ -310,14 +303,22 @@ insert into res values ('p18_inside', public.submit_report(
   p_bar_id => pg_temp.bar(1), p_phone_time => pg_temp.ago(96), p_location_status => 'denied',
   p_app_version => '1.0', p_definitions_version => 1::smallint));
 
+select is(pg_temp.r('p18_cond') ->> 'ok', 'true', 'the first conditions report is accepted');
 select is(pg_temp.r('p18_cond_again') ->> 'error', 'rate_limited', 'a second conditions report 3 minutes later is rate-limited');
-select is(pg_temp.r('p18_inside') ->> 'error', 'rate_limited', 'I''m inside (older builds) after Report conditions is rate-limited');
+select is(pg_temp.r('p18_inside') ->> 'error', 'rate_limited',
+  'I''m inside (older builds) after Report conditions is rate-limited: same manual clock');
+
+insert into res values ('p18_start', pg_temp.start(18, 1802, 2802, pg_temp.bar(1), pg_temp.ago(95)));
+
+select is(pg_temp.r('p18_start') ->> 'ok', 'true', 'I''m in line 5 minutes after Report conditions is allowed: separate clocks');
+select is((pg_temp.session(1802)).status, 'open', 'the line is open');
+select is((pg_temp.report(2802)).kind, 'line_start', 'the line has its line_start report');
 
 insert into res values ('p18_later', pg_temp.cond(18, 1805, pg_temp.bar(1), pg_temp.ago(89),
                                                   p_line => 3, p_line_state => 'answered'));
 
 select is(pg_temp.r('p18_later') ->> 'ok', 'true', 'Report conditions 11 minutes later is accepted');
-select is((select count(*) from app.reports r where r.anon_id = pg_temp.uid(18)), 2::bigint,
+select is((select count(*) from app.reports r where r.anon_id = pg_temp.uid(18) and r.kind = 'conditions'), 2::bigint,
   'only the two accepted conditions reports are saved');
 
 -- Wait sessions are never touched ------------------------------------------------------------

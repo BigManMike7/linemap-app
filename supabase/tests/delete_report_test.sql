@@ -179,8 +179,8 @@ select is(
   (select array_agg(a.attname::text order by a.attname::text)
    from pg_attribute a
    where a.attrelid = 'app.rate_limit_holds'::regclass and a.attnum > 0 and not a.attisdropped),
-  array['anon_id', 'bar_id', 'created_at', 'id', 'is_test', 'phone_time'],
-  'a hold keeps only a person, a bar, and a phone time');
+  array['anon_id', 'bar_id', 'created_at', 'id', 'is_test', 'kind', 'phone_time'],
+  'a hold keeps only a person, a bar, a report kind, and a phone time');
 select ok((select c.relrowsecurity from pg_class c where c.oid = 'app.rate_limit_holds'::regclass),
   'rate_limit_holds has row-level security enabled');
 select is((select count(*) from pg_policies where schemaname = 'app' and tablename = 'rate_limit_holds'),
@@ -336,7 +336,8 @@ select is((pg_temp.last_deletion()).reason, 'user_request', 'the deletion reason
 select is((pg_temp.last_deletion()).rows_removed, 1, 'the deletion log has the count');
 select is(pg_temp.recent(10), '[]'::jsonb, 'a deleted report is no longer listed');
 
--- The rate limit keeps running from the deleted report (FR-13).
+-- The deleted report's clock (manual) keeps running from it (FR-13); the
+-- timed clock (I'm in line) is separate.
 insert into res values ('p10_again', pg_temp.cond(10, 10002, pg_temp.bar(1), pg_temp.ago(25),
                                                   p_busy => 2, p_busy_state => 'answered'));
 insert into res values ('p10_line', pg_temp.start(10, 10003, 10004, pg_temp.bar(1), pg_temp.ago(22)));
@@ -349,11 +350,12 @@ select is(pg_temp.r('p10_again') ->> 'error', 'rate_limited',
   'Report conditions 5 minutes after a deleted one is still rate-limited');
 select is(pg_temp.r('p10_again') ->> 'retry_after_seconds', '300',
   'the limit runs from the deleted report''s phone time');
-select is(pg_temp.r('p10_line') ->> 'error', 'rate_limited',
-  'I''m in line 8 minutes after a deleted report is rate-limited too');
-select is(pg_temp.r('p10_line') ->> 'retry_after_seconds', '120', 'I''m in line is told the time left');
-select is((select count(*) from app.wait_sessions s where s.anon_id = pg_temp.uid(10)), 0::bigint,
-  'the rate-limited line creates no session');
+select is(pg_temp.r('p10_line') ->> 'ok', 'true',
+  'I''m in line 8 minutes after a deleted Report conditions is allowed: its hold is on the manual clock');
+select is((select h.kind from app.rate_limit_holds h where h.anon_id = pg_temp.uid(10)), 'conditions',
+  'the hold keeps the deleted report''s kind');
+select is((select count(*) from app.wait_sessions s where s.anon_id = pg_temp.uid(10)), 1::bigint,
+  'the line is saved');
 select is(pg_temp.r('p10_other_bar') ->> 'ok', 'true', 'a hold only covers its own bar');
 select is(pg_temp.r('p10_later') ->> 'ok', 'true', 'Report conditions 11 minutes after the deleted one is accepted');
 

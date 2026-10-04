@@ -231,22 +231,24 @@ select is((pg_temp.report(2032)).busyness, 3::smallint, 'the busyness is saved')
 insert into res values ('p3_busy_twice', pg_temp.inside(3, 2039, pg_temp.bar(2), pg_temp.ago(293),
                                                         p_busy => 1, p_busy_state => 'answered', p_session => 1031));
 
-select is(pg_temp.r('p3_busy_twice') ->> 'error', 'rate_limited', 'a second report after the same I''m in is not exempt');
-select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(2039)), 0::bigint,
-  'the second report after I''m in is not saved');
+-- Not exempt, but the line start is on the timed clock, so the manual clock is free.
+select is(pg_temp.r('p3_busy_twice') ->> 'kind', 'inside',
+  'a second report after the same I''m in is not exempt: it is a counted inside report');
+select is((pg_temp.report(2039)).wait_session_id, null::bigint,
+  'the second report after I''m in is not linked to the session');
 
-insert into res values ('p3_early', pg_temp.inside(3, 2033, pg_temp.bar(2), pg_temp.ago(293),
+insert into res values ('p3_early', pg_temp.inside(3, 2033, pg_temp.bar(2), pg_temp.ago(290),
                                                    p_busy => 2, p_busy_state => 'answered'));
 
-select is(pg_temp.r('p3_early') ->> 'ok', 'false', 'a new I''m inside 7 minutes after the line start is refused');
+select is(pg_temp.r('p3_early') ->> 'ok', 'false', 'a new I''m inside 3 minutes after the counted one is refused');
 select is(pg_temp.r('p3_early') ->> 'error', 'rate_limited', 'the refusal is rate_limited');
-select is(pg_temp.r('p3_early') ->> 'retry_after_seconds', '180', 'retry_after_seconds is the time left');
+select is(pg_temp.r('p3_early') ->> 'retry_after_seconds', '420', 'retry_after_seconds is the time left');
 select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(2033)), 0::bigint,
   'a rate-limited report is not saved');
 
-insert into res values ('p3_later', pg_temp.inside(3, 2034, pg_temp.bar(2), pg_temp.ago(289)));
+insert into res values ('p3_later', pg_temp.inside(3, 2034, pg_temp.bar(2), pg_temp.ago(282)));
 
-select is(pg_temp.r('p3_later') ->> 'ok', 'true', 'I''m inside 11 minutes after the line start is accepted');
+select is(pg_temp.r('p3_later') ->> 'ok', 'true', 'I''m inside 11 minutes after the counted one is accepted');
 select is(pg_temp.r('p3_later') ->> 'kind', 'inside', 'it is a counted inside report');
 
 -- Person 4: I'm in after 90 minutes does nothing (FR-10) ------------------------------------
@@ -343,7 +345,7 @@ select is((pg_temp.session(1061)).ended_by, 'im_inside', 'ended_by is im_inside'
 select is((pg_temp.report(2062)).wait_session_id, (pg_temp.session(1061)).id, 'the report is linked to the session');
 select is((pg_temp.report(2062)).position, 'inside', 'the report is inside');
 
--- Person 7: rate limit (FR-13) ------------------------------------------------------------------
+-- Person 7: rate limit (FR-13): I'm inside is on the manual clock -------------------------------
 
 insert into res values ('p7_a', pg_temp.inside(7, 2071, pg_temp.bar(1), pg_temp.ago(300)));
 
@@ -363,17 +365,18 @@ insert into res values ('p7_d', pg_temp.inside(7, 2074, pg_temp.bar(1), pg_temp.
 
 select is(pg_temp.r('p7_d') ->> 'ok', 'true', 'the same bar 11 minutes later is fine');
 
-insert into res values ('p7_e', pg_temp.start(7, 1071, 2075, pg_temp.bar(1), pg_temp.ago(285)));
-
-select is(pg_temp.r('p7_e') ->> 'error', 'rate_limited', 'I''m in line is rate-limited too');
-select is((select count(*) from app.wait_sessions s where s.anon_id = pg_temp.uid(7)), 0::bigint,
-  'a rate-limited line start creates no session');
-
 insert into res values ('p7_f', pg_temp.inside(7, 2076, pg_temp.bar(1), pg_temp.ago(305)));
 
 select is(pg_temp.r('p7_f') ->> 'error', 'rate_limited', 'a late (offline) report 5 minutes before a counted one is also limited');
-select is((select count(*) from app.reports r where r.anon_id = pg_temp.uid(7)), 3::bigint,
-  'only the three accepted reports are saved');
+
+-- I'm in line has its own (timed) clock, so I'm inside never blocks it.
+insert into res values ('p7_e', pg_temp.start(7, 1071, 2075, pg_temp.bar(1), pg_temp.ago(285)));
+
+select is(pg_temp.r('p7_e') ->> 'ok', 'true', 'I''m in line 4 minutes after I''m inside is allowed: separate clocks');
+select is((select count(*) from app.wait_sessions s where s.anon_id = pg_temp.uid(7)), 1::bigint,
+  'the line start creates a session');
+select is((select count(*) from app.reports r where r.anon_id = pg_temp.uid(7)), 4::bigint,
+  'the three accepted I''m inside reports and the line start are saved');
 
 -- Person 8: line-size updates do not count toward the limit -------------------------------------
 
