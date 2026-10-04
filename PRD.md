@@ -91,14 +91,14 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 
 | ID | Requirement |
 | --- | --- |
-| FR-6 | **I'm in line** starts a wait session saved on the server in one tap and asks nothing else. **Line size** on the wait card reports it at any time while waiting: 0, 1–10, 10–25, 25–50, or 50+. ("Can't see the end" was dropped from the app on 2026-10-01; its stored code 5 stays reserved.) |
+| FR-6 | **I'm in line** starts a wait session saved on the server in one tap and asks nothing else. **Line size** on the wait card asks "How many people are in line?" (the whole line, not just the people ahead) at any time while waiting: 0, 1–10, 10–25, 25–50, or 50+. Every answer is saved as its own report and none is rate-limited. (Builds before 2026-10-04 asked how many people were ahead; see `supabase/README.md`. "Can't see the end" was dropped from the app on 2026-10-01; its stored code 5 stays reserved.) |
 | FR-7 | **Adjust time** on the wait card asks how long the person was in line before starting the timer: just started, ~5 min, ~10 min, or **More…**, a wheel of every minute from 11 to 90. It moves the session's start time back by that much (0–90 minutes), and can be changed or undone while the session is open. (Before 2026-10-04 the choices were ~5, ~10, and ~20 min; those stored values keep their meaning.) |
 | FR-8 | **I'm in** ends the session as entered and asks nothing. Measured wait = end time − adjusted start time. (The busyness question after I'm in was dropped on 2026-10-04.) |
 | FR-9 | **Gave up**, chosen from the wait card's ✕, ends the session as gave up. |
 | FR-10 | **Unanswered sessions.** After 90 minutes the server marks the session unfinished. A later "I'm in" does nothing. |
-| FR-11 | **Report conditions** opens one screen with two optional answers: line size (0, 1–10, 10–25, 25–50, or 50+) and busyness (Quiet, Comfortable, Busy, or Packed, relative to the bar's size). **Send report** stays off until at least one is picked, and the report is sent once. It works whether the person is in line, inside, or nearby, so its position is stored as unspecified. It never touches a wait session. (It replaced **I'm inside** on 2026-10-04. The app no longer asks how long it took to get in; the recalled-wait codes stay reserved.) |
+| FR-11 | **Report conditions** opens one screen with two optional answers: "How many people are in line?" (0, 1–10, 10–25, 25–50, or 50+) and busyness (Quiet, Comfortable, Busy, or Packed, relative to the bar's size). **Send report** stays off until at least one is picked, and the report is sent once. It works whether the person is in line, inside, or nearby, so its position is stored as unspecified. It never touches a wait session. (It replaced **I'm inside** on 2026-10-04. The app no longer asks how long it took to get in; the recalled-wait codes stay reserved.) |
 | FR-12 | **Answers.** Every question is optional and can be skipped; a skip is stored. Line size and Adjust time are saved as soon as they're given; Report conditions is saved when sent. ("I can't tell" was dropped from the app on 2026-10-01; the stored `cant_tell` state stays reserved.) |
-| FR-13 | **Rate limit.** One report per bar every 10 minutes per person, enforced on the server. Report conditions counts as a report. A report deleted with FR-41 still counts until its 10 minutes are up. Exceptions: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in (sent only by builds before 2026-10-04). |
+| FR-13 | **Rate limit.** Two separate limits per person per bar, each 10 minutes, enforced on the server: one timed line (I'm in line), and one manual report (Report conditions, or I'm inside from older builds). Neither blocks the other, so someone can report and then get in line, or time a line and then report the crowd inside. A report deleted with FR-41 still counts toward its own limit until its 10 minutes are up. Not limited: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in (sent only by builds before 2026-10-04). (One shared limit until 2026-10-04.) |
 | FR-14 | **One line at a time.** Starting a line at another bar closes the open session as gave up. |
 | FR-15 | **I'm inside with an open session** at that bar counts as I'm in. The app no longer has I'm inside (2026-10-04); the server keeps this rule for older builds. |
 | FR-39 | **Cancel line.** "Started it by mistake", chosen from the wait card's ✕, discards the line: the server deletes the session and its reports, so nothing from it counts, including toward the rate limit. A finished wait can't be cancelled. |
@@ -110,7 +110,7 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 | ID | Requirement |
 | --- | --- |
 | FR-17 | **Freshness.** A report is fresh for 30 minutes. From 30 to 60 minutes it shows as older and grayed out. After 60 minutes the bar shows "Not enough data". Measured waits age from when the person got in. |
-| FR-18 | **People count.** Freshness counts distinct people, so one person reporting twice counts once. |
+| FR-18 | **People count.** Freshness counts distinct people, so one person reporting twice counts once. Every report is still stored as its own data point; for each signal, the live estimate uses each person's newest answer. |
 | FR-19 | **Shown value.** For each signal separately (line size, wait, busyness), the newest report wins. The exception: if it disagrees with 2 or more fresh reports from other people, the majority wins. "Agree" means within one range. |
 | FR-20 | **Uncertain reports** count like any other in v1. |
 | FR-21 | **Server logic.** Estimates are computed by SQL functions on the server. Each response carries a logic version. |
@@ -218,7 +218,7 @@ Every table also has `id`, `created_at`, and `is_test`. Weather and football dat
 | `estimate_snapshots` | What each bar showed, every 5 minutes | bar, time, full estimate, logic version |
 | `spot_checks` | Admin ground truth | bar, time, line count seen, wait timed, notes |
 | `deletions` | A count of data deletions | time, rows removed, scope (all for Delete my data, one for a single report) (no ID) |
-| `rate_limit_holds` | Keeps the rate limit running after a report is deleted (FR-41) | anon ID, bar, phone time; cleared after 10 minutes |
+| `rate_limit_holds` | Keeps the rate limit running after a report is deleted (FR-41) | anon ID, bar, kind (which limit it holds), phone time; cleared after 10 minutes |
 
 **Starting bars.** Pins are geocoded from these addresses and can be adjusted later in the dashboard.
 

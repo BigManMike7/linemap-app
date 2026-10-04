@@ -92,7 +92,7 @@ These are summaries. The PRD has the details.
 - **Anonymous ID** lives in the Keychain, device-only, not synced, so it survives reinstalling (FR-29).
 - **Install ID** lives in regular app storage and is new on every install (FR-30).
 - **Delete my data** deletes everything tied to the anonymous ID, logs a count with no ID, then creates a new anonymous ID (FR-32).
-- **Made a wrong report?** in Settings deletes one report or finished wait from the last 24 hours, for real. The rate limit keeps running through a short-lived hold (anon ID, bar, time only), and the deletion logs a count with no ID (FR-41).
+- **Made a wrong report?** in Settings deletes one report or finished wait from the last 24 hours, for real. Its rate limit keeps running through a short-lived hold (anon ID, bar, kind, time only), and the deletion logs a count with no ID (FR-41).
 
 **Time**
 
@@ -106,7 +106,7 @@ These are summaries. The PRD has the details.
 
 **Reporting**
 
-- **Rate limit.** One report per bar every 10 minutes per person, enforced on the server. Report conditions counts as a report. Exceptions: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in, which only older builds send (FR-13).
+- **Rate limit.** Two separate 10-minute limits per person per bar, enforced on the server: timed lines (I'm in line) and manual reports (Report conditions). Neither blocks the other. Not limited: line-size updates in an open session (each its own row), I'm in, Gave up, and the busyness answer after I'm in, which only older builds send (FR-13).
 - **Sessions.** Only one open wait session at a time (FR-14). Report conditions never touches a session; the server's I'm inside rule (FR-15) remains only for older builds. Sessions become unfinished after 90 minutes (FR-10). Adjust time moves the start back 0–90 minutes (FR-7).
 - **Answers.** Every answer can be skipped (FR-12). Line size and Adjust time save immediately; Report conditions sends once. The app no longer offers "I can't tell", "Can't see the end", or the recalled-wait question, but their stored codes stay reserved and never change meaning.
 - **Offline queue.** Every report and session event has a client-generated ID, so retries never duplicate. The queue survives restarts (FR-16).
@@ -177,7 +177,8 @@ The data model before launch, the database tests, location on a real phone, that
 - I'm in asks nothing (FR-8). Adjust time is 0–90 minutes (FR-7). The Gave up button is gone; the ✕ asks gave up or started by mistake (FR-4, FR-9, FR-39).
 - New: Directions (FR-40), Made a wrong report? with real delete and a 10-minute rate-limit hold (FR-41), thank-you message (FR-42). History of any past night is planned for M4 and is computed from reports, never snapshots (FR-43).
 - The app calls 13 functions now; `submit_report` stays on the server for older builds only.
-- Max approved the new tables and fields (`conditions` kind, `unspecified` position, 0–90 offset, `rate_limit_holds`, `deletions.scope`) on 2026-10-04.
+- Max approved the new tables and fields (`conditions` kind, `unspecified` position, 0–90 offset, `rate_limit_holds` with its `kind`, `deletions.scope`) on 2026-10-04.
+- Two rate limits, timed and manual, instead of one (FR-13). Line size now asks "How many people are in line?" everywhere with no subtitle; older in-line answers counted people ahead. The change is noted in `supabase/README.md`, and the definitions version stays 1.
 
 **Handy facts**
 
