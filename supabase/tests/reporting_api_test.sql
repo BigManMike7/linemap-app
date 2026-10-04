@@ -434,8 +434,8 @@ select throws_ok($$select pg_temp.inside(11, 2117, pg_temp.bar(1), pg_temp.ago(1
   '22023', null, 'an unknown answer state is rejected');
 select throws_ok($$select pg_temp.start(11, 1111, 2118, pg_temp.bar(1), pg_temp.ago(100), p_line => 6, p_line_state => 'answered')$$,
   '22023', null, 'line size code 6 is out of range');
-select throws_ok($$select pg_temp.start(11, 1112, 2119, pg_temp.bar(1), pg_temp.ago(100), p_offset => 7)$$,
-  '22023', null, 'a start offset other than 0, 5, 10, 20 is rejected');
+select throws_ok($$select pg_temp.start(11, 1112, 2119, pg_temp.bar(1), pg_temp.ago(100), p_offset => 91)$$,
+  '22023', null, 'a start offset over 90 minutes is rejected');
 select throws_ok($$select pg_temp.inside(11, 2120, 999999, pg_temp.ago(100))$$,
   '22023', null, 'an unknown bar is rejected');
 select throws_ok(

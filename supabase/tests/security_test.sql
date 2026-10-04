@@ -1,12 +1,12 @@
 -- Security model (NFR-5) and no stored coordinates (FR-26).
--- The app reaches data only through the 11 API functions in PRD 7.2; every
+-- The app reaches data only through the 12 API functions in PRD 7.2; every
 -- table is private, has RLS on, and no role but the owner can touch it.
 
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(54);
+select plan(58);
 
 -- Schema and table lockdown ----------------------------------------------------
 
@@ -61,9 +61,10 @@ select is(
    where n.nspname = 'public'
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
-                       'register_install', 'log_view', 'delete_my_data', 'cancel_session')),
-  11::bigint,
-  'each of the 11 API functions exists exactly once (no overloads)');
+                       'register_install', 'log_view', 'delete_my_data', 'cancel_session',
+                       'report_conditions')),
+  12::bigint,
+  'each of the 12 API functions exists exactly once (no overloads)');
 
 -- Functions created by the migrations' owner in public that anon can run.
 select set_eq(
@@ -74,8 +75,8 @@ select set_eq(
       and has_function_privilege('anon', p.oid, 'execute')$$,
   array['get_bars', 'get_estimates', 'submit_report', 'start_session', 'update_line_size',
         'end_session', 'send_feedback', 'register_install', 'log_view', 'delete_my_data',
-        'cancel_session'],
-  'anon can execute exactly the 11 API functions');
+        'cancel_session', 'report_conditions'],
+  'anon can execute exactly the 12 API functions');
 
 select is(
   (select array_agg(p.proname::text order by p.proname::text)
@@ -83,7 +84,8 @@ select is(
    where n.nspname = 'public'
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
-                       'register_install', 'log_view', 'delete_my_data', 'cancel_session')
+                       'register_install', 'log_view', 'delete_my_data', 'cancel_session',
+                       'report_conditions')
      and has_function_privilege('authenticated', p.oid, 'execute')),
   null::text[],
   'authenticated cannot execute any API function');
@@ -94,7 +96,8 @@ select is(
    where n.nspname = 'public'
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
-                       'register_install', 'log_view', 'delete_my_data', 'cancel_session')
+                       'register_install', 'log_view', 'delete_my_data', 'cancel_session',
+                       'report_conditions')
      and not p.prosecdef),
   null::text[],
   'every API function is SECURITY DEFINER');
@@ -105,11 +108,20 @@ select is(
    where n.nspname = 'public'
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
-                       'register_install', 'log_view', 'delete_my_data', 'cancel_session')
+                       'register_install', 'log_view', 'delete_my_data', 'cancel_session',
+                       'report_conditions')
      and not (coalesce(p.proconfig, '{}'::text[])
               && array['search_path=""', 'search_path=', $q$search_path=''$q$])),
   null::text[],
   'every API function pins search_path to an empty string');
+
+select ok(
+  (select bool_and(p.prosecdef
+                   and coalesce(p.proconfig, '{}'::text[])
+                       && array['search_path=""', 'search_path=', $q$search_path=''$q$])
+   from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+   where n.nspname = 'public' and p.proname = 'report_conditions'),
+  'report_conditions is SECURITY DEFINER with an empty search_path');
 
 -- No coordinates are stored (FR-26) -------------------------------------------------
 
@@ -176,6 +188,19 @@ select lives_ok(
                                    '5ec00000-0000-4000-8000-000000000002',
                                    '1.0', '18.0', 'iPhone16,1')$$,
   'anon can call register_install');
+select lives_ok(
+  $$select public.report_conditions(
+      p_client_report_id    => '5ec00000-0000-4000-8000-000000000003',
+      p_anon_id             => '5ec00000-0000-4000-8000-000000000001',
+      p_install_id          => '5ec00000-0000-4000-8000-000000000002',
+      p_bar_id              => (public.get_bars() -> 0 ->> 'id')::bigint,
+      p_phone_time          => now(),
+      p_location_status     => 'denied',
+      p_app_version         => '1.0',
+      p_definitions_version => 1::smallint,
+      p_busyness            => 2::smallint,
+      p_busyness_state      => 'answered')$$,
+  'anon can call report_conditions');
 
 reset role;
 
@@ -183,6 +208,11 @@ select is(
   (select count(*) from app.installs where anon_id = '5ec00000-0000-4000-8000-000000000001'),
   1::bigint,
   'the install written through the API as anon was saved');
+select is(
+  (select count(*) from app.reports
+   where anon_id = '5ec00000-0000-4000-8000-000000000001' and kind = 'conditions'),
+  1::bigint,
+  'the conditions report written through the API as anon was saved');
 
 -- Behavior as authenticated: no API access -------------------------------------------
 
@@ -193,6 +223,19 @@ select throws_ok('select public.get_estimates()', '42501', null, 'authenticated 
 select throws_ok(
   $$select public.delete_my_data('5ec00000-0000-4000-8000-000000000001')$$,
   '42501', null, 'authenticated cannot call delete_my_data');
+select throws_ok(
+  $$select public.report_conditions(
+      p_client_report_id    => '5ec00000-0000-4000-8000-000000000004',
+      p_anon_id             => '5ec00000-0000-4000-8000-000000000001',
+      p_install_id          => '5ec00000-0000-4000-8000-000000000002',
+      p_bar_id              => 1,
+      p_phone_time          => now(),
+      p_location_status     => 'denied',
+      p_app_version         => '1.0',
+      p_definitions_version => 1::smallint,
+      p_busyness            => 2::smallint,
+      p_busyness_state      => 'answered')$$,
+  '42501', null, 'authenticated cannot call report_conditions');
 select throws_ok('select * from app.reports', '42501', null, 'authenticated cannot select app.reports');
 
 reset role;

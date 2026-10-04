@@ -9,7 +9,7 @@ Postgres on Supabase. The server is the source of truth for estimates and the ni
 | `migrations/*_schema.sql` | Tables, indexes, row-level security, settings log |
 | `migrations/*_helpers.sql` | Settings lookups, night boundary, active window, location math |
 | `migrations/*_estimates.sql` | Estimate rules and snapshots |
-| `migrations/*_api.sql`, `*_cancel_session.sql` | The 11 functions the app calls |
+| `migrations/*_api.sql`, `*_cancel_session.sql`, `*_report_conditions.sql` | The 12 functions the app can call |
 | `migrations/*_jobs.sql` | Scheduled jobs (`pg_cron`) |
 | `migrations/*_starting_data.sql` | Default settings and the three starting bars |
 | `tests/` | pgTAP tests, run in CI on every push |
@@ -30,12 +30,24 @@ CI runs the tests on a local database, then applies new migrations to the live p
 | Line size | 0 nobody, 1 = 1–10, 2 = 10–25, 3 = 25–50, 4 = 50+, 5 = can't see the end |
 | Busyness | 1 quiet, 2 comfortable, 3 busy, 4 packed |
 | Recalled wait | 1 under 5, 2 = 5–15, 3 = 15–30, 4 = 30–60, 5 = 60+ min |
-| Been here a while | 5, 10, or 20 minutes |
+| Adjust time (start offset) | Any whole number of minutes, 0 to 90 (0, 5, 10, or 20 before 2026-10-04) |
 | Answer state | `answered`, `cant_tell`, `skipped`; empty if not asked |
 
 Since 2026-10-01 the app no longer offers line size 5 ("can't see the end") or `cant_tell`. Both stay valid on the server and keep their meaning, so older rows read the same.
 
 Two answers agree when their codes are at most one apart (FR-19).
+
+### Report kinds and positions
+
+| Kind | Position | What | Rate limit (FR-13) |
+| --- | --- | --- | --- |
+| `line_start` | `line` | I'm in line | Counted |
+| `line_update` | `line` | Line-size update in an open session | Exempt |
+| `inside` | `inside` | I'm inside (older builds only) | Counted |
+| `inside_after_entry` | `inside` | Busyness after I'm in, or I'm inside that ended a session (older builds only) | Exempt |
+| `conditions` | `unspecified` | Report conditions (since 2026-10-04): line size and/or busyness from someone in line, inside, or walking by | Counted |
+
+Counted reports share one limit per bar: any two of them at the same bar within 10 minutes, the second is refused. Only `line_start`, `line_update`, and `inside_after_entry` belong to a wait session.
 
 ## API
 
@@ -46,11 +58,12 @@ Call with `POST /rest/v1/rpc/<name>` and named JSON parameters. Writes return `{
 | `get_bars(p_anon_id?)` | Active bars with door pins |
 | `get_estimates(p_anon_id?)` | Every bar's current estimate (shape below) |
 | `register_install(...)` | On launch: anon ID, install ID, versions, device model |
-| `start_session(...)` | I'm in line. Creates the session and its first report. Re-send the same `p_client_session_id` to set or undo Adjust time (`p_start_offset_minutes`, 0 undoes it) |
+| `start_session(...)` | I'm in line. Creates the session and its first report. Re-send the same `p_client_session_id` to set or undo Adjust time (`p_start_offset_minutes`, 0 to 90; 0 undoes it) |
 | `update_line_size(...)` | Line-size update in an open session. Re-send the same report ID to change the answer |
 | `end_session(p_outcome)` | `entered` (I'm in) or `gave_up` |
 | `cancel_session(...)` | Cancel line (FR-39): deletes an open session and its reports, so nothing counts. A finished wait returns `session_not_open` |
-| `submit_report(...)` | I'm inside. With an open session at that bar it counts as I'm in. Pass `p_client_session_id` for the busyness answer after I'm in. Re-send the same report ID to add answers |
+| `report_conditions(...)` | Report conditions. Line size (0–5) and busyness (1–4), each optional, but at least one must be `answered`; a state not sent is stored as `skipped`. Rate-limited, and never starts, ends, or joins a wait session. Re-sending the same report ID returns `{"ok": true, "kind": "conditions"}` and changes nothing |
+| `submit_report(...)` | Older builds only (the app stopped calling it on 2026-10-04). I'm inside. With an open session at that bar it counts as I'm in. Pass `p_client_session_id` for the busyness answer after I'm in. Re-send the same report ID to add answers |
 | `send_feedback(...)` | This looks wrong |
 | `log_view(...)` | A map or bar-sheet view |
 | `delete_my_data(p_anon_id)` | Deletes everything for the ID; the app then makes a new one |
