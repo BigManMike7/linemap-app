@@ -1,6 +1,6 @@
 # LineMap
 
-An iPhone beta that shows live, community-reported lines and crowds at State College bars. People at a bar tap "I'm in line" or "I'm inside", and everyone else sees each bar's line and wait on a map. This is a learning project: keep it simple, polished, and modular.
+An iPhone beta that shows live, community-reported lines and crowds at State College bars. People at a bar tap "I'm in line" or "Report conditions", and everyone else sees each bar's line and wait on a map. This is a learning project: keep it simple, polished, and modular.
 
 **The full spec is `PRD.md`.** Read it before starting any milestone. Requirement IDs (FR-x, NFR-x) refer to it. If the PRD and the code disagree, or the PRD is unclear, ask Max. Don't guess.
 
@@ -105,9 +105,9 @@ These are summaries. The PRD has the details.
 
 **Reporting**
 
-- **Rate limit.** One report per bar every 10 minutes per person, enforced on the server. Exceptions: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in (FR-13).
-- **Sessions.** Only one open wait session at a time (FR-14). Tapping "I'm inside" with an open session at that bar counts as I'm in (FR-15). Sessions become unfinished after 90 minutes (FR-10).
-- **Answers.** Each one is saved immediately and can be skipped (FR-12). The app no longer offers "I can't tell" or "Can't see the end", but their stored codes stay reserved and never change meaning.
+- **Rate limit.** One report per bar every 10 minutes per person, enforced on the server. Report conditions counts as a report. Exceptions: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in, which only older builds send (FR-13).
+- **Sessions.** Only one open wait session at a time (FR-14). Report conditions never touches a session; the server's I'm inside rule (FR-15) remains only for older builds. Sessions become unfinished after 90 minutes (FR-10). Adjust time moves the start back 0–90 minutes (FR-7).
+- **Answers.** Every answer can be skipped (FR-12). Line size and Adjust time save immediately; Report conditions sends once. The app no longer offers "I can't tell", "Can't see the end", or the recalled-wait question, but their stored codes stay reserved and never change meaning.
 - **Offline queue.** Every report and session event has a client-generated ID, so retries never duplicate. The queue survives restarts (FR-16).
 
 **Estimates**

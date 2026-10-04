@@ -7,7 +7,7 @@ This file is the full product spec. `CLAUDE.md` holds the working rules and poin
 ## 1. Summary
 
 - **Problem.** Students heading downtown can't tell whether a bar has a long line or is packed until they walk there. Lines move fast on busy nights, so word of mouth is quickly out of date.
-- **Solution.** People at a bar tap **I'm in line** or **I'm inside**. Everyone else sees the current line size, the wait, how busy the bar is, and how fresh that information is. Waits are measured with a simple in-app timer, not guessed.
+- **Solution.** People at a bar tap **I'm in line** or **Report conditions**. Everyone else sees the current line size, the wait, how busy the bar is, and how fresh that information is. Waits are measured with a simple in-app timer, not guessed.
 - **Context.** LineMap is a learning project, not a business. It launches with Doggie's Pub, The Phyrst and Cafe 210 West, and grows to 5–8 bars if reporting keeps up.
 
 ## 2. Goals and success metrics
@@ -50,7 +50,7 @@ This file is the full product spec. `CLAUDE.md` holds the working rules and poin
 - As a viewer, I can see each bar's line size, wait, busyness, and how fresh that is, so I can pick where to go.
 - As a viewer, I'm told plainly when there isn't enough data, so I don't trust a stale number.
 - As a reporter in line, I tap once to start a timer and tap again when I get in, so my wait is measured without guessing.
-- As a reporter inside, I can say how busy it is in one tap.
+- As a reporter at a bar, I can report the line size and how busy it is on one screen, answering either or both.
 - As a reporter, I can skip any question, or cancel a line I started by mistake.
 - As any user, I can use the app without an account or giving my age, and delete my data from Settings.
 - As the admin, I can add a bar, change a threshold, or hide a report from the dashboard without shipping an app update.
@@ -78,8 +78,8 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 | --- | --- |
 | FR-1 | **Map home screen.** The app opens straight to an Apple Map (MapKit, no API key needed), centered on downtown State College and framing every active bar. Each bar is a pin labeled with its name and line time, e.g. "The Phyrst · 25 min". There is no separate list screen. The map shows the user's location dot only if location permission was already granted. It never asks for permission on launch. |
 | FR-2 | **Pin labels.** Line time is the bar's current wait estimate (FR-17 to FR-19): either the last measured wait ("25 min") or a reported range ("15–30 min"). If there's no wait estimate but there is a fresh line size, the label shows the line size ("~10–25 in line"). Otherwise it shows "No data", "Closed", or "Outside hours". Labels based on reports 30–60 minutes old are grayed out. |
-| FR-3 | **Bar sheet.** Tapping a pin opens a bottom sheet over the map. It shows: line size now; the wait, matching the pin (a measured wait like "25 min, got in 10 min ago", or a reported range); busyness; freshness as "N people · latest X min ago"; a **This looks wrong** button; and **I'm in line** and **I'm inside** buttons. No trend arrows in v1. |
-| FR-4 | **Wait card.** While a wait session is open, a card floats over the map every time the app opens. It shows the running timer, a large **I'm in**, then **Line size**, **Adjust time**, and **Gave up**, plus a ✕ to cancel (FR-39). Tapping the timer opens that bar's sheet. |
+| FR-3 | **Bar sheet.** Tapping a pin opens a bottom sheet over the map. It shows: line size now; the wait, matching the pin (a measured wait like "25 min, got in 10 min ago", or a reported range); busyness; freshness as "N people · latest X min ago"; a **This looks wrong** button; and **I'm in line** and **Report conditions** buttons. While the person is in line at that bar, Report conditions is replaced by **I'm in**. No trend arrows in v1. |
+| FR-4 | **Wait card.** While a wait session is open, a card floats over the map every time the app opens. It shows the running timer, a large **I'm in**, then **Line size** and **Adjust time**, plus a large ✕ that stops the timer: it asks whether the person gave up (FR-9) or started the line by mistake (FR-39). Tapping the timer opens that bar's sheet. |
 | FR-5 | **Settings.** Opened from a small gear button on the map. Contains Delete my data, links to the privacy policy and support page, and the contact email. |
 
 ### 5.2 Reporting
@@ -87,16 +87,16 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 | ID | Requirement |
 | --- | --- |
 | FR-6 | **I'm in line** starts a wait session saved on the server in one tap and asks nothing else. **Line size** on the wait card reports it at any time while waiting: 0, 1–10, 10–25, 25–50, or 50+. ("Can't see the end" was dropped from the app on 2026-10-01; its stored code 5 stays reserved.) |
-| FR-7 | **Adjust time** on the wait card asks how long the person was in line before starting the timer: just started, ~5, ~10, or ~20 min. It moves the session's start time back by that much, and can be changed or undone while the session is open. |
-| FR-8 | **I'm in** ends the session as entered. Measured wait = end time − adjusted start time. It then optionally asks busyness. |
-| FR-9 | **Gave up** ends the session as gave up. |
+| FR-7 | **Adjust time** on the wait card asks how long the person was in line before starting the timer: just started, ~5 min, ~10 min, or **More…**, a wheel of every minute from 11 to 90. It moves the session's start time back by that much (0–90 minutes), and can be changed or undone while the session is open. (Before 2026-10-04 the choices were ~5, ~10, and ~20 min; those stored values keep their meaning.) |
+| FR-8 | **I'm in** ends the session as entered and asks nothing. Measured wait = end time − adjusted start time. (The busyness question after I'm in was dropped on 2026-10-04.) |
+| FR-9 | **Gave up**, chosen from the wait card's ✕, ends the session as gave up. |
 | FR-10 | **Unanswered sessions.** After 90 minutes the server marks the session unfinished. A later "I'm in" does nothing. |
-| FR-11 | **I'm inside** optionally asks busyness: Quiet, Comfortable, Busy, or Packed, relative to the bar's size. If the user didn't time their wait, it also asks how long it took to get in: under 5, 5–15, 15–30, 30–60, or 60+ min, including ID check and cover. |
-| FR-12 | **Answers.** Every question is optional and can be skipped; a skip is stored. Each answer is saved as soon as it's given. ("I can't tell" was dropped from the app on 2026-10-01; the stored `cant_tell` state stays reserved.) |
-| FR-13 | **Rate limit.** One report per bar every 10 minutes per person, enforced on the server. Exceptions: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in. |
+| FR-11 | **Report conditions** opens one screen with two optional answers: line size (0, 1–10, 10–25, 25–50, or 50+) and busyness (Quiet, Comfortable, Busy, or Packed, relative to the bar's size). **Send report** stays off until at least one is picked, and the report is sent once. It works whether the person is in line, inside, or nearby, so its position is stored as unspecified. It never touches a wait session. (It replaced **I'm inside** on 2026-10-04. The app no longer asks how long it took to get in; the recalled-wait codes stay reserved.) |
+| FR-12 | **Answers.** Every question is optional and can be skipped; a skip is stored. Line size and Adjust time are saved as soon as they're given; Report conditions is saved when sent. ("I can't tell" was dropped from the app on 2026-10-01; the stored `cant_tell` state stays reserved.) |
+| FR-13 | **Rate limit.** One report per bar every 10 minutes per person, enforced on the server. Report conditions counts as a report. Exceptions: line-size updates in an open session, I'm in, Gave up, and the busyness answer after I'm in (sent only by builds before 2026-10-04). |
 | FR-14 | **One line at a time.** Starting a line at another bar closes the open session as gave up. |
-| FR-15 | **I'm inside with an open session** at that bar counts as I'm in. |
-| FR-39 | **Cancel line.** The ✕ on the wait card, after a confirmation, discards a line started by mistake: the server deletes the session and its reports, so nothing from it counts, including toward the rate limit. A finished wait can't be cancelled. |
+| FR-15 | **I'm inside with an open session** at that bar counts as I'm in. The app no longer has I'm inside (2026-10-04); the server keeps this rule for older builds. |
+| FR-39 | **Cancel line.** "Started it by mistake", chosen from the wait card's ✕, discards the line: the server deletes the session and its reports, so nothing from it counts, including toward the rate limit. A finished wait can't be cancelled. |
 | FR-16 | **Offline queue.** Reports and session events queue on the phone when offline and retry with a client-generated ID, so nothing is saved twice. The queue survives app restarts. Late reports are always stored, but count toward live estimates only if their phone time is within the freshness window. |
 
 ### 5.3 Estimates (computed on the server)
@@ -184,7 +184,7 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 
 ### 7.2 Server functions and jobs
 
-**Functions the app calls.** These are the only way the app reaches the database: get bars, get estimates, submit report, start session, update line size, end session, cancel session, send feedback, register install, log view, delete my data.
+**Functions the app calls.** These are the only way the app reaches the database: get bars, get estimates, report conditions, start session, update line size, end session, cancel session, send feedback, register install, log view, delete my data. `submit_report` (I'm inside) stays on the server for builds before 2026-10-04, but the app no longer calls it.
 
 **Scheduled jobs**
 
@@ -201,8 +201,8 @@ Every table also has `id`, `created_at`, and `is_test`. Weather and football dat
 | --- | --- | --- |
 | `bars` | The bar list | name, address, door coordinates, size class, active, display order, date added |
 | `installs` | One row per install | anon ID, install ID, first and last seen, app version, iOS version, device model |
-| `reports` | Every report | client report ID, anon ID, install ID, bar, night date, position (line or inside), wait session ID, line size, busyness, and recalled wait (each with an answer state: answered, can't tell, skipped), phone time, server time, location status, distance, direction, accuracy, fix age, uncertain, hidden and hidden reason, app version, definitions version, source (app now, Live Activity later) |
-| `wait_sessions` | One timed wait | client ID, anon ID, bar, night date, start time, "been here a while" offset, end time, status (open, entered, gave up, unfinished), what ended it, distance at start and at end |
+| `reports` | Every report | client report ID, anon ID, install ID, bar, night date, position (line, inside, or unspecified for Report conditions), kind, wait session ID, line size, busyness, and recalled wait (each with an answer state: answered, can't tell, skipped), phone time, server time, location status, distance, direction, accuracy, fix age, uncertain, hidden and hidden reason, app version, definitions version, source (app now, Live Activity later) |
+| `wait_sessions` | One timed wait | client ID, anon ID, bar, night date, start time, Adjust time offset (0–90 min), end time, status (open, entered, gave up, unfinished), what ended it, distance at start and at end |
 | `views` | Every view of the map or a bar sheet | anon ID, install ID, map or bar, time, estimate shown, logic version, whether it showed "no data", app-open ID |
 | `feedback` | "This looks wrong" taps | anon ID, bar, estimate shown, time |
 | `config`, `config_history` | Current settings, and every change to them | key, value, changed at |
@@ -273,7 +273,7 @@ In order: averages and history, then throughput-based wait predictions, then out
 
 **Location permission text (`NSLocationWhenInUseUsageDescription`):** "LineMap checks your location only when you send a report, to confirm you're near the bar. Your exact location is never stored."
 
-**TestFlight beta description:** "LineMap shows live, community-reported lines and crowds at State College bars. Tap 'I'm in line' or 'I'm inside' to help others, and check before you head out."
+**TestFlight beta description:** "LineMap shows live, community-reported lines and crowds at State College bars. Tap 'I'm in line' or 'Report conditions' to help others, and check before you head out."
 
 **Beta App Review notes:** "No sign-in required. Reports work from anywhere. Outside bar hours (Thu–Sat 9 p.m.–2 a.m. Eastern), bars show 'Outside usual hours' until someone reports. Location is requested only when sending a report."
 
