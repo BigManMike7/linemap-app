@@ -61,12 +61,23 @@ struct OptionLabelTests {
     }
 
     @Test(arguments: [
-        (StartOffset.five, "~5 min"),
-        (StartOffset.ten, "~10 min"),
-        (StartOffset.twenty, "~20 min"),
+        (5, "~5 min"),
+        (10, "~10 min"),
+        (11, "11 min"),
+        (37, "37 min"),
+        (90, "90 min"),
     ])
-    func startOffset(value: StartOffset, text: String) {
-        #expect(Labels.option(value) == text)
+    func startOffset(minutes: Int, text: String) {
+        #expect(Labels.startOffset(minutes: minutes) == text)
+    }
+
+    @Test(arguments: [
+        (LineSize.nobody, "0"),
+        (LineSize.oneToTen, "1–10"),
+        (LineSize.fiftyPlus, "50+"),
+    ])
+    func shortLineSize(value: LineSize, text: String) {
+        #expect(Labels.shortOption(value) == text)
     }
 
     @Test func fixedStrings() {

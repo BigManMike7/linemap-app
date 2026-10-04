@@ -1,7 +1,8 @@
 import LineMapCore
 import SwiftUI
 
-/// A bar's line, wait, crowd, and freshness, with the report buttons (FR-3).
+/// A bar's line, wait, crowd, and freshness, with I'm in line and Report
+/// conditions (FR-3). While in line here, Report conditions becomes I'm in.
 struct BarSheet: View {
     @Environment(AppModel.self) private var model
     let bar: Bar
@@ -93,13 +94,25 @@ struct BarSheet: View {
                 .accessibilityHint("Starts a timer for your wait")
                 .accessibilityIdentifier("in-line-button")
             }
-            Button {
-                model.reportInside(at: bar)
-            } label: {
-                Text(isInLineHere ? "I'm in" : "I'm inside").frame(maxWidth: .infinity, minHeight: 34)
+            if isInLineHere {
+                Button {
+                    model.imIn()
+                } label: {
+                    Text("I'm in").frame(maxWidth: .infinity, minHeight: 34)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityHint("Stops your timer")
+                .accessibilityIdentifier("bar-im-in-button")
+            } else {
+                Button {
+                    model.askConditions(at: bar)
+                } label: {
+                    Text("Report conditions").frame(maxWidth: .infinity, minHeight: 34)
+                }
+                .buttonStyle(.bordered)
+                .accessibilityHint("Share the line size and how busy it is")
+                .accessibilityIdentifier("conditions-button")
             }
-            .buttonStyle(.bordered)
-            .accessibilityIdentifier("inside-button")
         }
         .controlSize(.large)
     }

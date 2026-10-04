@@ -3,16 +3,17 @@ import Foundation
 /// The running timer on the wait card (FR-4, FR-7).
 public struct WaitTimer: Sendable, Hashable {
     public let startedAt: Date
-    public var offset: StartOffset?
+    /// Adjust time, in minutes (0 when just started).
+    public var offsetMinutes: Int
 
-    public init(startedAt: Date, offset: StartOffset? = nil) {
+    public init(startedAt: Date, offsetMinutes: Int = 0) {
         self.startedAt = startedAt
-        self.offset = offset
+        self.offsetMinutes = offsetMinutes
     }
 
     /// now - startedAt + offset minutes, never negative.
     public func elapsed(at now: Date) -> TimeInterval {
-        let offsetSeconds = Double(offset?.rawValue ?? 0) * 60
+        let offsetSeconds = Double(offsetMinutes) * 60
         return max(0, now.timeIntervalSince(startedAt) + offsetSeconds)
     }
 

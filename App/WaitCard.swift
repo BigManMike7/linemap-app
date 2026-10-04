@@ -2,14 +2,14 @@ import LineMapCore
 import SwiftUI
 
 /// Floats over the map while a wait session is open (FR-4): the running timer,
-/// a big I'm in, then Line size, Adjust time, and Gave up. The ✕ cancels a line
-/// started by mistake (FR-39). Tapping the timer opens the bar's sheet.
+/// a big I'm in, then Line size and Adjust time. The ✕ stops the timer, either
+/// as gave up (FR-9) or as a line started by mistake (FR-39). Tapping the timer
+/// opens the bar's sheet.
 struct WaitCard: View {
     @Environment(AppModel.self) private var model
     let wait: ActiveWait
     let bar: Bar
-    @State private var confirmsGiveUp = false
-    @State private var confirmsCancel = false
+    @State private var confirmsStop = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -33,17 +33,18 @@ struct WaitCard: View {
                 .accessibilityHint("Opens \(bar.name)")
 
                 Button {
-                    confirmsCancel = true
+                    confirmsStop = true
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.title2)
+                        .font(.largeTitle)
                         .symbolRenderingMode(.hierarchical)
                         .foregroundStyle(.secondary)
-                        .frame(width: 44, height: 44)
+                        .frame(minWidth: 52, minHeight: 52)
+                        .contentShape(.rect)
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Cancel line")
-                .accessibilityHint("Discards this timer. Nothing is saved.")
+                .accessibilityLabel("Stop timer")
+                .accessibilityHint("Choose whether you gave up or started it by mistake")
                 .accessibilityIdentifier("wait-cancel")
             }
 
@@ -68,10 +69,6 @@ struct WaitCard: View {
                     model.askAdjustTime()
                 }
                 .accessibilityHint("Starts your timer earlier if you were already in line")
-
-                secondaryButton("Gave up", role: .destructive, id: "wait-gave-up") {
-                    confirmsGiveUp = true
-                }
             }
             .controlSize(.large)
         }
@@ -82,23 +79,18 @@ struct WaitCard: View {
         .padding(.bottom, 4)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("wait-card")
-        .confirmationDialog("Stop your timer?", isPresented: $confirmsGiveUp, titleVisibility: .visible) {
-            Button("Gave up", role: .destructive) { model.gaveUp() }
-            Button("Keep waiting", role: .cancel) {}
-        } message: {
-            Text("Your wait won't be counted.")
-        }
-        .confirmationDialog("Cancel this line?", isPresented: $confirmsCancel, titleVisibility: .visible) {
-            Button("Discard line", role: .destructive) { model.cancelLine() }
+        .confirmationDialog("Stop this timer?", isPresented: $confirmsStop, titleVisibility: .visible) {
+            Button("I gave up on the line") { model.gaveUp() }
+            Button("Started it by mistake", role: .destructive) { model.cancelLine() }
             Button("Keep timer", role: .cancel) {}
         } message: {
-            Text("Use this if you started it by mistake. Nothing from it is saved.")
+            Text("If you started it by mistake, nothing from it is saved.")
         }
     }
 
-    private func secondaryButton(_ title: String, role: ButtonRole? = nil, id: String,
+    private func secondaryButton(_ title: String, id: String,
                                  action: @escaping () -> Void) -> some View {
-        Button(role: role, action: action) {
+        Button(action: action) {
             Text(title)
                 .font(.subheadline.weight(.medium))
                 .lineLimit(1)

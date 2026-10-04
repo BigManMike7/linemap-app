@@ -11,13 +11,13 @@ struct WaitTimerTests {
     }
 
     @Test func elapsedWithOffset() {
-        let timer = WaitTimer(startedAt: start, offset: .ten)
+        let timer = WaitTimer(startedAt: start, offsetMinutes: 10)
         #expect(timer.elapsed(at: start.addingTimeInterval(30)) == 630)
     }
 
     @Test func offsetCanBeSetLater() {
         var timer = WaitTimer(startedAt: start)
-        timer.offset = .five
+        timer.offsetMinutes = 5
         #expect(timer.elapsed(at: start) == 300)
     }
 
@@ -44,8 +44,13 @@ struct WaitTimerTests {
     }
 
     @Test func textIncludesOffset() {
-        let timer = WaitTimer(startedAt: start, offset: .twenty)
+        let timer = WaitTimer(startedAt: start, offsetMinutes: 20)
         #expect(timer.text(at: start.addingTimeInterval(5)) == "20:05")
+    }
+
+    @Test func textWithTheLongestOffset() {
+        let timer = WaitTimer(startedAt: start, offsetMinutes: StartOffset.maxMinutes)
+        #expect(timer.text(at: start.addingTimeInterval(65)) == "1:31:05")
     }
 
     @Test func timeoutBoundary() {
@@ -55,7 +60,7 @@ struct WaitTimerTests {
     }
 
     @Test func timeoutIgnoresOffset() {
-        let timer = WaitTimer(startedAt: start, offset: .twenty)
+        let timer = WaitTimer(startedAt: start, offsetMinutes: 20)
         #expect(timer.isPastTimeout(at: start.addingTimeInterval(89 * 60 + 59)) == false)
         #expect(timer.isPastTimeout(at: start.addingTimeInterval(90 * 60)) == true)
     }

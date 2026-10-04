@@ -65,7 +65,7 @@ public struct ReportMeta: Codable, Sendable, Hashable {
 }
 
 /// I'm in line (FR-6). Re-send with the same `clientSessionId` to save
-/// "been here a while" (FR-7) or the first line-size answer.
+/// Adjust time (FR-7) or the first line-size answer.
 public struct StartSessionCall: Codable, Sendable, Hashable {
     public var clientSessionId: UUID
     public var clientReportId: UUID
@@ -78,7 +78,7 @@ public struct StartSessionCall: Codable, Sendable, Hashable {
     public var lineSizeState: AnswerState?
 
     public init(clientSessionId: UUID, clientReportId: UUID, barId: Int64, phoneTime: Date,
-                location: LocationFix, meta: ReportMeta, startOffset: StartOffset? = nil,
+                location: LocationFix, meta: ReportMeta, startOffsetMinutes: Int? = nil,
                 lineSize: Answer<LineSize>? = nil) {
         self.clientSessionId = clientSessionId
         self.clientReportId = clientReportId
@@ -86,7 +86,7 @@ public struct StartSessionCall: Codable, Sendable, Hashable {
         self.phoneTime = phoneTime
         self.location = location
         self.meta = meta
-        self.startOffsetMinutes = startOffset?.rawValue
+        self.startOffsetMinutes = startOffsetMinutes
         self.lineSize = lineSize?.code
         self.lineSizeState = lineSize?.state
     }
@@ -149,8 +149,36 @@ public struct CancelSessionCall: Codable, Sendable, Hashable {
     }
 }
 
-/// I'm inside (FR-11, FR-15), or the busyness answer after I'm in (pass
-/// `clientSessionId`). Re-send the same `clientReportId` to add answers.
+/// Report conditions (FR-11): line size and crowd, either one optional, sent
+/// once. It never touches a wait session.
+public struct ReportConditionsCall: Codable, Sendable, Hashable {
+    public var clientReportId: UUID
+    public var barId: Int64
+    public var phoneTime: Date
+    public var location: LocationFix
+    public var meta: ReportMeta
+    public var lineSize: Int?
+    public var lineSizeState: AnswerState
+    public var busyness: Int?
+    public var busynessState: AnswerState
+
+    public init(clientReportId: UUID, barId: Int64, phoneTime: Date, location: LocationFix,
+                meta: ReportMeta, lineSize: Answer<LineSize>, busyness: Answer<Busyness>) {
+        self.clientReportId = clientReportId
+        self.barId = barId
+        self.phoneTime = phoneTime
+        self.location = location
+        self.meta = meta
+        self.lineSize = lineSize.code
+        self.lineSizeState = lineSize.state
+        self.busyness = busyness.code
+        self.busynessState = busyness.state
+    }
+}
+
+/// I'm inside (FR-11, FR-15), or the busyness answer after I'm in. The app
+/// stopped sending these on 2026-10-04 (Report conditions replaced them); the
+/// type stays so a call queued by an older build still decodes and sends.
 public struct SubmitReportCall: Codable, Sendable, Hashable {
     public var clientReportId: UUID
     public var barId: Int64
@@ -254,6 +282,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
     case registerInstall(RegisterInstallCall)
     case logView(LogViewCall)
     case cancelSession(CancelSessionCall)
+    case reportConditions(ReportConditionsCall)
 
     /// The SQL function this call runs.
     public var function: String {
@@ -262,6 +291,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
         case .updateLineSize: "update_line_size"
         case .endSession: "end_session"
         case .submitReport: "submit_report"
+        case .reportConditions: "report_conditions"
         case .sendFeedback: "send_feedback"
         case .registerInstall: "register_install"
         case .logView: "log_view"
@@ -313,6 +343,16 @@ public enum PendingCall: Codable, Sendable, Hashable {
             p["p_recalled_wait"] = c.recalledWait.map { .int(Int64($0)) }
             p["p_recalled_wait_state"] = c.recalledWaitState.map { .string($0.rawValue) }
             return p
+        case .reportConditions(let c):
+            var p = c.location.parameters.merging(c.meta.reportParameters) { $1 }
+            p["p_client_report_id"] = .uuid(c.clientReportId)
+            p["p_bar_id"] = .int(c.barId)
+            p["p_phone_time"] = .date(c.phoneTime)
+            p["p_line_size"] = c.lineSize.map { .int(Int64($0)) }
+            p["p_line_size_state"] = .string(c.lineSizeState.rawValue)
+            p["p_busyness"] = c.busyness.map { .int(Int64($0)) }
+            p["p_busyness_state"] = .string(c.busynessState.rawValue)
+            return p
         case .sendFeedback(let c):
             var p: [String: JSONValue] = [
                 "p_anon_id": .uuid(c.anonId),
@@ -354,7 +394,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
         case .endSession(let c): c.clientSessionId
         case .cancelSession(let c): c.clientSessionId
         case .submitReport(let c): c.clientSessionId
-        case .sendFeedback, .registerInstall, .logView: nil
+        case .reportConditions, .sendFeedback, .registerInstall, .logView: nil
         }
     }
 
@@ -389,6 +429,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
         case .updateLineSize(var c): c.location = fix; return .updateLineSize(c)
         case .endSession(var c): c.location = fix; return .endSession(c)
         case .submitReport(var c): c.location = fix; return .submitReport(c)
+        case .reportConditions(var c): c.location = fix; return .reportConditions(c)
         case .sendFeedback, .registerInstall, .logView, .cancelSession: return self
         }
     }

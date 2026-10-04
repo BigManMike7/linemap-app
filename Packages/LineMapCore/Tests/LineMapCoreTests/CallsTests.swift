@@ -77,7 +77,7 @@ struct CallParametersTests {
                               accuracyMeters: 12, ageSeconds: 3)
         let call = PendingCall.startSession(StartSessionCall(
             clientSessionId: sessionA, clientReportId: reportA, barId: 7, phoneTime: phoneTime,
-            location: fix, meta: meta, startOffset: .ten, lineSize: .answered(.tenTo25)))
+            location: fix, meta: meta, startOffsetMinutes: 10, lineSize: .answered(.tenTo25)))
         let p = call.parameters
         #expect(p["p_start_offset_minutes"] == JSONValue.number(10))
         #expect(p["p_line_size"] == JSONValue.number(2))
@@ -158,6 +158,46 @@ struct CallParametersTests {
         #expect(p["p_busyness_state"] == JSONValue.string("answered"))
         #expect(p["p_recalled_wait"] == nil)
         #expect(p["p_recalled_wait_state"] == JSONValue.string("cant_tell"))
+    }
+
+    @Test func reportConditionsBothAnswered() {
+        let call = PendingCall.reportConditions(ReportConditionsCall(
+            clientReportId: reportA, barId: 3, phoneTime: phoneTime, location: .denied, meta: meta,
+            lineSize: .answered(.tenTo25), busyness: .answered(.packed)))
+        #expect(call.function == "report_conditions")
+        var expected = metaParameters.merging(deniedParameters) { $1 }
+        expected["p_client_report_id"] = id(reportA)
+        expected["p_bar_id"] = .number(3)
+        expected["p_phone_time"] = timeValue
+        expected["p_line_size"] = .number(2)
+        expected["p_line_size_state"] = .string("answered")
+        expected["p_busyness"] = .number(4)
+        expected["p_busyness_state"] = .string("answered")
+        #expect(call.parameters == expected)
+        #expect(call.clientSessionId == nil)
+    }
+
+    @Test func reportConditionsSkippedAnswerHasStateButNoCode() {
+        let call = PendingCall.reportConditions(ReportConditionsCall(
+            clientReportId: reportA, barId: 3, phoneTime: phoneTime, location: .denied, meta: meta,
+            lineSize: .skipped, busyness: .answered(.quiet)))
+        let p = call.parameters
+        #expect(p["p_line_size"] == nil)
+        #expect(p["p_line_size_state"] == JSONValue.string("skipped"))
+        #expect(p["p_busyness"] == JSONValue.number(1))
+        #expect(p["p_busyness_state"] == JSONValue.string("answered"))
+    }
+
+    @Test func reportConditionsTakesALocation() {
+        let fix = LocationFix(status: .precise, latitude: 40.5, longitude: -77.25,
+                              accuracyMeters: 12, ageSeconds: 3)
+        let call = PendingCall.reportConditions(ReportConditionsCall(
+            clientReportId: reportA, barId: 3, phoneTime: phoneTime, location: .noFix, meta: meta,
+            lineSize: .answered(.nobody), busyness: .skipped)).withLocation(fix)
+        #expect(call.parameters["p_location_status"] == JSONValue.string("precise"))
+        #expect(call.parameters["p_lat"] == JSONValue.number(40.5))
+        // Line size 0 ("no line") is a real answer, not a missing one.
+        #expect(call.parameters["p_line_size"] == JSONValue.number(0))
     }
 
     @Test func sendFeedback() {
@@ -269,6 +309,11 @@ struct CallEditingTests {
             clientReportId: reportA, barId: 7, phoneTime: phoneTime, location: .denied, meta: meta))
         #expect(noSession.replacingSession(sessionA, with: sessionB) == noSession)
 
+        let conditions = PendingCall.reportConditions(ReportConditionsCall(
+            clientReportId: reportA, barId: 7, phoneTime: phoneTime, location: .denied, meta: meta,
+            lineSize: .skipped, busyness: .answered(.busy)))
+        #expect(conditions.replacingSession(sessionA, with: sessionB) == conditions)
+
         let feedback = PendingCall.sendFeedback(SendFeedbackCall(
             anonId: anon, installId: install, barId: 4, phoneTime: phoneTime, estimateShown: nil))
         #expect(feedback.replacingSession(sessionA, with: sessionB) == feedback)
@@ -358,7 +403,7 @@ struct CallEncodingTests {
         let calls: [PendingCall] = [
             .startSession(StartSessionCall(
                 clientSessionId: sessionA, clientReportId: reportA, barId: 7, phoneTime: phoneTime,
-                location: fix, meta: meta, startOffset: .five, lineSize: .answered(.oneToTen))),
+                location: fix, meta: meta, startOffsetMinutes: 5, lineSize: .answered(.oneToTen))),
             .updateLineSize(UpdateLineSizeCall(
                 clientReportId: reportA, clientSessionId: sessionA, phoneTime: phoneTime,
                 location: .denied, meta: meta, lineSize: .cantTell)),
@@ -368,6 +413,9 @@ struct CallEncodingTests {
             .submitReport(SubmitReportCall(
                 clientReportId: reportA, barId: 3, phoneTime: phoneTime, location: fix, meta: meta,
                 clientSessionId: sessionB, busyness: .answered(.packed), recalledWait: .skipped)),
+            .reportConditions(ReportConditionsCall(
+                clientReportId: reportA, barId: 3, phoneTime: phoneTime, location: fix, meta: meta,
+                lineSize: .answered(.nobody), busyness: .skipped)),
             .registerInstall(RegisterInstallCall(
                 anonId: anon, installId: install, appVersion: "1.2.3", iosVersion: "26.0",
                 deviceModel: "iPhone17,1")),

@@ -11,24 +11,16 @@ nonisolated struct ActiveWait: Codable, Hashable {
     var startReportId: UUID
     var barId: Int64
     var startedAt: Date
-    var offset: StartOffset?
+    /// Adjust time in minutes (FR-7); nil when just started.
+    var offsetMinutes: Int?
 
-    var timer: WaitTimer { WaitTimer(startedAt: startedAt, offset: offset) }
-}
+    var timer: WaitTimer { WaitTimer(startedAt: startedAt, offsetMinutes: offsetMinutes ?? 0) }
 
-/// An I'm inside report whose answers are still being given. Each answer re-sends
-/// the same report ID, so it is saved as soon as it's given (FR-12).
-nonisolated struct InsideReport: Hashable {
-    let reportId: UUID
-    let barId: Int64
-    let phoneTime: Date
-    /// Set for the busyness answer after I'm in.
-    let sessionId: UUID?
-    /// False when the wait was timed (FR-11).
-    let asksRecalledWait: Bool
-    /// The busyness question after I'm in sends nothing until it's answered.
-    var isSent: Bool
-    var busyness: Answer<Busyness>?
+    // "offset" is the key builds before 2026-10-04 saved, so an open wait survives the update.
+    private nonisolated enum CodingKeys: String, CodingKey {
+        case clientSessionId, startReportId, barId, startedAt
+        case offsetMinutes = "offset"
+    }
 }
 
 /// A question shown in a sheet.
@@ -37,8 +29,8 @@ nonisolated enum Question: Hashable {
     case lineSize
     /// Adjust time, from the wait card (FR-7).
     case adjustTime
-    case busyness(InsideReport)
-    case recalledWait(InsideReport)
+    /// Report conditions, from the bar sheet (FR-11).
+    case conditions(barId: Int64)
 }
 
 nonisolated enum AppSheet: Hashable, Identifiable {
@@ -204,41 +196,38 @@ final class AppModel {
         sheet = nil
         guard let meta = reportMeta(), activeWait?.barId != bar.id else { return }
         let wait = ActiveWait(clientSessionId: UUID(), startReportId: UUID(), barId: bar.id,
-                              startedAt: Date(), offset: nil)
+                              startedAt: Date(), offsetMinutes: nil)
         setActiveWait(wait)
         enqueue(.startSession(startCall(for: wait, meta: meta)), locate: true)
     }
 
-    /// I'm inside (FR-11). With an open session at this bar it counts as I'm in (FR-15).
-    func reportInside(at bar: Bar) {
-        guard let meta = reportMeta() else { return }
-        let now = Date()
-        let timedSession = activeWait?.barId == bar.id ? activeWait : nil
-        let report = InsideReport(reportId: UUID(), barId: bar.id, phoneTime: now,
-                                  sessionId: timedSession?.clientSessionId,
-                                  asksRecalledWait: timedSession == nil, isSent: true)
-        if timedSession != nil {
-            setActiveWait(nil)
-        }
-        sheet = .question(.busyness(report))
-        enqueue(.submitReport(insideCall(report, meta: meta)), locate: true)
+    /// Report conditions on the bar sheet (FR-11): opens the form.
+    func askConditions(at bar: Bar) {
+        sheet = .question(.conditions(barId: bar.id))
     }
 
-    /// I'm in (FR-8), then the optional busyness question.
+    /// Sends Report conditions once, with whichever answers were given. Nothing
+    /// is sent if both were left out (FR-12). It never touches a wait session.
+    func sendConditions(at barId: Int64, lineSize: LineSize?, busyness: Busyness?) {
+        sheet = nil
+        guard lineSize != nil || busyness != nil, let meta = reportMeta() else { return }
+        enqueue(.reportConditions(ReportConditionsCall(
+            clientReportId: UUID(), barId: barId, phoneTime: Date(), location: .noFix, meta: meta,
+            lineSize: lineSize.map { Answer.answered($0) } ?? .skipped,
+            busyness: busyness.map { Answer.answered($0) } ?? .skipped)), locate: true)
+    }
+
+    /// I'm in (FR-8): ends the timer and asks nothing.
     func imIn() {
+        sheet = nil
         guard let wait = activeWait, let anonId else { return }
-        let now = Date()
         setActiveWait(nil)
         enqueue(.endSession(EndSessionCall(clientSessionId: wait.clientSessionId, anonId: anonId,
-                                           outcome: .entered, phoneTime: now, location: .noFix)),
+                                           outcome: .entered, phoneTime: Date(), location: .noFix)),
                 locate: true)
-        let report = InsideReport(reportId: UUID(), barId: wait.barId, phoneTime: now,
-                                  sessionId: wait.clientSessionId, asksRecalledWait: false,
-                                  isSent: false)
-        sheet = .question(.busyness(report))
     }
 
-    /// Gave up (FR-9).
+    /// Gave up (FR-9), from the ✕ on the wait card.
     func gaveUp() {
         guard let wait = activeWait, let anonId else { return }
         setActiveWait(nil)
@@ -277,35 +266,18 @@ final class AppModel {
         sheet = .question(.adjustTime)
     }
 
-    /// Moves the timer's start back by the offset; nil (just started) undoes it.
-    func adjustTime(_ offset: StartOffset?) {
+    /// Moves the timer's start back by this many minutes (0 to 90); nil or 0
+    /// (just started) undoes it.
+    func adjustTime(minutes: Int?) {
         sheet = nil
-        guard var wait = activeWait, wait.offset != offset, let meta = reportMeta() else { return }
-        wait.offset = offset
+        let clamped = min(max(minutes ?? 0, 0), StartOffset.maxMinutes)
+        let offset: Int? = clamped == 0 ? nil : clamped
+        guard var wait = activeWait, wait.offsetMinutes != offset, let meta = reportMeta() else { return }
+        wait.offsetMinutes = offset
         setActiveWait(wait)
         var call = startCall(for: wait, meta: meta)
-        call.startOffsetMinutes = offset?.rawValue ?? 0
+        call.startOffsetMinutes = clamped
         enqueue(.startSession(call))
-    }
-
-    func answerBusyness(_ answer: Answer<Busyness>, for report: InsideReport) {
-        var report = report
-        report.busyness = answer
-        if let meta = reportMeta() {
-            // After I'm in, this is the first send, so it also takes a location.
-            enqueue(.submitReport(insideCall(report, meta: meta)), locate: !report.isSent)
-            report.isSent = true
-        }
-        sheet = report.asksRecalledWait ? .question(.recalledWait(report)) : nil
-    }
-
-    func answerRecalledWait(_ answer: Answer<RecalledWait>, for report: InsideReport) {
-        sheet = nil
-        guard let meta = reportMeta() else { return }
-        var call = insideCall(report, meta: meta)
-        call.recalledWait = answer.code
-        call.recalledWaitState = answer.state
-        enqueue(.submitReport(call))
     }
 
     /// "This looks wrong" (FR-35).
@@ -452,6 +424,7 @@ final class AppModel {
             switch call {
             case .startSession(let c): reportId = c.clientReportId
             case .submitReport(let c): reportId = c.clientReportId
+            case .reportConditions(let c): reportId = c.clientReportId
             default: reportId = nil
             }
             if case .startSession(let c) = call, activeWait?.clientSessionId == c.clientSessionId {
@@ -496,11 +469,6 @@ final class AppModel {
                          barId: wait.barId, phoneTime: wait.startedAt, location: .noFix, meta: meta)
     }
 
-    private func insideCall(_ report: InsideReport, meta: ReportMeta) -> SubmitReportCall {
-        SubmitReportCall(clientReportId: report.reportId, barId: report.barId,
-                         phoneTime: report.phoneTime, location: .noFix, meta: meta,
-                         clientSessionId: report.sessionId, busyness: report.busyness)
-    }
 
     private func setActiveWait(_ wait: ActiveWait?) {
         activeWait = wait

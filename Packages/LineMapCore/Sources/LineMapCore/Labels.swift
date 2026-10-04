@@ -32,12 +32,14 @@ public enum Labels {
         }
     }
 
-    public static func option(_ value: StartOffset) -> String {
-        switch value {
-        case .five: "~5 min"
-        case .ten: "~10 min"
-        case .twenty: "~20 min"
-        }
+    /// "~5 min" for the quick choices, "37 min" for a time picked on the wheel (FR-7).
+    public static func startOffset(minutes: Int) -> String {
+        StartOffset.presets.contains(minutes) ? "~\(minutes) min" : "\(minutes) min"
+    }
+
+    /// Line size on one short button: "0", "1–10" … "50+" (FR-11).
+    public static func shortOption(_ value: LineSize) -> String {
+        value == .nobody ? "0" : option(value)
     }
 
     public static let cantTell = "I can't tell"

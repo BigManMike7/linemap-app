@@ -39,11 +39,15 @@ public enum RecalledWait: Int, Codable, Sendable, Hashable, CaseIterable {
     case sixtyPlus = 5
 }
 
-/// "Been here a while?" moves the session start back by this many minutes (FR-7).
-public enum StartOffset: Int, Codable, Sendable, Hashable, CaseIterable {
-    case five = 5
-    case ten = 10
-    case twenty = 20
+/// Adjust time moves the session start back by a whole number of minutes (FR-7).
+/// It's a plain number of minutes, not a code.
+public enum StartOffset {
+    /// The quick choices, shown as "~5 min" and "~10 min".
+    public static let presets = [5, 10]
+    /// The wheel under More… offers every minute after the presets, up to the max.
+    public static let custom = 11...maxMinutes
+    /// The server accepts 0 to 90 (FR-7).
+    public static let maxMinutes = 90
 }
 
 /// One answer to an optional question: a code, "I can't tell", or skipped (FR-12).

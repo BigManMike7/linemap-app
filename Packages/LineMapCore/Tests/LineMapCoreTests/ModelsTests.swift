@@ -232,7 +232,10 @@ struct AnswerCodeTests {
     }
 
     @Test func startOffset() {
-        #expect(StartOffset.allCases.map(\.rawValue) == [5, 10, 20])
+        // The server accepts 0 to 90 minutes (FR-7).
+        #expect(StartOffset.presets == [5, 10])
+        #expect(StartOffset.custom == 11...90)
+        #expect(StartOffset.maxMinutes == 90)
     }
 
     @Test func answerStates() {
