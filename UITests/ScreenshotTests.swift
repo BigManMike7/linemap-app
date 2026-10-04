@@ -15,7 +15,7 @@ final class ScreenshotTests: XCTestCase {
         app.launch()
 
         // Map with pins (FR-1, FR-2).
-        let pin = app.buttons["pin-1"]
+        let pin = app.descendants(matching: .any)["pin-1"].firstMatch
         XCTAssertTrue(pin.waitForExistence(timeout: 15))
         sleep(2) // let map tiles load
         saveScreenshot(named: "01-Map", app: app)
@@ -69,7 +69,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertFalse(app.otherElements["question-lineSize"].exists, "I'm in asks no question")
 
         // Report conditions at another bar: line size and crowd on one screen (FR-11).
-        let otherPin = app.buttons["pin-3"]
+        let otherPin = app.descendants(matching: .any)["pin-3"].firstMatch
         XCTAssertTrue(otherPin.waitForExistence(timeout: 5))
         otherPin.tap()
         let conditions = app.buttons["conditions-button"]
@@ -87,7 +87,7 @@ final class ScreenshotTests: XCTestCase {
         send.tap()
 
         // The ✕ stops a line: gave up, or started by mistake (FR-9, FR-39).
-        let thirdPin = app.buttons["pin-2"]
+        let thirdPin = app.descendants(matching: .any)["pin-2"].firstMatch
         XCTAssertTrue(thirdPin.waitForExistence(timeout: 5))
         thirdPin.tap()
         XCTAssertTrue(app.buttons["in-line-button"].waitForExistence(timeout: 5))

@@ -9,10 +9,13 @@ struct MapScreen: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var position: MapCameraPosition = .region(Downtown.region)
     @State private var hasFramedBars = false
+    /// The pin MapKit selected. Pins have no buttons of their own, so a pinch or
+    /// pan that starts on a pin or label still moves the map (2026-10-04).
+    @State private var selectedBarId: Int64?
 
     var body: some View {
         @Bindable var model = model
-        Map(position: $position) {
+        Map(position: $position, selection: $selectedBarId) {
             // The location dot only when permission was already granted (FR-1, FR-24).
             if model.location.isAuthorized {
                 UserAnnotation()
@@ -24,6 +27,7 @@ struct MapScreen: View {
                     }
                 }
                 .annotationTitles(.hidden)
+                .tag(bar.id)
             }
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
@@ -69,6 +73,13 @@ struct MapScreen: View {
         }
         .onChange(of: model.bars) {
             frameBars()
+        }
+        // A tap on a pin opens its sheet, then clears the selection so the
+        // same pin can be tapped again.
+        .onChange(of: selectedBarId) { _, id in
+            guard let id else { return }
+            model.sheet = .bar(id)
+            selectedBarId = nil
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
@@ -166,6 +177,7 @@ extension Bar {
 struct BarPin: View {
     let bar: Bar
     let estimate: BarEstimate?
+    /// For VoiceOver only. Taps go through the map's own selection.
     let action: () -> Void
 
     private var label: PinLabel { PinLabel(estimate: estimate) }
@@ -178,27 +190,27 @@ struct BarPin: View {
     }
 
     var body: some View {
-        Button(action: action) {
-            VStack(spacing: 2) {
-                Text(label.title(barName: bar.name))
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(label.isGrayed ? .secondary : .primary)
-                    .padding(.horizontal, 10)
-                    .padding(.vertical, 6)
-                    .background(.regularMaterial, in: .capsule)
-                    .overlay(Capsule().strokeBorder(.quaternary))
-                Image(systemName: "mappin.circle.fill")
-                    .font(.title)
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, isLive ? Color.accentColor : Color.gray)
-            }
-            .contentShape(.rect)
+        // No Button: a button would keep any finger that lands on it, so a
+        // pinch starting on a label couldn't zoom. MapKit selection handles taps.
+        VStack(spacing: 2) {
+            Text(label.title(barName: bar.name))
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(label.isGrayed ? .secondary : .primary)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.regularMaterial, in: .capsule)
+                .overlay(Capsule().strokeBorder(.quaternary))
+            Image(systemName: "mappin.circle.fill")
+                .font(.title)
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, isLive ? Color.accentColor : Color.gray)
         }
-        .buttonStyle(.plain)
+        .contentShape(.rect)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label.title(barName: bar.name))
         .accessibilityHint(label.isGrayed ? "Older reports. Shows the line and crowd." : "Shows the line and crowd.")
         .accessibilityAddTraits(.isButton)
+        .accessibilityAction { action() }
         .accessibilityIdentifier("pin-\(bar.id)")
     }
 }
