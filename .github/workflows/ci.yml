@@ -134,9 +134,11 @@ jobs:
             --path build/UITests.xcresult \
             --output-path build/screenshots
           # Rename exported files to their readable attachment names (e.g. 01-Home_...png).
+          # Characters the artifact upload rejects (a failed query's debug
+          # description has quotes and colons) become underscores.
           cd build/screenshots
           jq -r '.[].attachments[] | [.exportedFileName, .suggestedHumanReadableName] | @tsv' manifest.json |
-            while IFS=$'\t' read -r from to; do mv "$from" "$to"; done
+            while IFS=$'\t' read -r from to; do mv "$from" "$(printf '%s' "$to" | tr '":<>|*?' '_')"; done
           ls -la
 
       - name: Upload screenshots

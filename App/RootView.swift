@@ -22,6 +22,7 @@ struct RootView: View {
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(AppTab.settings)
         }
+        .preferredColorScheme(AppConfig.uiTestColorScheme)
         .sensoryFeedback(.success, trigger: model.thanks) { _, new in new != nil }
         .sheet(item: $model.sheet) { sheet in
             sheetContent(sheet)

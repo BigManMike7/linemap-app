@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Public settings. The Supabase URL and publishable key are public by design;
 /// row-level security and the function grants protect the data.
@@ -13,5 +14,11 @@ enum AppConfig {
     /// Set by the screenshot UI test: canned data, no network, no location prompts.
     static var isUITesting: Bool {
         ProcessInfo.processInfo.arguments.contains("-ui-testing")
+    }
+
+    /// Light mode for the UI test's second walkthrough; otherwise nil, which
+    /// follows the phone's setting.
+    static var uiTestColorScheme: ColorScheme? {
+        ProcessInfo.processInfo.arguments.contains("-ui-light") ? .light : nil
     }
 }

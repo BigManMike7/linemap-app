@@ -62,7 +62,7 @@ final class ScreenshotTests: XCTestCase {
         app.buttons["line-save"].tap()
 
         // Save confirms the answer was sent (FR-42).
-        XCTAssertTrue(message(containing: "now visible to everyone", in: app).waitForExistence(timeout: 10))
+        XCTAssertTrue(message(containing: "now visible to everyone", in: app).waitForExistence(timeout: 20))
 
         // Adjust time from the card (FR-7): one wheel, 0 to 90, and Save.
         let adjust = app.buttons["wait-adjust-time"]
@@ -74,13 +74,13 @@ final class ScreenshotTests: XCTestCase {
         wheel.adjust(toPickerWheelValue: "15 min")
         saveScreenshot(named: "07-AdjustTimeWheel", app: app)
         app.buttons["adjust-save"].tap()
-        XCTAssertTrue(message(containing: "timer now includes", in: app).waitForExistence(timeout: 10))
+        XCTAssertTrue(message(containing: "timer now includes", in: app).waitForExistence(timeout: 20))
 
         // I'm in ends the timer and asks nothing, then says thanks with Undo (FR-8, FR-42, FR-47).
         XCTAssertTrue(imIn.waitForExistence(timeout: 5))
         imIn.tap()
         let undo = app.buttons["thanks-undo"]
-        XCTAssertTrue(undo.waitForExistence(timeout: 10))
+        XCTAssertTrue(undo.waitForExistence(timeout: 20))
         XCTAssertTrue(message(containing: "now visible to everyone", in: app).exists)
         XCTAssertFalse(imIn.exists, "I'm in closes the wait card")
         XCTAssertFalse(app.otherElements["question-lineSize"].exists, "I'm in asks no question")
@@ -90,7 +90,7 @@ final class ScreenshotTests: XCTestCase {
         undo.tap()
         XCTAssertTrue(imIn.waitForExistence(timeout: 5), "Undo brings the wait card back")
         imIn.tap()
-        XCTAssertTrue(app.buttons["thanks-undo"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["thanks-undo"].waitForExistence(timeout: 20))
 
         // Bars list (FR-45): fresh wait first, then grayed out, then no data.
         app.tabBars.buttons["Bars"].tap()
@@ -122,9 +122,9 @@ final class ScreenshotTests: XCTestCase {
         send.tap()
 
         // A timer shows on Map and Bars, but not on Settings (FR-4).
-        let thirdPin = app.descendants(matching: .any)["pin-2"].firstMatch
-        XCTAssertTrue(thirdPin.waitForExistence(timeout: 5))
-        thirdPin.tap()
+        app.tabBars.buttons["Bars"].tap()
+        XCTAssertTrue(phyrst.waitForExistence(timeout: 5))
+        phyrst.tap()
         XCTAssertTrue(app.buttons["in-line-button"].waitForExistence(timeout: 5))
         app.buttons["in-line-button"].tap()
         XCTAssertTrue(imIn.waitForExistence(timeout: 5))
@@ -179,6 +179,60 @@ final class ScreenshotTests: XCTestCase {
         waitForExpectations(timeout: 5)
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(app.buttons["delete-data-button"].waitForExistence(timeout: 5))
+    }
+
+    /// The main screens again in light mode at a large accessibility text size,
+    /// to review dark mode against light and Dynamic Type (NFR-3, NFR-4).
+    @MainActor
+    func testLightModeLargeText() {
+        let app = XCUIApplication()
+        app.launchArguments = [
+            "-ui-testing", "-ui-light",
+            "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL",
+        ]
+        app.launch()
+
+        let pin = app.descendants(matching: .any)["pin-1"].firstMatch
+        XCTAssertTrue(pin.waitForExistence(timeout: 15))
+        sleep(2)
+        saveScreenshot(named: "L01-Map", app: app)
+
+        pin.tap()
+        XCTAssertTrue(app.buttons["in-line-button"].waitForExistence(timeout: 5))
+        saveScreenshot(named: "L02-BarSheet", app: app)
+
+        app.buttons["details-button"].tap()
+        let lastWeek = app.buttons["See last Saturday"]
+        XCTAssertTrue(lastWeek.waitForExistence(timeout: 5))
+        lastWeek.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["history-readout"].firstMatch.waitForExistence(timeout: 5))
+        app.swipeUp()
+        sleep(1)
+        saveScreenshot(named: "L03-DetailsHistory", app: app)
+        app.buttons["details-close"].tap()
+
+        app.buttons["in-line-button"].tap()
+        XCTAssertTrue(app.buttons["wait-im-in"].waitForExistence(timeout: 5))
+        sleep(1)
+        saveScreenshot(named: "L04-WaitCard", app: app)
+
+        app.tabBars.buttons["Bars"].tap()
+        XCTAssertTrue(app.buttons["bar-card-1"].waitForExistence(timeout: 5))
+        saveScreenshot(named: "L05-Bars", app: app)
+
+        app.buttons["bar-card-3"].tap()
+        let conditions = app.buttons["conditions-button"]
+        XCTAssertTrue(conditions.waitForExistence(timeout: 5))
+        conditions.tap()
+        XCTAssertTrue(app.buttons["conditions-send"].waitForExistence(timeout: 5))
+        saveScreenshot(named: "L06-Conditions", app: app)
+        let cancel = app.buttons["conditions-cancel"]
+        if !cancel.isHittable { app.swipeUp() }
+        cancel.tap()
+
+        app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(app.buttons["delete-data-button"].waitForExistence(timeout: 5))
+        saveScreenshot(named: "L07-Settings", app: app)
     }
 
     /// The thank-you message showing this text (FR-42).

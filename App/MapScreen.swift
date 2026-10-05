@@ -86,7 +86,7 @@ enum Downtown {
 
     /// A close-up of one bar, shifted so the pin sits above a bar sheet.
     static func region(focusing bar: Bar) -> MKCoordinateRegion {
-        let span = 0.004
+        let span = 0.007
         return MKCoordinateRegion(
             center: CLLocationCoordinate2D(latitude: bar.doorLat - span * 0.3, longitude: bar.doorLon),
             span: MKCoordinateSpan(latitudeDelta: span, longitudeDelta: span))
