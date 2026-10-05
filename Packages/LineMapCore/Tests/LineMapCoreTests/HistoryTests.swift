@@ -96,10 +96,19 @@ struct BarHistoryTests {
         #expect(history.rows == [
             .point(Self.reported(-28)),
             .point(Self.reported(-27)),
-            .noReports(from: Self.quarter(-26), to: Self.quarter(-1)),  // 2:30–8:45
-            .point(HistoryPoint(at: Self.quarter(0), people: 0)),       // 9:00 alone stays a row
+            .noReports(from: Self.quarter(-26), to: Self.quarter(0)),   // 2:30–9:00
             .point(Self.reported(1)),
             .noReports(from: Self.quarter(2), to: Self.quarter(19)),
+        ])
+    }
+
+    @Test func aLoneEmptyQuarterHourStaysARow() {
+        // Reports at 9:00 and 9:30 p.m., nothing at 9:15.
+        let history = day { [0, 2].contains($0) ? Self.reported($0) : nil }
+        #expect(Array(history.rows.prefix(3)) == [
+            .point(Self.reported(0)),
+            .point(HistoryPoint(at: Self.quarter(1), people: 0)),
+            .point(Self.reported(2)),
         ])
     }
 
