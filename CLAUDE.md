@@ -106,7 +106,7 @@ These are summaries. The PRD has the details.
 
 **Reporting**
 
-- **Rate limit.** Two separate 10-minute limits per person per bar, enforced on the server: timed lines (Start line timer) and manual reports (Report conditions). Neither blocks the other. Not limited: line-size updates in an open session (each its own row), I'm in, Gave up, and the busyness answer after I'm in, which only older builds send (FR-13).
+- **Rate limit.** Two separate 10-minute limits per person per bar, enforced on the server: timed lines (Start line timer) and manual reports (Report conditions). Neither blocks the other. Not limited: line-size updates in an open session (each its own row), I'm in, Gave up, and the busyness answer after I'm in, which only older builds send (FR-13). Redo (FR-46) lets a person replace their own last attempt within `redo_minutes` (5); a replaced timer is deleted only when the new one finishes. Undo (FR-47) reopens a timer stopped by I'm in or Gave up.
 - **Sessions.** Only one open wait session at a time (FR-14). Report conditions never touches a session; the server's I'm inside rule (FR-15) remains only for older builds. Sessions become unfinished after 90 minutes (FR-10). Adjust time moves the start back 0–90 minutes (FR-7).
 - **Answers.** Every answer can be skipped (FR-12). Line size and Adjust time send when Save is tapped (swiping away skips); Report conditions sends once. The app no longer offers "I can't tell", "Can't see the end", or the recalled-wait question, but their stored codes stay reserved and never change meaning.
 - **Offline queue.** Every report and session event has a client-generated ID, so retries never duplicate. The queue survives restarts (FR-16).
@@ -149,7 +149,7 @@ The data model before launch, the database tests, location on a real phone, that
 - [x] **M1. Setup:** repo, XcodeGen project, LineMapCore package, CI pipeline. Done when an empty app builds in CI and installs on Max's iPhone through TestFlight.
 - [x] **M2. Backend:** tables, RLS, functions, cron jobs, seed bars, pgTAP tests.
 - [x] **M3. App:** map, bar sheet, report flow, wait card, location, IDs, offline queue, feedback, Settings, Directions (FR-40), Made a wrong report? (FR-41), thank-you (FR-42).
-- [ ] **M4. Polish:** bar history by night (FR-43), dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
+- [ ] **M4. Polish:** tab bar (FR-44), Bars list (FR-45), History & details (FR-43), Redo and Undo (FR-46, FR-47), dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
 - [ ] **M5. Field test:** downtown testing, then Beta App Review.
 - [ ] **M6. Launch:** public TestFlight link.
 
@@ -168,7 +168,16 @@ Next session:
    update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';
    ```
    After that, a Delete my data on his phone means adding the new ID again. Don't commit his ID to this public repo: anyone with it can call the functions as him.
-2. **M4** starts with bar history (FR-43). Stop for Max before starting it.
+2. **M4 is planned but not started.** Max hasn't said to build yet. The plan is in PRD.md (decided 2026-10-05, below). Suggested order: tab bar and Bars list, then Redo and Undo, then History & details, then the rest of M4.
+
+**Decisions made 2026-10-05** (already in PRD.md):
+
+- **Tab bar** (FR-44): Map, Bars, Settings, icons with short labels. Opens on Map after a full close; going to the home screen and back resumes where the person left. The Settings gear and sheet go away (FR-5).
+- **Bars list** (FR-45): simple cards, fresh before stale, shortest wait first, then line size only, then no data in `display_order`. Tapping a card switches to Map and opens that bar's sheet. No report buttons on cards.
+- **Wait card** shows on Map and Bars above the tab bar, hidden on Settings (FR-4).
+- **History & details** (FR-43): a full-screen page from a button on the bar sheet, with tonight's estimate in full, a night picker (every night with data, back one year), and three stacked charts with one drag cursor. Combined estimates only, never individual reports (Max confirmed).
+- **Redo** (FR-46) and **Undo** (FR-47): see the Reporting rules above. Undo is a button on the I'm in and Gave up messages for about 5 seconds; Gave up now shows "Timer stopped." (FR-42).
+- **Data model check for Max:** no table, field, or answer-code change. New: the config setting `redo_minutes` (5), and two functions the app calls, `bar_history` and `reopen_session`, which bring the app to 15 functions. `start_session`, `end_session`, and `report_conditions` change their rate-limit rules. Point these out again when building.
 
 **Decisions made 2026-10-04** (already in PRD.md):
 
