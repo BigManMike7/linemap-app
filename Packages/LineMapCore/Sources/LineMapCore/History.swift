@@ -1,7 +1,8 @@
 import Foundation
 
-// History & details (FR-43): a bar's combined estimates through one night,
-// every 5 minutes, computed on the server from the reports as of each moment.
+// History (FR-43): a bar's combined estimates through one night day (4 a.m.
+// to 4 a.m. Eastern), every 15 minutes, computed on the server from the
+// reports as of each moment.
 // Field names follow `bar_history` in `supabase/README.md`; decode with
 // `JSONDecoder.lineMap`.
 
@@ -13,12 +14,13 @@ public struct BarHistory: Codable, Sendable, Hashable {
     public let night: NightDate
     /// Tonight on the server, which runs until 4 a.m. Eastern (FR-22).
     public let tonight: NightDate
-    /// The chart's range: the night's usual window, 9 p.m. to 2 a.m. Eastern.
+    /// The night's usual window, 9 p.m. to 2 a.m. Eastern: rows always cover it.
     public let start: Date
     public let end: Date
     /// Earlier nights with reports at this bar, newest first.
     public let nights: [NightDate]
-    /// Every 5 minutes from `start`, never later than now.
+    /// Every 15 minutes through the night day, never later than now. (Before
+    /// 2026-10-05 the server sent every 5 minutes from `start` to `end`.)
     public let points: [HistoryPoint]
 
     public init(logicVersion: Int, barId: Int64, night: NightDate, tonight: NightDate,
@@ -38,25 +40,74 @@ public struct BarHistory: Codable, Sendable, Hashable {
         points.contains(where: \.hasData)
     }
 
-    /// One point per half hour, 9:00 p.m. to 1:30 a.m. (FR-43). Tonight has
-    /// only the half hours so far.
-    public var halfHourRows: [HistoryPoint] {
-        points.filter { point in
-            let seconds = Int(point.at.timeIntervalSince(start).rounded())
-            return seconds % 1800 == 0 && point.at < end
+    /// The night's list (FR-43): one row per quarter hour from 9:00 p.m. to
+    /// 1:45 a.m., stretched earlier or later to cover every quarter hour with
+    /// reports, so an early game-day crowd shows. Two or more quarter hours in
+    /// a row with nothing become one "No reports" stretch. Tonight has only the
+    /// quarter hours so far.
+    public var rows: [HistoryRow] {
+        let quarters = quarterHours
+        let lastUsual = end.addingTimeInterval(-Self.quarterHour)
+        let from = min(start, quarters.first(where: \.hasData)?.at ?? start)
+        let to = max(lastUsual, quarters.last(where: \.hasData)?.at ?? lastUsual)
+
+        var rows: [HistoryRow] = []
+        var empty: [HistoryPoint] = []
+        func closeStretch() {
+            if empty.count == 1 {
+                rows.append(.point(empty[0]))
+            } else if let first = empty.first, let last = empty.last {
+                rows.append(.noReports(from: first.at, to: last.at))
+            }
+            empty.removeAll()
         }
+        for point in quarters where point.at >= from && point.at <= to {
+            if point.hasData {
+                closeStretch()
+                rows.append(.point(point))
+            } else {
+                empty.append(point)
+            }
+        }
+        closeStretch()
+        return rows
     }
 
-    /// The half hour with the biggest line, then the longest wait, then the
+    /// The quarter hour with the biggest line, then the longest wait, then the
     /// biggest crowd; the earliest wins a tie. Nil when no row has data.
     public var busiestRow: HistoryPoint? {
         var best: HistoryPoint?
-        for row in halfHourRows where row.hasData {
+        for row in quarterHours where row.hasData {
             if best.map({ $0.busyness3.lexicographicallyPrecedes(row.busyness3) }) ?? true {
                 best = row
             }
         }
         return best
+    }
+
+    private static let quarterHour: TimeInterval = 15 * 60
+
+    /// The points on the quarter hour. The server sends only these, but older
+    /// servers sent every 5 minutes.
+    private var quarterHours: [HistoryPoint] {
+        points.filter { point in
+            Int(point.at.timeIntervalSince(start).rounded()) % Int(Self.quarterHour) == 0
+        }
+    }
+}
+
+/// One line in a night's list (FR-43).
+public enum HistoryRow: Sendable, Hashable, Identifiable {
+    /// A quarter hour: its estimate, or "No reports" when it stands alone.
+    case point(HistoryPoint)
+    /// Quarter hours in a row with nothing, from the first to the last.
+    case noReports(from: Date, to: Date)
+
+    public var id: Date {
+        switch self {
+        case .point(let point): point.at
+        case .noReports(let from, _): from
+        }
     }
 }
 

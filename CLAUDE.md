@@ -150,7 +150,7 @@ The data model before launch, the database tests, location on a real phone, that
 - [x] **M1. Setup:** repo, XcodeGen project, LineMapCore package, CI pipeline. Done when an empty app builds in CI and installs on Max's iPhone through TestFlight.
 - [x] **M2. Backend:** tables, RLS, functions, cron jobs, seed bars, pgTAP tests.
 - [x] **M3. App:** map, bar sheet, report flow, wait card, location, IDs, offline queue, feedback, Settings, Directions (FR-40), Made a wrong report? (FR-41), thank-you (FR-42).
-- [ ] **M4. Polish:** tab bar (FR-44), Bars list (FR-45), History & details (FR-43), Redo and Undo (FR-46, FR-47), dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
+- [ ] **M4. Polish:** tab bar (FR-44), Bars list (FR-45), History (FR-43), Redo and Undo (FR-46, FR-47), dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
 - [ ] **M5. Field test:** downtown testing, then Beta App Review.
 - [ ] **M6. Launch:** public TestFlight link.
 
@@ -192,7 +192,7 @@ Still to do in M4:
 **Decisions made 2026-10-05** (already in PRD.md):
 
 - **Line-level colors** (FR-2, FR-3, FR-43, FR-45): pins, Bars cards, the bar sheet, and History rows are green, orange, or red by the wait or line size the pin shows (under 10 min or 0–10 in line; 10–25; 25+). The crowd never counts. Older reports show outlined or faded. Cutoffs live in `LineMapCore/LineLevel.swift`, not `config`. Each level also has its own symbol. The accent color changed from amber to indigo so it doesn't clash with orange.
-- **History & details** shows Right now and History as two separate cards.
+- **History** (FR-43), revised again: Right now is gone (the bar sheet and Bars card show it), so the button and page are just History. It covers the night's whole day, 4 a.m. to 4 a.m., with a server point every 15 minutes, for early football crowds. Rows are quarter hours from 9:00 p.m. to 1:45 a.m., stretched to cover any quarter hour with reports; two or more empty quarter hours in a row collapse into one "No reports, 3:15 PM – 8:45 PM" row. `bar_history` keeps its fields; only its points change (no table, field, or answer-code change).
 
 - **Tab bar** (FR-44): Map, Bars, Settings, icons with short labels. Opens on Map after a full close; going to the home screen and back resumes where the person left. The Settings gear and sheet go away (FR-5).
 - **Bars list** (FR-45): simple cards, fresh before stale, shortest wait first, then line size only, then no data in `display_order`. Tapping a card switches to Map and opens that bar's sheet. No report buttons on cards.

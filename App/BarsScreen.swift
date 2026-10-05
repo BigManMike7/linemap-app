@@ -3,7 +3,7 @@ import SwiftUI
 
 /// The Bars tab (FR-45): one simple card per bar, fresh before grayed out,
 /// shortest wait first. Tapping a card shows the bar on the map with its sheet;
-/// each card's History & details button opens the bar's full page (FR-43).
+/// each card's History button opens the bar's past nights (FR-43).
 struct BarsScreen: View {
     @Environment(AppModel.self) private var model
     @State private var detailsBar: Bar?
@@ -63,7 +63,7 @@ struct BarsScreen: View {
 /// One bar in the list: name, line, wait, crowd, and freshness, grayed out
 /// when older (FR-45). A colored pill and a strip down the left edge show how
 /// hard it is to get in. The top of the card is one button that shows the bar
-/// on the map; History & details sits under it as its own button (FR-43).
+/// on the map; History sits under it as its own button (FR-43).
 struct BarCard: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let bar: Bar
@@ -87,12 +87,12 @@ struct BarCard: View {
             .accessibilityIdentifier("bar-card-\(bar.id)")
 
             Button(action: showDetails) {
-                Label("History & details", systemImage: "calendar")
+                Label("History", systemImage: "calendar")
                     .font(.subheadline.weight(.medium))
                     .frame(maxWidth: .infinity, minHeight: 30)
             }
             .buttonStyle(.bordered)
-            .accessibilityLabel("History & details for \(bar.name)")
+            .accessibilityLabel("History for \(bar.name)")
             .accessibilityIdentifier("details-button-\(bar.id)")
         }
         .cardStyle(stripe: status?.color)

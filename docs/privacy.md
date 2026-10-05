@@ -44,7 +44,7 @@ No name, email, phone number, age, contacts, photos, or exact stored location. N
 
 ## What other people see
 
-Other people see only **combined estimates** for each bar: the current line size, wait, and how busy it is, how many people reported, and how recently. A bar's **History & details** shows the same combined estimates, half hour by half hour, for tonight and past nights. Nobody else ever sees your anonymous ID, your individual reports, or who reported what.
+Other people see only **combined estimates** for each bar: the current line size, wait, and how busy it is, how many people reported, and how recently. A bar's **History** shows the same combined estimates, quarter hour by quarter hour, for tonight and past nights. Nobody else ever sees your anonymous ID, your individual reports, or who reported what.
 
 ## How your data is used
 

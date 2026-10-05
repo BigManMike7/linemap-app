@@ -1,15 +1,15 @@
 import LineMapCore
 import SwiftUI
 
-/// History & details (FR-43), opened from a Bars-list card: a bar's estimate
-/// right now in full, then a calendar of nights, each in its own card. The
-/// chosen night shows as one row per half hour, 9:00 p.m. to 1:30 a.m., with a
+/// History (FR-43), opened from a Bars-list card: a calendar of nights in a
+/// card. The chosen night shows as one row per quarter hour, 9:00 p.m. to
+/// 1:45 a.m. and any earlier or later quarter hour with reports, each with a
 /// dot colored by its line level. Only combined estimates, never individual
-/// reports.
+/// reports. (Right now was removed on 2026-10-05: the bar sheet and Bars card
+/// already show it.)
 struct BarDetailsScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.dynamicTypeSize) private var typeSize
     let bar: Bar
 
     /// The calendar's selection: noon Eastern on the chosen night's date.
@@ -38,13 +38,9 @@ struct BarDetailsScreen: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    nowSection
-                        .cardStyle()
-                    historySection
-                        .cardStyle()
-                }
-                .padding(16)
+                historySection
+                    .cardStyle()
+                    .padding(16)
             }
             .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle(bar.name)
@@ -61,46 +57,6 @@ struct BarDetailsScreen: View {
         // The calendar and Text formatting both read the environment's zone.
         .environment(\.timeZone, Eastern.zone)
         .accessibilityIdentifier("bar-details")
-    }
-
-    // MARK: - Right now
-
-    private var nowSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // The pill goes under the heading at the largest text sizes.
-            let header = typeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
-                : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
-            header {
-                Text("Right now")
-                    .font(.title3.bold())
-                    .accessibilityAddTraits(.isHeader)
-                if !typeSize.isAccessibilitySize {
-                    Spacer(minLength: 8)
-                }
-                if let status = LineStatus(estimate: model.estimate(for: bar.id)) {
-                    LineLevelBadge(status: status)
-                }
-            }
-            TimelineView(.periodic(from: .now, by: 30)) { context in
-                let summary = BarSummary(estimate: model.estimate(for: bar.id), now: context.date)
-                VStack(alignment: .leading, spacing: 12) {
-                    if let status = summary.status {
-                        Text(status)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        InfoRow(title: "Line", systemImage: "person.3.sequence", line: summary.lineSize)
-                        InfoRow(title: "Wait", systemImage: "clock", line: summary.wait)
-                        InfoRow(title: "Crowd", systemImage: "person.2.wave.2", line: summary.busyness)
-                    }
-                    if let freshness = summary.freshness {
-                        Text(freshness)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
     }
 
     // MARK: - History
@@ -151,7 +107,7 @@ struct BarDetailsScreen: View {
     }
 }
 
-/// One night as a "Busiest around" line and a row per half hour (FR-43).
+/// One night as a "Busiest around" line and a row per quarter hour (FR-43).
 private struct NightRows: View {
     let history: BarHistory
 
@@ -163,10 +119,16 @@ private struct NightRows: View {
                         .font(.subheadline.weight(.semibold))
                         .accessibilityIdentifier("history-busiest")
                 }
+                let rows = history.rows
                 VStack(spacing: 0) {
-                    ForEach(history.halfHourRows) { row in
-                        HalfHourRow(point: row)
-                        if row.id != history.halfHourRows.last?.id {
+                    ForEach(rows) { row in
+                        switch row {
+                        case .point(let point):
+                            QuarterHourRow(point: point)
+                        case .noReports(let from, let to):
+                            NoReportsRow(from: from, to: to)
+                        }
+                        if row.id != rows.last?.id {
                             Divider()
                         }
                     }
@@ -186,7 +148,7 @@ private struct NightRows: View {
 /// "● 10:30 PM   25–50 in line · 30–60 min wait · Busy", with the number of
 /// people under it. The dot is the line level's color. Stacks at the largest
 /// text sizes.
-private struct HalfHourRow: View {
+private struct QuarterHourRow: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let point: HistoryPoint
 
@@ -225,6 +187,25 @@ private struct HalfHourRow: View {
         .accessibilityElement(children: .combine)
         .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("history-row")
+    }
+}
+
+/// "○ No reports, 3:15 PM – 8:45 PM": quarter hours in a row with nothing.
+private struct NoReportsRow: View {
+    let from: Date
+    let to: Date
+
+    var body: some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            LineLevelDot(status: nil)
+            Text("No reports, \(from.formatted(Eastern.time)) – \(to.formatted(Eastern.time))")
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .font(.subheadline)
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("history-gap")
     }
 }
 

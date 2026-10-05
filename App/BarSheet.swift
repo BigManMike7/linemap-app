@@ -3,7 +3,7 @@ import SwiftUI
 
 /// A bar's line level, line, wait, crowd, and freshness, with Start line timer
 /// and Report conditions (FR-3). While in line here, Report conditions becomes I'm in.
-/// History & details opens from the Bars list instead (FR-43, FR-45).
+/// History opens from the Bars list instead (FR-43, FR-45).
 struct BarSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dynamicTypeSize) private var typeSize

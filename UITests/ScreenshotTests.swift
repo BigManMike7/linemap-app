@@ -30,7 +30,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.buttons["directions-button"].exists, "the bar sheet has Directions (FR-40)")
         saveScreenshot(named: "02-BarSheet", app: app)
 
-        XCTAssertFalse(app.buttons["details-button-1"].exists, "History & details is on the Bars tab only (FR-43)")
+        XCTAssertFalse(app.buttons["details-button-1"].exists, "History is on the Bars tab only (FR-43)")
 
         // Does this look wrong? asks before sending (FR-35).
         app.buttons["looks-wrong-button"].tap()
@@ -102,16 +102,20 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(phyrst.frame.minY < cafe.frame.minY, "bars without data come last")
         saveScreenshot(named: "08-Bars", app: app)
 
-        // History & details from a card (FR-43): right now, a calendar, and
-        // tonight's half hours.
+        // History from a card (FR-43): a calendar, then tonight's quarter
+        // hours, starting with the afternoon's reports. No Right now.
         app.buttons["details-button-1"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["history-row"].firstMatch.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Right now"].exists)
+        XCTAssertFalse(app.staticTexts["Right now"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["history-busiest"].firstMatch.exists)
-        saveScreenshot(named: "09-Details", app: app)
+        XCTAssertTrue(app.descendants(matching: .any)["history-gap"].firstMatch.exists)
+        saveScreenshot(named: "09-History", app: app)
         app.swipeUp()
         sleep(1)
-        saveScreenshot(named: "10-DetailsHalfHours", app: app)
+        saveScreenshot(named: "10-HistoryRows", app: app)
+        app.swipeUp()
+        sleep(1)
+        saveScreenshot(named: "10b-HistoryRowsLater", app: app)
         app.buttons["details-close"].tap()
 
         // A card shows the bar on the map with its sheet.
@@ -217,14 +221,14 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.buttons["bar-card-1"].waitForExistence(timeout: 10))
         saveScreenshot(named: "L02-Bars", app: app)
 
-        // History & details before any timer, so the timer card covers nothing.
+        // History before any timer, so the timer card covers nothing.
         app.buttons["details-button-1"].tap()
         XCTAssertTrue(app.descendants(matching: .any)["history-row"].firstMatch.waitForExistence(timeout: 10))
-        saveScreenshot(named: "L03-Details", app: app)
+        saveScreenshot(named: "L03-History", app: app)
         app.swipeUp()
         app.swipeUp()
         sleep(1)
-        saveScreenshot(named: "L04-DetailsHalfHours", app: app)
+        saveScreenshot(named: "L04-HistoryRows", app: app)
         app.buttons["details-close"].tap()
 
         let cafe = app.buttons["bar-card-3"]

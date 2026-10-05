@@ -24,7 +24,7 @@ LineMap needs an iPhone with iOS 17 or later. TestFlight updates the app for you
 - **Bars** lists every bar, shortest wait first. Tap one to see it on the map.
 - **Start line timer** when you join a line, and tap **I'm in** when you get in. Your wait is timed, not guessed. While you wait, you can add the **Line size** or **Adjust time** if you were already in line before you started the timer.
 - **Report conditions** shares how many people are in line and how busy it is inside. Answer one or both.
-- **History & details** on each bar in the **Bars** tab shows the bar right now, then a calendar. Pick a date to see that night half hour by half hour, from 9 p.m. to 1:30 a.m.
+- **History** on each bar in the **Bars** tab shows a calendar. Pick a date to see that night quarter hour by quarter hour, from 9 p.m. to 1:45 a.m., plus any earlier or later times with reports (such as a football Saturday afternoon).
 
 ## Common questions
 

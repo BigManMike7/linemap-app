@@ -62,29 +62,31 @@ nonisolated struct FixtureTransport: RPCTransport {
             """
     }
 
-    /// Every night is a full busy night: the line and wait build to a peak near
-    /// midnight, then ease off; the crowd drops out for a stretch; the first
-    /// half hour has no reports.
+    /// Every night is a football Saturday: a few reports in the afternoon,
+    /// nothing until after 9 p.m., then a line and wait that build to a peak
+    /// near midnight and ease off; the crowd drops out for a stretch. Points
+    /// every 15 minutes from 4 a.m., like the server.
     private static func history(night: String?) -> String {
         let eastern = TimeZone(identifier: "America/New_York") ?? .current
         let tonight = NightDate(nightOf: Date(), timeZone: eastern)
         let shown = night.flatMap { NightDate($0) } ?? tonight
-        // 9 p.m. to 2 a.m. Eastern daylight time is 01:00 to 06:00 UTC the next day.
-        let next = shown.adding(days: 1)
-        let start = ServerDate.parse("\(next)T01:00:00Z") ?? Date()
+        // 4 a.m. Eastern daylight time is 08:00 UTC; 9 p.m. is 17 hours later.
+        let dayStart = ServerDate.parse("\(shown)T08:00:00Z") ?? Date()
+        let start = dayStart.addingTimeInterval(17 * 3600)
         var points: [String] = []
-        for index in 0...60 {
-            let at = ServerDate.format(start.addingTimeInterval(Double(index) * 300))
-            guard index >= 6 else {
+        for index in 0..<96 {
+            let at = ServerDate.format(dayStart.addingTimeInterval(Double(index) * 900))
+            let afternoon = (40...43).contains(index)    // 2:00 to 2:45 p.m.
+            guard afternoon || (69...89).contains(index) else {
                 points.append(#"{"at": "\#(at)", "people": 0, "line_size": null, "wait": null, "busyness": null}"#)
                 continue
             }
-            let peak = 1 - abs(Double(index - 36)) / 30
+            let peak = afternoon ? 0.1 : 1 - abs(Double(index - 80)) / 12
             let line = min(4, max(0, Int((peak * 4).rounded())))
             let minutes = max(2, Int(peak * 40))
             let wait = minutes < 5 ? 1 : minutes < 15 ? 2 : minutes < 30 ? 3 : 4
-            let stale = index % 12 >= 9 ? "stale" : "fresh"
-            let crowd = (40...46).contains(index) ? "null"
+            let stale = index % 4 == 3 ? "stale" : "fresh"
+            let crowd = (82...83).contains(index) ? "null"
                 : #"{"code": \#(min(4, line + 1)), "freshness": "\#(stale)"}"#
             points.append(#"""
                 {"at": "\#(at)", "people": \#(1 + line), \#

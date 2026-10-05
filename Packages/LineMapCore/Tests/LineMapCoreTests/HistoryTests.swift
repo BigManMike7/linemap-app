@@ -56,41 +56,92 @@ struct BarHistoryTests {
         #expect(empty.busiestRow == nil)
     }
 
-    /// A full night: 61 points every 5 minutes from 9 p.m. through 2 a.m.
-    private func fullNight(_ signal: (Int) -> HistoryPoint?) -> BarHistory {
-        let start = Date(timeIntervalSince1970: 1_800_000_000)
-        let points = (0...60).map { index in
-            signal(index) ?? HistoryPoint(at: start.addingTimeInterval(Double(index) * 300), people: 0)
-        }
-        return BarHistory(logicVersion: 1, barId: 1, night: NightDate(year: 2026, month: 10, day: 2),
-                          tonight: NightDate(year: 2026, month: 10, day: 5), start: start,
-                          end: start.addingTimeInterval(5 * 3600), nights: [], points: points)
+    /// 9 p.m. on the test night; the night day starts 17 hours earlier, at 4 a.m.
+    private static let nine = Date(timeIntervalSince1970: 1_800_000_000)
+
+    /// A quarter hour's time: 0 is 9:00 p.m., -28 is 2:00 p.m., 19 is 1:45 a.m.
+    private static func quarter(_ index: Int) -> Date {
+        nine.addingTimeInterval(Double(index) * 900)
     }
 
-    @Test func halfHourRowsRunFrom9To130() {
-        let history = fullNight { _ in nil }
-        let rows = history.halfHourRows
-        #expect(rows.count == 10)
-        #expect(rows.first?.at == history.start)
-        #expect(rows.last?.at == history.start.addingTimeInterval(4.5 * 3600))
+    /// A full night day as the server sends it: 96 points every 15 minutes
+    /// from 4 a.m. (index -68) to 3:45 a.m. (index 27), or fewer for tonight.
+    private func day(through last: Int = 27, _ signal: (Int) -> HistoryPoint? = { _ in nil }) -> BarHistory {
+        let points = (-68...last).map { index in
+            signal(index) ?? HistoryPoint(at: Self.quarter(index), people: 0)
+        }
+        return BarHistory(logicVersion: 1, barId: 1, night: NightDate(year: 2026, month: 10, day: 2),
+                          tonight: NightDate(year: 2026, month: 10, day: 5), start: Self.nine,
+                          end: Self.nine.addingTimeInterval(5 * 3600), nights: [], points: points)
+    }
+
+    private static func reported(_ index: Int, line: Int = 1, wait: Int? = nil) -> HistoryPoint {
+        HistoryPoint(at: quarter(index), people: 2, lineSize: HistorySignal(code: line),
+                     wait: wait.map { HistorySignal(code: $0) })
+    }
+
+    @Test func rowsCoverTheUsualWindowAndCollapseEmptyStretches() {
+        // One report at 10:00 p.m.
+        let history = day { $0 == 4 ? Self.reported(4) : nil }
+        #expect(history.rows == [
+            .noReports(from: Self.quarter(0), to: Self.quarter(3)),     // 9:00–9:45
+            .point(Self.reported(4)),                                    // 10:00
+            .noReports(from: Self.quarter(5), to: Self.quarter(19)),    // 10:15–1:45
+        ])
+    }
+
+    @Test func rowsStretchToAnAfternoonCrowd() {
+        // A football Saturday: reports at 2:00 and 2:15 p.m., then 9:15 p.m.
+        let history = day { [-28, -27, 1].contains($0) ? Self.reported($0) : nil }
+        #expect(history.rows == [
+            .point(Self.reported(-28)),
+            .point(Self.reported(-27)),
+            .noReports(from: Self.quarter(-26), to: Self.quarter(-1)),  // 2:30–8:45
+            .point(HistoryPoint(at: Self.quarter(0), people: 0)),       // 9:00 alone stays a row
+            .point(Self.reported(1)),
+            .noReports(from: Self.quarter(2), to: Self.quarter(19)),
+        ])
+    }
+
+    @Test func rowsStretchPastTheUsualEnd() {
+        let history = day { $0 == 22 ? Self.reported(22) : nil }       // 2:30 a.m.
+        #expect(history.rows.last == .point(Self.reported(22)))
+        #expect(history.rows.dropLast().last == .noReports(from: Self.quarter(0), to: Self.quarter(21)))
+    }
+
+    @Test func tonightStopsAtNow() {
+        // Points only through 10:30 p.m.
+        let history = day(through: 6) { $0 == 2 ? Self.reported(2) : nil }
+        #expect(history.rows.last == .noReports(from: Self.quarter(3), to: Self.quarter(6)))
+    }
+
+    @Test func fiveMinutePointsFromOlderServersStillGiveQuarterHours() {
+        let points = (0...60).map { index in
+            index == 3
+                ? HistoryPoint(at: Self.nine.addingTimeInterval(Double(index) * 300), people: 1,
+                               lineSize: HistorySignal(code: 2))
+                : HistoryPoint(at: Self.nine.addingTimeInterval(Double(index) * 300), people: 0)
+        }
+        let history = BarHistory(logicVersion: 1, barId: 1, night: NightDate(year: 2026, month: 10, day: 2),
+                                 tonight: NightDate(year: 2026, month: 10, day: 5), start: Self.nine,
+                                 end: Self.nine.addingTimeInterval(5 * 3600), nights: [], points: points)
+        let rows = history.rows
+        #expect(rows.first == .point(HistoryPoint(at: Self.nine, people: 0)))
+        #expect(rows.dropFirst().first?.id == Self.quarter(1))
+        #expect(rows.last == .noReports(from: Self.quarter(2), to: Self.quarter(19)))
     }
 
     @Test func busiestIsTheBiggestLineThenTheLongestWait() {
-        let start = Date(timeIntervalSince1970: 1_800_000_000)
-        func point(_ index: Int, line: Int, wait: Int) -> HistoryPoint {
-            HistoryPoint(at: start.addingTimeInterval(Double(index) * 300), people: 2,
-                         lineSize: HistorySignal(code: line), wait: HistorySignal(code: wait))
-        }
-        let history = fullNight { index in
+        let history = day { index in
             switch index {
-            case 12: point(12, line: 3, wait: 2)   // 10:00
-            case 18: point(18, line: 3, wait: 4)   // 10:30: same line, longer wait
-            case 24: point(24, line: 3, wait: 4)   // 11:00: a tie goes to the earlier
-            case 25: point(25, line: 4, wait: 5)   // 11:05: not a half hour
+            case -28: Self.reported(-28, line: 2, wait: 2)   // 2:00 p.m.
+            case 4: Self.reported(4, line: 3, wait: 2)       // 10:00
+            case 6: Self.reported(6, line: 3, wait: 4)       // 10:30: same line, longer wait
+            case 8: Self.reported(8, line: 3, wait: 4)       // 11:00: a tie goes to the earlier
             default: nil
             }
         }
-        #expect(history.busiestRow?.at == start.addingTimeInterval(18 * 300))
+        #expect(history.busiestRow?.at == Self.quarter(6))
     }
 
     @Test func grayedOnlyWhenEveryValueIsOlder() {
