@@ -160,15 +160,15 @@ The data model before launch, the database tests, location on a real phone, that
 
 **M4 is mostly built.** Done and passing CI:
 
-- Tab bar (FR-44), Bars list (FR-45), History & details (FR-43), Undo (FR-47), and Redo on the server (FR-46).
-- Server: migration `20261005200000_redo_undo_history.sql` adds `redo_minutes`, `reopen_session`, and `bar_history`. It is deployed. pgTAP: 1020 tests. Built by an Opus subagent on branch `m4-sql`, reviewed, and merged.
+- Tab bar (FR-44), Bars list (FR-45), History (FR-43), Undo (FR-47), Redo on the server (FR-46), and line-level colors (FR-2).
+- Server: migration `20261005200000_redo_undo_history.sql` adds `redo_minutes`, `reopen_session`, and `bar_history`. It is deployed. Built by an Opus subagent on branch `m4-sql`, reviewed, and merged. Migration `20261005220000_history_full_day.sql` (deployed) makes `bar_history` cover 4 a.m. to 4 a.m. every 15 minutes. pgTAP: 1042 tests.
 - The app now calls 15 functions (`submit_report` stays for older builds only).
 - Screenshots: the main walkthrough (18 screens, dark mode) and a light-mode walkthrough at a large accessibility text size (`L01`–`L07`).
 - Docs drafted in `docs/` (privacy, support, index). Pages is not enabled.
 
 Still to do in M4:
 
-1. **Max reviews:** the privacy policy draft, and the new screens on the phone (build 16, the latest: it has the large-text fixes and History from the Bars list as a calendar).
+1. **Max reviews:** the privacy policy draft, and the new screens on the phone (build 17, the latest: line-level colors, indigo accent, and History without Right now, covering the whole day in quarter hours).
 2. **After the privacy policy is approved:** enable GitHub Pages from `/docs` on main (`gh api -X POST repos/BigManMike7/linemap-app/pages -f "source[branch]=main" -f "source[path]=/docs"`), then check that the Settings links open.
 3. **Review the light-mode and large-text screenshots** for anything clipped or unreadable, and fix it.
 4. **App Store Connect:** privacy labels, age rating, beta description, and Beta App Review notes, as in PRD section 9. Max fills these in on the web.
