@@ -31,3 +31,6 @@ Thumbs.db
 
 # Claude Code per-user settings
 .claude/settings.local.json
+
+# Claude Code subagent worktrees
+.claude/worktrees/

@@ -68,6 +68,14 @@ public struct APIClient: Sendable {
         try await read("get_estimates", anonId: anonId)
     }
 
+    /// One night of a bar's history (FR-43). Leave `night` out for tonight.
+    public func barHistory(anonId: UUID?, barId: Int64, night: NightDate?) async throws -> BarHistory {
+        var parameters: [String: JSONValue] = ["p_bar_id": .int(barId)]
+        parameters["p_anon_id"] = anonId.map(JSONValue.uuid)
+        parameters["p_night"] = night.map { .string($0.description) }
+        return try await send("bar_history", parameters)
+    }
+
     /// Deletes everything tied to the ID (FR-32). Returns the number of rows removed.
     public func deleteMyData(anonId: UUID) async throws -> Int {
         // Replies read as JSONValue keep their snake_case keys, so use a plain decoder.

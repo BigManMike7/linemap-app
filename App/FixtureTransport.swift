@@ -23,6 +23,11 @@ nonisolated struct FixtureTransport: RPCTransport {
             reply = Self.recentReports(now: Date())
         case "delete_report":
             reply = #"{"ok": true, "rows_removed": 1}"#
+        case "reopen_session":
+            reply = #"{"ok": true, "status": "open", "reopened": true}"#
+        case "bar_history":
+            let parameters = try? JSONDecoder().decode(JSONValue.self, from: body)
+            reply = Self.history(night: parameters?["p_night"]?.stringValue)
         default:
             reply = #"{"ok": true}"#
         }
@@ -54,6 +59,46 @@ nonisolated struct FixtureTransport: RPCTransport {
                "at": "\(ago(95))", "ended_at": "\(ago(72))", "status": "entered",
                "measured_wait_seconds": 1380, "start_offset_minutes": 0, "line_size": 1, "busyness": null}
             ]
+            """
+    }
+
+    /// Tonight (Saturday) has no reports yet, so the empty state shows first.
+    /// Every other night is a full busy night: the line and wait build to a
+    /// peak near midnight, then ease off; the crowd drops out for a stretch.
+    private static func history(night: String?) -> String {
+        let tonight = NightDate(year: 2026, month: 10, day: 3)
+        let shown = night.flatMap { NightDate($0) } ?? tonight
+        // 9 p.m. to 2 a.m. Eastern daylight time is 01:00 to 06:00 UTC the next day.
+        let next = shown.adding(days: 1)
+        let start = ServerDate.parse("\(next)T01:00:00Z") ?? Date()
+        let empty = shown == tonight
+        var points: [String] = []
+        for index in 0...60 {
+            let at = ServerDate.format(start.addingTimeInterval(Double(index) * 300))
+            guard !empty, index >= 6 else {
+                points.append(#"{"at": "\#(at)", "people": 0, "line_size": null, "wait": null, "busyness": null}"#)
+                continue
+            }
+            let peak = 1 - abs(Double(index - 36)) / 30
+            let line = min(4, max(0, Int((peak * 4).rounded())))
+            let minutes = max(2, Int(peak * 40))
+            let wait = minutes < 5 ? 1 : minutes < 15 ? 2 : minutes < 30 ? 3 : 4
+            let stale = index % 12 >= 9 ? "stale" : "fresh"
+            let crowd = (40...46).contains(index) ? "null"
+                : #"{"code": \#(min(4, line + 1)), "freshness": "\#(stale)"}"#
+            points.append(#"""
+                {"at": "\#(at)", "people": \#(1 + line), \#
+                "line_size": {"code": \#(line), "freshness": "\#(stale)"}, \#
+                "wait": {"code": \#(wait), "minutes": \#(minutes), "freshness": "\#(stale)"}, \#
+                "busyness": \#(crowd)}
+                """#)
+        }
+        return """
+            {"logic_version": 1, "bar_id": 1, "night": "\(shown)", "tonight": "\(tonight)",
+             "start": "\(ServerDate.format(start))",
+             "end": "\(ServerDate.format(start.addingTimeInterval(5 * 3600)))",
+             "nights": ["2026-10-02", "2026-09-26", "2026-09-25"],
+             "points": [\(points.joined(separator: ","))]}
             """
     }
 

@@ -2,11 +2,10 @@ import LineMapCore
 import MapKit
 import SwiftUI
 
-/// The home screen (FR-1): an Apple Map of downtown with a pin per bar.
-/// Everything else opens as a sheet over it.
+/// The Map tab (FR-1): an Apple Map of downtown with a pin per bar. A pin
+/// opens the bar's sheet (presented by `RootView`).
 struct MapScreen: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.scenePhase) private var scenePhase
     @State private var position: MapCameraPosition = .region(Downtown.region)
     @State private var hasFramedBars = false
     /// The pin MapKit selected. Pins have no buttons of their own, so a pinch or
@@ -14,7 +13,6 @@ struct MapScreen: View {
     @State private var selectedBarId: Int64?
 
     var body: some View {
-        @Bindable var model = model
         Map(position: $position, selection: $selectedBarId) {
             // The location dot only when permission was already granted (FR-1, FR-24).
             if model.location.isAuthorized {
@@ -31,9 +29,6 @@ struct MapScreen: View {
             }
         }
         .mapStyle(.standard(pointsOfInterest: .excludingAll))
-        .overlay(alignment: .topTrailing) {
-            settingsButton
-        }
         .overlay(alignment: .top) {
             if model.lastRefreshFailed {
                 OfflineBanner(hasData: !model.bars.isEmpty)
@@ -44,32 +39,10 @@ struct MapScreen: View {
                     .padding(.top, 8)
             }
         }
-        .safeAreaInset(edge: .bottom) {
-            VStack(spacing: 8) {
-                if let thanks = model.thanks {
-                    ThanksMessage(text: thanks.text)
-                        .transition(.move(edge: .bottom).combined(with: .opacity))
-                }
-                if let wait = model.activeWait, let bar = model.activeWaitBar {
-                    WaitCard(wait: wait, bar: bar)
-                }
-            }
-            .animation(.snappy, value: model.thanks)
-        }
-        .sensoryFeedback(.success, trigger: model.thanks) { _, new in new != nil }
-        .sheet(item: $model.sheet) { sheet in
-            sheetContent(sheet)
-                .modifier(AlertPresenter(isTopmost: true))
-        }
-        .modifier(AlertPresenter(isTopmost: model.sheet == nil))
-        .task {
-            await model.start()
+        .modifier(ReportingInset())
+        .onAppear {
             frameBars()
-            // Keep estimates current while the map is open.
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(60))
-                await model.refresh()
-            }
+            focusRequestedBar()
         }
         .onChange(of: model.bars) {
             frameBars()
@@ -81,43 +54,8 @@ struct MapScreen: View {
             model.sheet = .bar(id)
             selectedBarId = nil
         }
-        .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
-                Task { await model.becameActive() }
-            }
-        }
-    }
-
-    private var settingsButton: some View {
-        Button {
-            model.sheet = .settings
-        } label: {
-            Image(systemName: "gearshape.fill")
-                .font(.title3)
-                .frame(width: 44, height: 44)
-                .background(.regularMaterial, in: .circle)
-        }
-        .buttonStyle(.plain)
-        .padding(.trailing, 16)
-        .padding(.top, 8)
-        .accessibilityLabel("Settings")
-        .accessibilityIdentifier("settings-button")
-    }
-
-    @ViewBuilder
-    private func sheetContent(_ sheet: AppSheet) -> some View {
-        switch sheet {
-        case .bar(let id):
-            if let bar = model.bar(id) {
-                // Both size themselves to their content (sheetFitsContent).
-                BarSheet(bar: bar)
-                    .presentationDragIndicator(.visible)
-            }
-        case .question(let question):
-            QuestionSheet(question: question)
-                .presentationDragIndicator(.visible)
-        case .settings:
-            SettingsView()
+        .onChange(of: model.mapFocus) {
+            focusRequestedBar()
         }
     }
 
@@ -127,23 +65,16 @@ struct MapScreen: View {
         hasFramedBars = true
         position = .region(Downtown.region(framing: model.bars))
     }
-}
 
-/// The short thank-you after a report is accepted (FR-42). It needs no action
-/// and goes away on its own.
-struct ThanksMessage: View {
-    let text: String
-
-    var body: some View {
-        Label(text, systemImage: "checkmark.circle.fill")
-            .font(.subheadline.weight(.medium))
-            .symbolRenderingMode(.hierarchical)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .background(.regularMaterial, in: .capsule)
-            .shadow(color: .black.opacity(0.15), radius: 8, y: 2)
-            .padding(.horizontal, 16)
-            .accessibilityIdentifier("thanks-message")
+    /// Moves to the bar a Bars-list card asked for (FR-45), with the pin in the
+    /// upper part of the map so the bar sheet doesn't cover it.
+    private func focusRequestedBar() {
+        guard let id = model.mapFocus, let bar = model.bar(id) else { return }
+        model.mapFocus = nil
+        hasFramedBars = true
+        withAnimation {
+            position = .region(Downtown.region(focusing: bar))
+        }
     }
 }
 
@@ -152,6 +83,14 @@ enum Downtown {
     static let region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 40.7942, longitude: -77.8612),
         span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008))
+
+    /// A close-up of one bar, shifted so the pin sits above a bar sheet.
+    static func region(focusing bar: Bar) -> MKCoordinateRegion {
+        let span = 0.004
+        return MKCoordinateRegion(
+            center: CLLocationCoordinate2D(latitude: bar.doorLat - span * 0.3, longitude: bar.doorLon),
+            span: MKCoordinateSpan(latitudeDelta: span, longitudeDelta: span))
+    }
 
     /// A region showing every bar with room for the pin labels.
     static func region(framing bars: [Bar]) -> MKCoordinateRegion {

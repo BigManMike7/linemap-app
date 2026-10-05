@@ -6,7 +6,7 @@ struct LineMapApp: App {
 
     var body: some Scene {
         WindowGroup {
-            MapScreen()
+            RootView()
                 .environment(model)
         }
     }

@@ -38,20 +38,30 @@ nonisolated enum Question: Hashable {
 nonisolated enum AppSheet: Hashable, Identifiable {
     case bar(Int64)
     case question(Question)
-    case settings
 
     var id: Self { self }
 }
 
-/// The thank-you shown after a report (FR-42).
+/// The tabs along the bottom (FR-44).
+nonisolated enum AppTab: Hashable {
+    case map
+    case bars
+    case settings
+}
+
+/// The thank-you shown after a report (FR-42). After I'm in or Gave up it
+/// carries the stopped timer, so Undo can bring it back (FR-47).
 nonisolated struct Thanks: Identifiable, Hashable {
     let id = UUID()
     let text: String
+    var undo: ActiveWait? = nil
 
     static let visible = "Thanks! Your update is now visible to everyone."
     static let offline = "Thanks! Your update will send when you're back online."
     /// After Adjust time, which counts only once the wait ends, so it isn't visible yet.
     static let startTime = "Saved! Your timer now includes your time in line."
+    /// After Gave up (FR-42).
+    static let stopped = "Timer stopped."
 }
 
 nonisolated struct AppAlert: Identifiable, Hashable {
@@ -71,6 +81,11 @@ final class AppModel {
     private(set) var estimates: Estimates?
     private(set) var lastRefreshFailed = false
     private(set) var isLoaded = false
+
+    // Navigation
+    var tab: AppTab = .map
+    /// A bar the map should move to, set by the Bars list (FR-45). The map clears it.
+    var mapFocus: Int64?
 
     // Reporting
     private(set) var activeWait: ActiveWait?
@@ -95,8 +110,9 @@ final class AppModel {
     @ObservationIgnored private var started = false
     @ObservationIgnored private var refusedReports: Set<UUID> = []
     /// Reports and timers to thank for once the server accepts them, keyed by
-    /// their client ID, with when they were made and what to say (FR-42).
-    @ObservationIgnored private var awaitingThanks: [UUID: (madeAt: Date, text: String)] = [:]
+    /// their client ID, with when they were made, what to say, and the timer
+    /// Undo would bring back (FR-42, FR-47).
+    @ObservationIgnored private var awaitingThanks: [UUID: (madeAt: Date, text: String, undo: ActiveWait?)] = [:]
     @ObservationIgnored private var thanksTask: Task<Void, Never>?
     @ObservationIgnored private var isOnline = true
     private let pathMonitor = NWPathMonitor()
@@ -201,6 +217,19 @@ final class AppModel {
         activeWait.flatMap { bar($0.barId) }
     }
 
+    /// A card in the Bars list (FR-45): switches to the map, moves it to the
+    /// bar, and opens the bar's sheet.
+    func showOnMap(_ bar: Bar) {
+        tab = .map
+        mapFocus = bar.id
+        sheet = .bar(bar.id)
+    }
+
+    /// One night of a bar's history (FR-43). Leave `night` out for tonight.
+    func history(for barId: Int64, night: NightDate?) async throws -> BarHistory {
+        try await api.barHistory(anonId: anonId, barId: barId, night: night)
+    }
+
     func dismissAlert() {
         if alert?.closesQuestion == true, case .question = sheet {
             sheet = nil
@@ -245,21 +274,31 @@ final class AppModel {
         sheet = nil
         guard let wait = activeWait, let anonId else { return }
         setActiveWait(nil)
-        thankWhenAccepted(wait.clientSessionId)
+        thankWhenAccepted(wait.clientSessionId, undo: wait)
         enqueue(.endSession(EndSessionCall(clientSessionId: wait.clientSessionId, anonId: anonId,
                                            outcome: .entered, phoneTime: Date(), location: .noFix)),
                 locate: true)
+    }
+
+    /// Undo on the message after I'm in or Gave up (FR-47): brings the same
+    /// timer back, with its start time and Adjust time.
+    func undoStop() {
+        guard let wait = thanks?.undo, activeWait == nil, let anonId else { return }
+        thanksTask?.cancel()
+        thanks = nil
+        setActiveWait(wait)
+        enqueue(.reopenSession(ReopenSessionCall(clientSessionId: wait.clientSessionId, anonId: anonId)))
     }
 
     // MARK: - Thank-you (FR-42)
 
     /// Offline, thanks right away and says it will send later. Online, waits
     /// for the server to accept it, so "now visible" is true.
-    private func thankWhenAccepted(_ id: UUID, text: String = Thanks.visible) {
+    private func thankWhenAccepted(_ id: UUID, text: String = Thanks.visible, undo: ActiveWait? = nil) {
         if isOnline {
-            awaitingThanks[id] = (Date(), text)
+            awaitingThanks[id] = (Date(), text, undo)
         } else {
-            showThanks(Thanks.offline)
+            showThanks(Thanks.offline, undo: undo)
         }
     }
 
@@ -268,17 +307,18 @@ final class AppModel {
     private func deliveredForThanks(_ id: UUID?, accepted: Bool) {
         guard let id, let waiting = awaitingThanks.removeValue(forKey: id) else { return }
         if accepted && Date().timeIntervalSince(waiting.madeAt) < 90 {
-            showThanks(waiting.text)
+            showThanks(waiting.text, undo: waiting.undo)
         }
     }
 
-    private func showThanks(_ text: String) {
-        let thanks = Thanks(text: text)
+    private func showThanks(_ text: String, undo: ActiveWait? = nil) {
+        let thanks = Thanks(text: text, undo: undo)
         self.thanks = thanks
         UIAccessibility.post(notification: .announcement, argument: text)
         thanksTask?.cancel()
-        // Longer under UI testing, so the screenshot catches it after the test waits for idle.
-        let shownFor: Duration = isUITesting ? .seconds(10) : .seconds(3)
+        // Longer with Undo, so there's time to tap it, and longer still under UI
+        // testing, so the screenshot catches it after the test waits for idle.
+        let shownFor: Duration = isUITesting ? .seconds(10) : (undo == nil ? .seconds(3) : .seconds(5))
         thanksTask = Task {
             try? await Task.sleep(for: shownFor)
             guard !Task.isCancelled, self.thanks?.id == thanks.id else { return }
@@ -290,6 +330,8 @@ final class AppModel {
     func gaveUp() {
         guard let wait = activeWait, let anonId else { return }
         setActiveWait(nil)
+        // Says so, with Undo (FR-42, FR-47).
+        showThanks(Thanks.stopped, undo: wait)
         enqueue(.endSession(EndSessionCall(clientSessionId: wait.clientSessionId, anonId: anonId,
                                            outcome: .gaveUp, phoneTime: Date(), location: .noFix)),
                 locate: true)
@@ -500,6 +542,11 @@ final class AppModel {
                     setActiveWait(wait)
                 }
             }
+            // Undo found nothing to reopen (the timer was deleted meanwhile).
+            if case .reopenSession(let reopen) = call, reply["status"]?.stringValue != "open",
+               activeWait?.clientSessionId == reopen.clientSessionId {
+                setActiveWait(nil)
+            }
             if case .endSession(let end) = call, end.outcome == .entered,
                reply["status"]?.stringValue == "unfinished" {
                 alert = AppAlert(
@@ -547,6 +594,14 @@ final class AppModel {
         case "session_not_found", "session_not_open":
             if let session = call.clientSessionId, activeWait?.clientSessionId == session {
                 setActiveWait(nil)
+            }
+        case "too_late", "other_session_open", "session_not_reopenable":
+            // Undo was refused (FR-47): the timer stays stopped.
+            if case .reopenSession(let reopen) = call, activeWait?.clientSessionId == reopen.clientSessionId {
+                setActiveWait(nil)
+                alert = AppAlert(
+                    title: "Couldn't undo",
+                    message: "That timer can't be brought back now. If you're still in line, start a new one.")
             }
         default:
             break

@@ -2,11 +2,10 @@ import LineMapCore
 import UIKit
 import SwiftUI
 
-/// Settings (FR-5): Made a wrong report? (FR-41), Delete my data, the privacy
-/// policy and support pages, and the contact email.
+/// The Settings tab (FR-5, FR-44): Made a wrong report? (FR-41), Delete my
+/// data, the privacy policy and support pages, and the contact email.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
-    @Environment(\.dismiss) private var dismiss
     @State private var confirmsDelete = false
 
     private let version = AppVersion(infoDictionary: Bundle.main.infoDictionary).label
@@ -67,13 +66,6 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                        .accessibilityIdentifier("settings-done")
-                }
-            }
             .confirmationDialog("Delete your data?", isPresented: $confirmsDelete, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) {
                     Task { await model.deleteMyData() }

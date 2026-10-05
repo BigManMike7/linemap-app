@@ -137,6 +137,18 @@ struct CallParametersTests {
         #expect(call.parameters["p_outcome"] == JSONValue.string("entered"))
     }
 
+    @Test func reopenSession() {
+        let call = PendingCall.reopenSession(ReopenSessionCall(clientSessionId: sessionA, anonId: anon))
+        #expect(call.function == "reopen_session")
+        #expect(call.parameters == [
+            "p_client_session_id": id(sessionA),
+            "p_anon_id": id(anon),
+        ])
+        #expect(call.clientSessionId == sessionA)
+        #expect(call.withLocation(.noFix) == call)
+        #expect(call.replacingSession(sessionA, with: sessionB).clientSessionId == sessionB)
+    }
+
     @Test func submitReportMinimal() {
         let call = PendingCall.submitReport(SubmitReportCall(
             clientReportId: reportA, barId: 3, phoneTime: phoneTime, location: .denied, meta: meta))

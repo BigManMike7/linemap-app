@@ -149,6 +149,18 @@ public struct CancelSessionCall: Codable, Sendable, Hashable {
     }
 }
 
+/// Undo (FR-47): reopens a timer stopped by I'm in or Gave up, keeping its
+/// start time and Adjust time.
+public struct ReopenSessionCall: Codable, Sendable, Hashable {
+    public var clientSessionId: UUID
+    public var anonId: UUID
+
+    public init(clientSessionId: UUID, anonId: UUID) {
+        self.clientSessionId = clientSessionId
+        self.anonId = anonId
+    }
+}
+
 /// Report conditions (FR-11): line size and crowd, either one optional, sent
 /// once. It never touches a wait session.
 public struct ReportConditionsCall: Codable, Sendable, Hashable {
@@ -283,6 +295,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
     case logView(LogViewCall)
     case cancelSession(CancelSessionCall)
     case reportConditions(ReportConditionsCall)
+    case reopenSession(ReopenSessionCall)
 
     /// The SQL function this call runs.
     public var function: String {
@@ -296,6 +309,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
         case .registerInstall: "register_install"
         case .logView: "log_view"
         case .cancelSession: "cancel_session"
+        case .reopenSession: "reopen_session"
         }
     }
 
@@ -321,6 +335,11 @@ public enum PendingCall: Codable, Sendable, Hashable {
             p["p_line_size_state"] = .string(c.lineSizeState.rawValue)
             return p
         case .cancelSession(let c):
+            return [
+                "p_client_session_id": .uuid(c.clientSessionId),
+                "p_anon_id": .uuid(c.anonId),
+            ]
+        case .reopenSession(let c):
             return [
                 "p_client_session_id": .uuid(c.clientSessionId),
                 "p_anon_id": .uuid(c.anonId),
@@ -393,6 +412,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
         case .updateLineSize(let c): c.clientSessionId
         case .endSession(let c): c.clientSessionId
         case .cancelSession(let c): c.clientSessionId
+        case .reopenSession(let c): c.clientSessionId
         case .submitReport(let c): c.clientSessionId
         case .reportConditions, .sendFeedback, .registerInstall, .logView: nil
         }
@@ -417,6 +437,9 @@ public enum PendingCall: Codable, Sendable, Hashable {
         case .cancelSession(var c) where c.clientSessionId == old:
             c.clientSessionId = new
             return .cancelSession(c)
+        case .reopenSession(var c) where c.clientSessionId == old:
+            c.clientSessionId = new
+            return .reopenSession(c)
         default:
             return self
         }
@@ -430,7 +453,7 @@ public enum PendingCall: Codable, Sendable, Hashable {
         case .endSession(var c): c.location = fix; return .endSession(c)
         case .submitReport(var c): c.location = fix; return .submitReport(c)
         case .reportConditions(var c): c.location = fix; return .reportConditions(c)
-        case .sendFeedback, .registerInstall, .logView, .cancelSession: return self
+        case .sendFeedback, .registerInstall, .logView, .cancelSession, .reopenSession: return self
         }
     }
 }
