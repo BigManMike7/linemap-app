@@ -156,7 +156,22 @@ The data model before launch, the database tests, location on a real phone, that
 
 **Current milestone: M4** (in progress).
 
-## Where we left off (2026-10-05, evening)
+## Where we left off (2026-10-05, late evening)
+
+**Max is on a break.** Build 18 is on TestFlight; all CI is green and `main` is clean. Nothing is waiting on Claude. Next session starts with Max's feedback from the phone (item 1 below).
+
+**What to try on build 18:** make a report at any bar, then open that bar's History (it should show at the current quarter hour, even in the afternoon); check that the colors read at a glance on the map and Bars tab in light and dark mode; and send a contradiction (50+ in line, then a quick timer) to see Uncertain.
+
+**Ideas raised but not built** (Max hasn't asked for them):
+
+- The History dots stay 10 pt at the largest text sizes; they could grow with the text.
+- Very short timers (under a minute) could count as started by mistake on the server. Deferred until field-test data shows how often they happen; for now a contradiction shows Uncertain.
+
+**Things to know:**
+
+- Builds 15–17 show History as half-hour rows from 4 a.m., since the server now sends the whole day. Only Max has them.
+- On the fall-back night (Nov 1), 1:00–1:45 a.m. happen twice, so History shows those rows twice, each at its real time.
+- CI often fails with "The job was not acquired by Runner" or an artifact-upload timeout. Those are GitHub capacity problems, not test failures: rerun with `gh run rerun <id> --failed`. When a UI test really fails, the "Show test failures" step prints why.
 
 **M4 is mostly built.** Done and passing CI:
 
@@ -170,7 +185,7 @@ Still to do in M4:
 
 1. **Max reviews:** the privacy policy draft, and the new screens on the phone (build 18, the latest: line-level colors with Uncertain for contradictions, indigo accent, and History without Right now, covering the whole day in quarter hours).
 2. **After the privacy policy is approved:** enable GitHub Pages from `/docs` on main (`gh api -X POST repos/BigManMike7/linemap-app/pages -f "source[branch]=main" -f "source[path]=/docs"`), then check that the Settings links open.
-3. **Review the light-mode and large-text screenshots** for anything clipped or unreadable, and fix it.
+3. **Review the light-mode and large-text screenshots** for anything clipped or unreadable, and fix it. Reviewed through build 18 (Bars cards, History rows, map pins); recheck after any layout change.
 4. **App Store Connect:** privacy labels, age rating, beta description, and Beta App Review notes, as in PRD section 9. Max fills these in on the web.
 5. **Test ID: wait until launch (Max's call, 2026-10-05).** Each Delete my data gives a new anonymous ID, so for now `test_anon_ids` stays empty and Max's rows are stored as real. Before anyone other than Max uses the app (the M5 field test with other people, or M6 at the latest), run one cleanup in the SQL Editor: mark every row so far as test (or delete it), then add Max's then-current ID:
    ```sql
