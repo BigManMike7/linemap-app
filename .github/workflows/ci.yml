@@ -125,6 +125,14 @@ jobs:
             -destination "id=${{ steps.sim.outputs.udid }}" \
             -resultBundlePath build/UITests.xcresult
 
+      - name: Show test failures
+        if: failure()
+        run: |
+          [ -d build/UITests.xcresult ] || exit 0
+          # -quiet hides why a UI test failed; the result bundle has the messages.
+          xcrun xcresulttool get test-results summary --path build/UITests.xcresult |
+            jq -r '.testFailures[]? | "\(.testName): \(.failureText)"' || true
+
       - name: Export screenshots
         if: always()
         run: |

@@ -231,10 +231,11 @@ final class ScreenshotTests: XCTestCase {
         saveScreenshot(named: "L04-HistoryRows", app: app)
         app.buttons["details-close"].tap()
 
-        let cafe = app.buttons["bar-card-3"]
-        XCTAssertTrue(cafe.waitForExistence(timeout: 5))
-        scrollUntilHittable(cafe, in: app)
-        cafe.tap()
+        // The top card, so large text never needs a scroll to reach it.
+        let first = app.buttons["bar-card-1"]
+        XCTAssertTrue(first.waitForExistence(timeout: 5))
+        scrollUntilHittable(first, in: app, up: false)
+        first.tap()
         let conditions = app.buttons["conditions-button"]
         XCTAssertTrue(conditions.waitForExistence(timeout: 5))
         conditions.tap()
