@@ -1,0 +1,81 @@
+# Read-only spot check of the live database, run by hand. The repo is public,
+# so it prints counts and dates only, never an ID or a report.
+name: Data check
+
+on:
+  workflow_dispatch:
+    inputs:
+      deleted_anon_id:
+        description: "An anonymous ID that Delete my data removed (its rows should all be 0)"
+        required: true
+        default: "cb1d32c5-1a2d-4d7d-898e-dcb9871ef2d7"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
+      DELETED_ANON_ID: ${{ inputs.deleted_anon_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.119.0
+
+      - name: Find the connection
+        run: |
+          supabase link --project-ref "$PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
+          if [ ! -s supabase/.temp/pooler-url ]; then
+            echo "No pooler URL after linking. Files in supabase/.temp:"
+            ls supabase/.temp
+            exit 1
+          fi
+
+      - name: Count rows
+        env:
+          PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          PGSSLMODE: require
+        run: |
+          psql "$(cat supabase/.temp/pooler-url)" -v ON_ERROR_STOP=1 -v old="$DELETED_ANON_ID" <<'SQL'
+          begin read only;
+
+          \echo '== Rows still tied to the deleted ID (all should be 0) =='
+          select 'installs' as table_name, count(*) from app.installs where anon_id = :'old'::uuid
+          union all select 'wait_sessions', count(*) from app.wait_sessions where anon_id = :'old'::uuid
+          union all select 'reports', count(*) from app.reports where anon_id = :'old'::uuid
+          union all select 'views', count(*) from app.views where anon_id = :'old'::uuid
+          union all select 'feedback', count(*) from app.feedback where anon_id = :'old'::uuid
+          union all select 'rate_limit_holds', count(*) from app.rate_limit_holds where anon_id = :'old'::uuid;
+
+          \echo '== Latest deletions (counts only, no IDs) =='
+          select created_at at time zone 'America/New_York' as eastern_time, reason, rows_removed
+          from app.deletions order by created_at desc limit 5;
+
+          \echo '== Rows per Eastern day, split by is_test =='
+          select table_name, day, count(*) filter (where is_test) as test_rows,
+                 count(*) filter (where not is_test) as real_rows
+          from (
+            select 'installs' as table_name, created_at, is_test from app.installs
+            union all select 'wait_sessions', created_at, is_test from app.wait_sessions
+            union all select 'reports', created_at, is_test from app.reports
+            union all select 'views', created_at, is_test from app.views
+            union all select 'feedback', created_at, is_test from app.feedback
+          ) as all_rows,
+          lateral (select (created_at at time zone 'America/New_York')::date as day) as d
+          group by table_name, day
+          order by table_name, day;
+
+          \echo '== IDs in test_anon_ids =='
+          select jsonb_array_length(value) as ids_listed,
+                 value ? :'old' as still_lists_deleted_id
+          from app.config where key = 'test_anon_ids';
+
+          commit;
+          SQL
