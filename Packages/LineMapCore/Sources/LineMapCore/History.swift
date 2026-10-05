@@ -35,26 +35,28 @@ public struct BarHistory: Codable, Sendable, Hashable {
 
     /// True when no point in the night has anything to show.
     public var hasData: Bool {
-        points.contains { $0.lineSize != nil || $0.wait != nil || $0.busyness != nil }
+        points.contains(where: \.hasData)
     }
 
-    /// The nights the picker offers (FR-43): Tonight and Last night always,
-    /// then every earlier night with reports, newest first, without repeats.
-    public var pickerNights: [NightDate] {
-        var seen: Set<NightDate> = []
-        return ([tonight, tonight.adding(days: -1), night] + nights)
-            .sorted(by: >)
-            .filter { $0 <= tonight && seen.insert($0).inserted }
+    /// One point per half hour, 9:00 p.m. to 1:30 a.m. (FR-43). Tonight has
+    /// only the half hours so far.
+    public var halfHourRows: [HistoryPoint] {
+        points.filter { point in
+            let seconds = Int(point.at.timeIntervalSince(start).rounded())
+            return seconds % 1800 == 0 && point.at < end
+        }
     }
 
-    /// The newest point with something to show, for the readout before any drag.
-    public var latestPointWithData: HistoryPoint? {
-        points.last { $0.lineSize != nil || $0.wait != nil || $0.busyness != nil }
-    }
-
-    /// The point at or just before a time, for the drag readout.
-    public func point(at date: Date) -> HistoryPoint? {
-        points.last { $0.at <= date } ?? points.first
+    /// The half hour with the biggest line, then the longest wait, then the
+    /// biggest crowd; the earliest wins a tie. Nil when no row has data.
+    public var busiestRow: HistoryPoint? {
+        var best: HistoryPoint?
+        for row in halfHourRows where row.hasData {
+            if best.map({ $0.busyness3.lexicographicallyPrecedes(row.busyness3) }) ?? true {
+                best = row
+            }
+        }
+        return best
     }
 }
 
@@ -68,6 +70,22 @@ public struct HistoryPoint: Codable, Sendable, Hashable, Identifiable {
     public let busyness: HistorySignal?
 
     public var id: Date { at }
+
+    /// True when any signal has a value.
+    public var hasData: Bool {
+        lineSize != nil || wait != nil || busyness != nil
+    }
+
+    /// True when every value here comes from reports 30–60 minutes old (FR-17).
+    public var isGrayed: Bool {
+        let signals = [lineSize, wait, busyness].compactMap { $0 }
+        return !signals.isEmpty && signals.allSatisfy { $0.freshness == .stale }
+    }
+
+    /// Line size, then wait, then crowd, for picking the busiest half hour.
+    fileprivate var busyness3: [Int] {
+        [lineSize?.code ?? -1, wait?.code ?? -1, busyness?.code ?? -1]
+    }
 
     public init(at: Date, people: Int, lineSize: HistorySignal? = nil,
                 wait: HistorySignal? = nil, busyness: HistorySignal? = nil) {
@@ -104,6 +122,28 @@ public struct NightDate: Codable, Sendable, Hashable, Comparable, CustomStringCo
         self.year = year
         self.month = month
         self.day = day
+    }
+
+    /// The night a moment belongs to (FR-22): its date in `timeZone`, minus a
+    /// day before the night boundary (4 a.m.), so 1 a.m. Sunday is Saturday night.
+    public init(nightOf date: Date, timeZone: TimeZone, boundaryHour: Int = 4) {
+        self.init(calendarDateOf: date.addingTimeInterval(-Double(boundaryHour) * 3600), timeZone: timeZone)
+    }
+
+    /// The calendar date of a moment in `timeZone`.
+    public init(calendarDateOf date: Date, timeZone: TimeZone) {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let parts = calendar.dateComponents([.year, .month, .day], from: date)
+        self.init(year: parts.year ?? 1970, month: parts.month ?? 1, day: parts.day ?? 1)
+    }
+
+    /// Noon on this date in `timeZone`: a safe moment to hand a date picker,
+    /// whatever daylight saving does at night.
+    public func noon(in timeZone: TimeZone) -> Date {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        return calendar.date(from: components) ?? Date(timeIntervalSince1970: 0)
     }
 
     /// Parses "2026-10-02".
@@ -162,6 +202,11 @@ public struct NightDate: Codable, Sendable, Hashable, Comparable, CustomStringCo
         Self.weekdays[weekday - 1]
     }
 
+    /// "Saturday night, Oct 3"
+    public var nightTitle: String {
+        "\(weekdayName) night, \(Self.shortMonths[month - 1]) \(day)"
+    }
+
     private var components: DateComponents {
         DateComponents(year: year, month: month, day: day, hour: 12)
     }
@@ -198,6 +243,16 @@ extension Labels {
     /// Busyness in the history readout: "Busy".
     public static func historyBusyness(_ signal: HistorySignal) -> String? {
         Busyness(rawValue: signal.code).map { option($0) }
+    }
+
+    /// One half-hour row of History (FR-43): "10–25 in line · 15–30 min wait · Busy".
+    public static func historyRow(_ point: HistoryPoint) -> String {
+        let parts = [
+            point.lineSize.flatMap(historyLineSize),
+            point.wait.flatMap(historyWait),
+            point.busyness.flatMap(historyBusyness),
+        ].compactMap { $0 }
+        return parts.isEmpty ? "No reports" : parts.joined(separator: " · ")
     }
 
     /// "1 person" or "4 people".

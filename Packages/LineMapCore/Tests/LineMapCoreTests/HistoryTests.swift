@@ -43,30 +43,62 @@ struct BarHistoryTests {
         #expect(history.end.timeIntervalSince(history.start) == 5 * 3600)
     }
 
-    @Test func hasDataAndLatestPoint() throws {
+    @Test func hasData() throws {
         let history = try decoded()
         #expect(history.hasData)
-        #expect(history.latestPointWithData?.at == history.points[1].at)
+        #expect(history.points[1].hasData)
+        #expect(!history.points[0].hasData)
 
         let empty = BarHistory(logicVersion: 1, barId: 1, night: history.night, tonight: history.tonight,
                                start: history.start, end: history.end, nights: [],
                                points: [HistoryPoint(at: history.start, people: 0)])
         #expect(!empty.hasData)
-        #expect(empty.latestPointWithData == nil)
+        #expect(empty.busiestRow == nil)
     }
 
-    @Test func pickerNightsAlwaysOfferTonightAndLastNight() throws {
-        let history = try decoded()
-        #expect(history.pickerNights.map(\.description) == [
-            "2026-10-05", "2026-10-04", "2026-10-02", "2026-09-26",
-        ])
+    /// A full night: 61 points every 5 minutes from 9 p.m. through 2 a.m.
+    private func fullNight(_ signal: (Int) -> HistoryPoint?) -> BarHistory {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        let points = (0...60).map { index in
+            signal(index) ?? HistoryPoint(at: start.addingTimeInterval(Double(index) * 300), people: 0)
+        }
+        return BarHistory(logicVersion: 1, barId: 1, night: NightDate(year: 2026, month: 10, day: 2),
+                          tonight: NightDate(year: 2026, month: 10, day: 5), start: start,
+                          end: start.addingTimeInterval(5 * 3600), nights: [], points: points)
     }
 
-    @Test func pointAtATimeIsTheOneAtOrJustBefore() throws {
-        let history = try decoded()
-        let between = history.points[1].at.addingTimeInterval(120)
-        #expect(history.point(at: between)?.at == history.points[1].at)
-        #expect(history.point(at: history.start.addingTimeInterval(-60))?.at == history.points[0].at)
+    @Test func halfHourRowsRunFrom9To130() {
+        let history = fullNight { _ in nil }
+        let rows = history.halfHourRows
+        #expect(rows.count == 10)
+        #expect(rows.first?.at == history.start)
+        #expect(rows.last?.at == history.start.addingTimeInterval(4.5 * 3600))
+    }
+
+    @Test func busiestIsTheBiggestLineThenTheLongestWait() {
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        func point(_ index: Int, line: Int, wait: Int) -> HistoryPoint {
+            HistoryPoint(at: start.addingTimeInterval(Double(index) * 300), people: 2,
+                         lineSize: HistorySignal(code: line), wait: HistorySignal(code: wait))
+        }
+        let history = fullNight { index in
+            switch index {
+            case 12: point(12, line: 3, wait: 2)   // 10:00
+            case 18: point(18, line: 3, wait: 4)   // 10:30: same line, longer wait
+            case 24: point(24, line: 3, wait: 4)   // 11:00: a tie goes to the earlier
+            case 25: point(25, line: 4, wait: 5)   // 11:05: not a half hour
+            default: nil
+            }
+        }
+        #expect(history.busiestRow?.at == start.addingTimeInterval(18 * 300))
+    }
+
+    @Test func grayedOnlyWhenEveryValueIsOlder() {
+        let at = Date(timeIntervalSince1970: 0)
+        #expect(HistoryPoint(at: at, people: 1, lineSize: HistorySignal(code: 1, freshness: .stale)).isGrayed)
+        #expect(!HistoryPoint(at: at, people: 1, lineSize: HistorySignal(code: 1, freshness: .stale),
+                              busyness: HistorySignal(code: 2)).isGrayed)
+        #expect(!HistoryPoint(at: at, people: 0).isGrayed)
     }
 }
 
@@ -94,6 +126,31 @@ struct NightDateTests {
         #expect(NightDate(year: 2026, month: 10, day: 1).weekdayName == "Thursday")
     }
 
+    @Test func nightOfAMomentUsesTheFourAMBoundary() throws {
+        let eastern = try #require(TimeZone(identifier: "America/New_York"))
+        // 1 a.m. Sunday Oct 4, 2026 EDT is 05:00 UTC: still Saturday night.
+        let lateSaturday = try #require(ServerDate.parse("2026-10-04T05:00:00Z"))
+        #expect(NightDate(nightOf: lateSaturday, timeZone: eastern) == NightDate(year: 2026, month: 10, day: 3))
+        // 5 a.m. Sunday is Sunday.
+        let sundayMorning = try #require(ServerDate.parse("2026-10-04T09:00:00Z"))
+        #expect(NightDate(nightOf: sundayMorning, timeZone: eastern) == NightDate(year: 2026, month: 10, day: 4))
+        // 1:30 a.m. on the night daylight saving ends (Nov 1, EDT → EST) is still Saturday Oct 31.
+        let fallBack = try #require(ServerDate.parse("2026-11-01T05:30:00Z"))
+        #expect(NightDate(nightOf: fallBack, timeZone: eastern) == NightDate(year: 2026, month: 10, day: 31))
+    }
+
+    @Test func noonRoundTripsThroughTheCalendar() throws {
+        let eastern = try #require(TimeZone(identifier: "America/New_York"))
+        for date in [NightDate(year: 2026, month: 3, day: 8), NightDate(year: 2026, month: 11, day: 1),
+                     NightDate(year: 2026, month: 10, day: 3)] {
+            #expect(NightDate(calendarDateOf: date.noon(in: eastern), timeZone: eastern) == date)
+        }
+    }
+
+    @Test func nightTitle() {
+        #expect(NightDate(year: 2026, month: 10, day: 3).nightTitle == "Saturday night, Oct 3")
+    }
+
     @Test func ordersByDate() {
         #expect(NightDate(year: 2026, month: 9, day: 30) < NightDate(year: 2026, month: 10, day: 1))
     }
@@ -113,6 +170,11 @@ struct HistoryLabelTests {
         #expect(Labels.historyWait(HistorySignal(code: 3, minutes: 25)) == "25 min wait")
         #expect(Labels.historyWait(HistorySignal(code: 2)) == "5–15 min wait")
         #expect(Labels.historyBusyness(HistorySignal(code: 4)) == "Packed")
+        let row = HistoryPoint(at: Date(timeIntervalSince1970: 0), people: 2,
+                               lineSize: HistorySignal(code: 2), wait: HistorySignal(code: 3),
+                               busyness: HistorySignal(code: 3))
+        #expect(Labels.historyRow(row) == "10–25 in line · 15–30 min wait · Busy")
+        #expect(Labels.historyRow(HistoryPoint(at: Date(timeIntervalSince1970: 0), people: 0)) == "No reports")
         #expect(Labels.people(1) == "1 person")
         #expect(Labels.people(3) == "3 people")
     }

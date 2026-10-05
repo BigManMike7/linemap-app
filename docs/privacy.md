@@ -32,7 +32,7 @@ If you've already given permission, the map shows your blue location dot. That l
 
 ### App activity
 
-LineMap records when the map or a bar's page is viewed, what estimate was shown, and whether it showed "no data", so we can tell whether the estimates are useful. It also records taps on **This looks wrong**.
+LineMap records when the map or a bar's page is viewed, what estimate was shown, and whether it showed "no data", so we can tell whether the estimates are useful. It also records when you confirm **Does this look wrong?** on a bar.
 
 ### Device details
 
@@ -44,7 +44,7 @@ No name, email, phone number, age, contacts, photos, or exact stored location. N
 
 ## What other people see
 
-Other people see only **combined estimates** for each bar: the current line size, wait, and how busy it is, how many people reported, and how recently. The bar's **History** shows the same combined estimates for earlier in the night and past nights. Nobody else ever sees your anonymous ID, your individual reports, or who reported what.
+Other people see only **combined estimates** for each bar: the current line size, wait, and how busy it is, how many people reported, and how recently. A bar's **History & details** shows the same combined estimates, half hour by half hour, for tonight and past nights. Nobody else ever sees your anonymous ID, your individual reports, or who reported what.
 
 ## How your data is used
 

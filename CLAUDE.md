@@ -194,7 +194,8 @@ Still to do in M4:
 - **Tab bar** (FR-44): Map, Bars, Settings, icons with short labels. Opens on Map after a full close; going to the home screen and back resumes where the person left. The Settings gear and sheet go away (FR-5).
 - **Bars list** (FR-45): simple cards, fresh before stale, shortest wait first, then line size only, then no data in `display_order`. Tapping a card switches to Map and opens that bar's sheet. No report buttons on cards.
 - **Wait card** shows on Map and Bars above the tab bar, hidden on Settings (FR-4).
-- **History & details** (FR-43): a full-screen page from a button on the bar sheet, with tonight's estimate in full, a night picker (every night with data, back one year), and three stacked charts with one drag cursor. Combined estimates only, never individual reports (Max confirmed).
+- **History & details** (FR-43), revised the same day: a full-screen page from a **History & details button on each Bars card** (not the bar sheet), with Right now in full, then Apple's standard calendar (tonight back one year) and the chosen night as a "Busiest around" line plus one row per half hour, 9:00 p.m. to 1:30 a.m. No charts. Combined estimates only, never individual reports (Max confirmed).
+- **Does this look wrong?** (FR-35): the bar sheet's "This looks wrong" became a question with a confirmation ("Yes, it looks wrong" or Cancel), so a stray tap sends nothing.
 - **Redo** (FR-46) and **Undo** (FR-47): see the Reporting rules above. Undo is a button on the I'm in and Gave up messages for about 5 seconds; Gave up now shows "Timer stopped." (FR-42).
 - **Data model check for Max:** no table, field, or answer-code change. New: the config setting `redo_minutes` (5), and two functions the app calls, `bar_history` and `reopen_session`, which bring the app to 15 functions. `start_session`, `end_session`, and `report_conditions` change their rate-limit rules. Point these out again when building.
 

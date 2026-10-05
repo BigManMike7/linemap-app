@@ -1,20 +1,37 @@
-import Charts
 import LineMapCore
 import SwiftUI
 
-/// History & details (FR-43): a bar's estimate right now in full, then any
-/// night with reports as three stacked charts (line size, wait, crowd) from
-/// 9 p.m. to 2 a.m. Dragging along them shows the values at that time.
-/// Only combined estimates, never individual reports.
+/// History & details (FR-43), opened from a Bars-list card: a bar's estimate
+/// right now in full, then a calendar of nights. The chosen night shows as one
+/// row per half hour, 9:00 p.m. to 1:30 a.m. Only combined estimates, never
+/// individual reports.
 struct BarDetailsScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
     let bar: Bar
-    /// The night asked for; nil is tonight.
-    @State private var night: NightDate?
+
+    /// The calendar's selection: noon Eastern on the chosen night's date.
+    @State private var selectedDate: Date
     @State private var history: BarHistory?
     @State private var loadFailed = false
-    @State private var selectedTime: Date?
+
+    private let tonight: NightDate
+
+    init(bar: Bar, now: Date = Date()) {
+        self.bar = bar
+        let tonight = NightDate(nightOf: now, timeZone: Eastern.zone)
+        self.tonight = tonight
+        _selectedDate = State(initialValue: tonight.noon(in: Eastern.zone))
+    }
+
+    private var selectedNight: NightDate {
+        NightDate(calendarDateOf: selectedDate, timeZone: Eastern.zone)
+    }
+
+    /// Tonight back to one year ago, the retention limit (FR-33).
+    private var selectableDates: ClosedRange<Date> {
+        tonight.adding(days: -365).noon(in: Eastern.zone) ... tonight.noon(in: Eastern.zone)
+    }
 
     var body: some View {
         NavigationStack {
@@ -33,10 +50,10 @@ struct BarDetailsScreen: View {
                         .accessibilityIdentifier("details-close")
                 }
             }
-            .task(id: night) { await load() }
+            .task(id: selectedNight) { await load() }
         }
-        // Times are State College times, whatever the phone's time zone. Text
-        // formats with the environment's zone, so set it here.
+        // Dates and times are State College's, whatever the phone's time zone.
+        // The calendar and Text formatting both read the environment's zone.
         .environment(\.timeZone, Eastern.zone)
         .accessibilityIdentifier("bar-details")
     }
@@ -77,14 +94,17 @@ struct BarDetailsScreen: View {
                 .font(.title3.bold())
                 .accessibilityAddTraits(.isHeader)
 
-            if let history {
-                nightControls(history)
-                if history.hasData {
-                    Readout(history: history, selectedTime: selectedTime)
-                    HistoryCharts(history: history, selectedTime: $selectedTime)
-                } else {
-                    noData(history)
-                }
+            DatePicker("Night", selection: $selectedDate, in: selectableDates, displayedComponents: .date)
+                .datePickerStyle(.graphical)
+                .accessibilityIdentifier("history-calendar")
+
+            Text(selectedNight == tonight ? "Tonight" : selectedNight.nightTitle)
+                .font(.headline)
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("history-night")
+
+            if let history, history.night == selectedNight {
+                NightRows(history: history)
             } else if loadFailed {
                 VStack(alignment: .leading, spacing: 12) {
                     Label("Couldn't load history. Check your connection.", systemImage: "wifi.slash")
@@ -96,251 +116,86 @@ struct BarDetailsScreen: View {
                 }
             } else {
                 ProgressView()
-                    .frame(maxWidth: .infinity, minHeight: 120)
-            }
-        }
-    }
-
-    private func nightControls(_ history: BarHistory) -> some View {
-        HStack {
-            Menu {
-                Picker("Night", selection: nightBinding(history)) {
-                    ForEach(history.pickerNights, id: \.self) { date in
-                        Text(date.label(tonight: history.tonight)).tag(date)
-                    }
-                }
-            } label: {
-                Label(history.night.label(tonight: history.tonight), systemImage: "calendar")
-                    .font(.subheadline.weight(.semibold))
-            }
-            .buttonStyle(.bordered)
-            .buttonBorderShape(.capsule)
-            .accessibilityLabel("Night: \(history.night.label(tonight: history.tonight))")
-            .accessibilityIdentifier("night-picker")
-
-            Spacer()
-
-            Button("Same night last week") {
-                night = history.night.adding(days: -7)
-            }
-            .font(.subheadline)
-            .buttonStyle(.borderless)
-            .accessibilityIdentifier("same-night-last-week")
-        }
-    }
-
-    private func nightBinding(_ history: BarHistory) -> Binding<NightDate> {
-        Binding(get: { history.night },
-                set: { night = $0 == history.tonight ? nil : $0 })
-    }
-
-    private func noData(_ history: BarHistory) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(history.night == history.tonight ? "No reports tonight yet." : "No reports this night.")
-                .foregroundStyle(.secondary)
-                .accessibilityIdentifier("history-empty")
-            if history.night == history.tonight {
-                let lastWeek = history.night.adding(days: -7)
-                Button("See last \(lastWeek.weekdayName)") {
-                    night = lastWeek
-                }
-                .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity, minHeight: 80)
             }
         }
     }
 
     private func load() async {
         loadFailed = false
-        selectedTime = nil
+        let night = selectedNight
         do {
             history = try await model.history(for: bar.id, night: night)
         } catch {
-            // A newer night was picked; its own load takes over.
+            // A newer date was picked; its own load takes over.
             if Task.isCancelled { return }
-            history = nil
             loadFailed = true
         }
     }
 }
 
-/// The values at the dragged time, or the latest values when not dragging:
-/// "11:35 PM · 25–50 in line · 32 min wait · Busy · 4 people".
-private struct Readout: View {
+/// One night as a "Busiest around" line and a row per half hour (FR-43).
+private struct NightRows: View {
     let history: BarHistory
-    let selectedTime: Date?
-
-    private var point: HistoryPoint? {
-        if let selectedTime { return history.point(at: selectedTime) }
-        return history.latestPointWithData
-    }
 
     var body: some View {
-        if let point {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(point.at, format: Eastern.time)
-                    .font(.headline)
-                Text(values(point))
-                    .font(.subheadline)
+        if history.hasData {
+            VStack(alignment: .leading, spacing: 14) {
+                if let busiest = history.busiestRow {
+                    Label("Busiest around \(busiest.at.formatted(Eastern.time))", systemImage: "flame")
+                        .font(.subheadline.weight(.semibold))
+                        .accessibilityIdentifier("history-busiest")
+                }
+                VStack(spacing: 0) {
+                    ForEach(history.halfHourRows) { row in
+                        HalfHourRow(point: row)
+                        if row.id != history.halfHourRows.last?.id {
+                            Divider()
+                        }
+                    }
+                }
+                Text("Grayed rows are reports 30 to 60 minutes old.")
+                    .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            .accessibilityElement(children: .combine)
-            .accessibilityIdentifier("history-readout")
-        }
-    }
-
-    private func values(_ point: HistoryPoint) -> String {
-        var parts: [String] = []
-        if let text = point.lineSize.flatMap(Labels.historyLineSize) { parts.append(text) }
-        if let text = point.wait.flatMap(Labels.historyWait) { parts.append(text) }
-        if let text = point.busyness.flatMap(Labels.historyBusyness) { parts.append(text) }
-        if parts.isEmpty { return "No reports within the hour" }
-        parts.append(Labels.people(point.people))
-        return parts.joined(separator: " · ")
-    }
-}
-
-/// Line size, wait, and crowd, stacked on one time axis. One drag moves a
-/// single cursor across all three.
-private struct HistoryCharts: View {
-    let history: BarHistory
-    @Binding var selectedTime: Date?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            SignalChart(title: "Line size", levels: SignalChart.lineLevels, history: history,
-                        value: \.lineSize, showsTimes: false, selectedTime: $selectedTime)
-            SignalChart(title: "Wait", levels: SignalChart.waitLevels, history: history,
-                        value: \.wait, showsTimes: false, selectedTime: $selectedTime)
-            SignalChart(title: "Crowd", levels: SignalChart.crowdLevels, history: history,
-                        value: \.busyness, showsTimes: true, selectedTime: $selectedTime)
-            Text("Lighter bars are reports 30 to 60 minutes old.")
-                .font(.footnote)
+        } else {
+            Text(history.night == history.tonight ? "No reports tonight yet." : "No reports this night.")
                 .foregroundStyle(.secondary)
+                .accessibilityIdentifier("history-empty")
         }
     }
 }
 
-/// One signal through the night: a block at its level for each 5 minutes,
-/// lighter when grayed out, empty when nothing is within 60 minutes.
-private struct SignalChart: View {
-    struct Level {
-        let code: Int
-        let label: String
-    }
-
-    static let lineLevels = [Level(code: 0, label: "0"), Level(code: 1, label: "1–10"),
-                             Level(code: 2, label: "10–25"), Level(code: 3, label: "25–50"),
-                             Level(code: 4, label: "50+")]
-    static let waitLevels = [Level(code: 1, label: "<5m"), Level(code: 2, label: "5–15m"),
-                             Level(code: 3, label: "15–30m"), Level(code: 4, label: "30–60m"),
-                             Level(code: 5, label: "60m+")]
-    static let crowdLevels = [Level(code: 1, label: "Quiet"), Level(code: 2, label: "Comfortable"),
-                              Level(code: 3, label: "Busy"), Level(code: 4, label: "Packed")]
-
-    let title: String
-    let levels: [Level]
-    let history: BarHistory
-    let value: KeyPath<HistoryPoint, HistorySignal?>
-    let showsTimes: Bool
-    @Binding var selectedTime: Date?
-
-    private var codes: ClosedRange<Double> {
-        let all = levels.map(\.code)
-        return Double(all.min() ?? 0) - 0.5 ... Double(all.max() ?? 4) + 0.5
-    }
-
-    private var hours: [Date] {
-        let count = Int(history.end.timeIntervalSince(history.start) / 3600)
-        return (0...max(count, 0)).map { history.start.addingTimeInterval(Double($0) * 3600) }
-    }
+/// "10:30 PM   25–50 in line · 30–60 min wait · Busy", with the number of
+/// people under it. Stacks at the largest text sizes.
+private struct HalfHourRow: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
+    let point: HistoryPoint
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-            Chart {
-                ForEach(segments) { segment in
-                    RectangleMark(
-                        xStart: .value("Time", segment.start),
-                        xEnd: .value("Time", segment.end),
-                        yStart: .value("Level", Double(segment.code) - 0.35),
-                        yEnd: .value("Level", Double(segment.code) + 0.35))
-                        .foregroundStyle(Color.accentColor.opacity(segment.isStale ? 0.35 : 1))
-                        .accessibilityLabel(
-                            "\(segment.start.formatted(Eastern.time)) to \(segment.end.formatted(Eastern.time))")
-                        .accessibilityValue(label(for: segment.code) + (segment.isStale ? ", older reports" : ""))
-                }
-                if let selectedTime {
-                    RuleMark(x: .value("Selected", selectedTime))
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 16))
+        layout {
+            Text(point.at, format: Eastern.time)
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .frame(minWidth: typeSize.isAccessibilitySize ? nil : 72, alignment: .leading)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(Labels.historyRow(point))
+                    .foregroundStyle(point.hasData && !point.isGrayed ? .primary : .secondary)
+                if point.hasData {
+                    Text(Labels.people(point.people))
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
-                        .lineStyle(StrokeStyle(lineWidth: 1))
                 }
             }
-            .chartXScale(domain: history.start ... history.end)
-            .chartYScale(domain: codes)
-            .chartXAxis {
-                AxisMarks(values: hours) { value in
-                    AxisGridLine()
-                    if showsTimes, let date = value.as(Date.self) {
-                        AxisValueLabel {
-                            Text(date, format: Eastern.hour)
-                        }
-                    }
-                }
-            }
-            .chartYAxis {
-                AxisMarks(position: .leading, values: levels.map { Double($0.code) }) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let code = value.as(Double.self) {
-                            // One width for every chart, so the three plots line up
-                            // and the drag cursor sits at the same time in each.
-                            Text(label(for: Int(code)))
-                                .font(.caption2)
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.6)
-                                .frame(width: 64, alignment: .leading)
-                        }
-                    }
-                }
-            }
-            .chartXSelection(value: $selectedTime)
-            // Axis text stops growing at a size that fits; VoiceOver reads every value.
-            .dynamicTypeSize(...DynamicTypeSize.xLarge)
-            .frame(height: 140)
-            .accessibilityLabel(title)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-    }
-
-    private func label(for code: Int) -> String {
-        levels.first { $0.code == code }?.label ?? ""
-    }
-
-    /// A stretch of the night with one value and one freshness.
-    private struct Segment: Identifiable {
-        let start: Date
-        var end: Date
-        let code: Int
-        let isStale: Bool
-
-        var id: Date { start }
-    }
-
-    /// Back-to-back 5-minute points with the same value become one block, so
-    /// the chart has no seams and VoiceOver reads one span per stretch.
-    private var segments: [Segment] {
-        var result: [Segment] = []
-        for point in history.points {
-            guard let signal = point[keyPath: value] else { continue }
-            let isStale = signal.freshness == .stale
-            let end = min(point.at.addingTimeInterval(300), history.end)
-            if let last = result.last, last.end == point.at, last.code == signal.code, last.isStale == isStale {
-                result[result.count - 1].end = end
-            } else {
-                result.append(Segment(start: point.at, end: end, code: signal.code, isStale: isStale))
-            }
-        }
-        return result
+        .font(.subheadline)
+        .padding(.vertical, 10)
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(point.isGrayed ? "Older reports" : "")
+        .accessibilityIdentifier("history-row")
     }
 }
 
@@ -348,16 +203,9 @@ private struct SignalChart: View {
 enum Eastern {
     static let zone = TimeZone(identifier: "America/New_York") ?? .current
 
-    /// "11:35 PM"
+    /// "11:30 PM"
     static var time: Date.FormatStyle {
         var style = Date.FormatStyle(date: .omitted, time: .shortened)
-        style.timeZone = zone
-        return style
-    }
-
-    /// "9 PM"
-    static var hour: Date.FormatStyle {
-        var style = Date.FormatStyle.dateTime.hour()
         style.timeZone = zone
         return style
     }

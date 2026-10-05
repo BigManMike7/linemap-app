@@ -62,20 +62,20 @@ nonisolated struct FixtureTransport: RPCTransport {
             """
     }
 
-    /// Tonight (Saturday) has no reports yet, so the empty state shows first.
-    /// Every other night is a full busy night: the line and wait build to a
-    /// peak near midnight, then ease off; the crowd drops out for a stretch.
+    /// Every night is a full busy night: the line and wait build to a peak near
+    /// midnight, then ease off; the crowd drops out for a stretch; the first
+    /// half hour has no reports.
     private static func history(night: String?) -> String {
-        let tonight = NightDate(year: 2026, month: 10, day: 3)
+        let eastern = TimeZone(identifier: "America/New_York") ?? .current
+        let tonight = NightDate(nightOf: Date(), timeZone: eastern)
         let shown = night.flatMap { NightDate($0) } ?? tonight
         // 9 p.m. to 2 a.m. Eastern daylight time is 01:00 to 06:00 UTC the next day.
         let next = shown.adding(days: 1)
         let start = ServerDate.parse("\(next)T01:00:00Z") ?? Date()
-        let empty = shown == tonight
         var points: [String] = []
         for index in 0...60 {
             let at = ServerDate.format(start.addingTimeInterval(Double(index) * 300))
-            guard !empty, index >= 6 else {
+            guard index >= 6 else {
                 points.append(#"{"at": "\#(at)", "people": 0, "line_size": null, "wait": null, "busyness": null}"#)
                 continue
             }

@@ -3,13 +3,13 @@ import SwiftUI
 
 /// A bar's line, wait, crowd, and freshness, with Start line timer and Report
 /// conditions (FR-3). While in line here, Report conditions becomes I'm in.
-/// History & details opens the bar's full page (FR-43).
+/// History & details opens from the Bars list instead (FR-43, FR-45).
 struct BarSheet: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dynamicTypeSize) private var typeSize
     let bar: Bar
     @State private var confirmsNewLine = false
-    @State private var showsDetails = false
+    @State private var confirmsLooksWrong = false
 
     private var isInLineHere: Bool { model.activeWait?.barId == bar.id }
     private var isInLineElsewhere: Bool { model.activeWait != nil && !isInLineHere }
@@ -26,9 +26,6 @@ struct BarSheet: View {
         .sheetFitsContent()
         .accessibilityIdentifier("bar-sheet")
         .onAppear { model.logBarView(bar) }
-        .fullScreenCover(isPresented: $showsDetails) {
-            BarDetailsScreen(bar: bar)
-        }
         .confirmationDialog(
             "Start a new line here?",
             isPresented: $confirmsNewLine,
@@ -82,27 +79,22 @@ struct BarSheet: View {
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            // Stacked at the largest text sizes, so neither button is squeezed.
-            let layout = typeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout())
-            layout {
-                Button {
-                    showsDetails = true
-                } label: {
-                    Label("History & details", systemImage: "chart.bar.xaxis")
-                        .font(.subheadline.weight(.medium))
-                }
-                .buttonStyle(.bordered)
-                .buttonBorderShape(.capsule)
-                .accessibilityHint("Shows earlier tonight and past nights")
-                .accessibilityIdentifier("details-button")
-                if !typeSize.isAccessibilitySize { Spacer() }
-                Button("This looks wrong") {
-                    model.sendFeedback(for: bar)
-                }
-                .font(.footnote)
-                .buttonStyle(.borderless)
-                .accessibilityIdentifier("looks-wrong-button")
+            // A question with a confirmation, so a stray tap sends nothing (FR-35).
+            Button("Does this look wrong?") {
+                confirmsLooksWrong = true
+            }
+            .font(.footnote)
+            .buttonStyle(.borderless)
+            .accessibilityIdentifier("looks-wrong-button")
+            .confirmationDialog(
+                "Does \(bar.name) look wrong?",
+                isPresented: $confirmsLooksWrong,
+                titleVisibility: .visible
+            ) {
+                Button("Yes, it looks wrong") { model.sendFeedback(for: bar) }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("This tells us the line or wait shown may be off. It doesn't change what anyone sees.")
             }
         }
     }

@@ -2,9 +2,11 @@ import LineMapCore
 import SwiftUI
 
 /// The Bars tab (FR-45): one simple card per bar, fresh before grayed out,
-/// shortest wait first. Tapping a card shows the bar on the map with its sheet.
+/// shortest wait first. Tapping a card shows the bar on the map with its sheet;
+/// each card's History & details button opens the bar's full page (FR-43).
 struct BarsScreen: View {
     @Environment(AppModel.self) private var model
+    @State private var detailsBar: Bar?
 
     private var orderedBars: [Bar] {
         BarOrder.sorted(model.bars, estimates: model.estimates)
@@ -20,6 +22,8 @@ struct BarsScreen: View {
                     ForEach(orderedBars) { bar in
                         BarCard(bar: bar, estimate: model.estimate(for: bar.id)) {
                             model.showOnMap(bar)
+                        } showDetails: {
+                            detailsBar = bar
                         }
                     }
                 }
@@ -35,6 +39,9 @@ struct BarsScreen: View {
             .refreshable { await model.refresh() }
             .navigationTitle("Bars")
             .modifier(ReportingInset())
+        }
+        .fullScreenCover(item: $detailsBar) { bar in
+            BarDetailsScreen(bar: bar)
         }
         .accessibilityIdentifier("bars-screen")
     }
@@ -54,25 +61,38 @@ struct BarsScreen: View {
 }
 
 /// One bar in the list: name, line, wait, crowd, and freshness, grayed out
-/// when older (FR-45). The whole card is one button.
+/// when older (FR-45). The top of the card is one button that shows the bar on
+/// the map; History & details sits under it as its own button (FR-43).
 struct BarCard: View {
     let bar: Bar
     let estimate: BarEstimate?
     let action: () -> Void
+    let showDetails: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            TimelineView(.periodic(from: .now, by: 30)) { context in
-                content(BarSummary(estimate: estimate, now: context.date))
+        VStack(alignment: .leading, spacing: 12) {
+            Button(action: action) {
+                TimelineView(.periodic(from: .now, by: 30)) { context in
+                    content(BarSummary(estimate: estimate, now: context.date))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(.rect)
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(uiColor: .secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
-            .contentShape(.rect(cornerRadius: 16))
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows \(bar.name) on the map")
+            .accessibilityIdentifier("bar-card-\(bar.id)")
+
+            Button(action: showDetails) {
+                Label("History & details", systemImage: "calendar")
+                    .font(.subheadline.weight(.medium))
+                    .frame(maxWidth: .infinity, minHeight: 30)
+            }
+            .buttonStyle(.bordered)
+            .accessibilityLabel("History & details for \(bar.name)")
+            .accessibilityIdentifier("details-button-\(bar.id)")
         }
-        .buttonStyle(.plain)
-        .accessibilityHint("Shows \(bar.name) on the map")
-        .accessibilityIdentifier("bar-card-\(bar.id)")
+        .padding(16)
+        .background(Color(uiColor: .secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
     }
 
     private func content(_ summary: BarSummary) -> some View {
