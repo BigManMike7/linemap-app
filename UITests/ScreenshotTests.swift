@@ -120,7 +120,7 @@ final class ScreenshotTests: XCTestCase {
 
         // A card shows the bar on the map with its sheet.
         XCTAssertTrue(cafe.waitForExistence(timeout: 5))
-        if !cafe.isHittable { app.swipeUp() }
+        scrollUntilHittable(cafe, in: app)
         cafe.tap()
         let conditions = app.buttons["conditions-button"]
         XCTAssertTrue(conditions.waitForExistence(timeout: 5))
@@ -142,7 +142,7 @@ final class ScreenshotTests: XCTestCase {
         // A timer shows on Map and Bars, but not on Settings (FR-4).
         app.tabBars.buttons["Bars"].tap()
         XCTAssertTrue(phyrst.waitForExistence(timeout: 5))
-        if !phyrst.isHittable { app.swipeUp() }
+        scrollUntilHittable(phyrst, in: app)
         phyrst.tap()
         XCTAssertTrue(app.buttons["in-line-button"].waitForExistence(timeout: 5))
         app.buttons["in-line-button"].tap()
@@ -233,7 +233,7 @@ final class ScreenshotTests: XCTestCase {
 
         let cafe = app.buttons["bar-card-3"]
         XCTAssertTrue(cafe.waitForExistence(timeout: 5))
-        if !cafe.isHittable { app.swipeUp() }
+        scrollUntilHittable(cafe, in: app)
         cafe.tap()
         let conditions = app.buttons["conditions-button"]
         XCTAssertTrue(conditions.waitForExistence(timeout: 5))
@@ -241,13 +241,13 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.buttons["conditions-send"].waitForExistence(timeout: 5))
         saveScreenshot(named: "L05-Conditions", app: app)
         let cancel = app.buttons["conditions-cancel"]
-        if !cancel.isHittable { app.swipeUp() }
+        scrollUntilHittable(cancel, in: app)
         cancel.tap()
 
         app.tabBars.buttons["Bars"].tap()
         let doggies = app.buttons["bar-card-1"]
         XCTAssertTrue(doggies.waitForExistence(timeout: 5))
-        if !doggies.isHittable { app.swipeDown() }
+        scrollUntilHittable(doggies, in: app, up: false)
         doggies.tap()
         XCTAssertTrue(app.buttons["in-line-button"].waitForExistence(timeout: 5))
         saveScreenshot(named: "L06-BarSheet", app: app)
@@ -270,6 +270,14 @@ final class ScreenshotTests: XCTestCase {
     }
 
     @MainActor
+    /// Swipes until the element can be tapped. Large text makes cards tall
+    /// enough that one swipe isn't always enough.
+    private func scrollUntilHittable(_ element: XCUIElement, in app: XCUIApplication, up: Bool = true) {
+        for _ in 0..<5 where !element.isHittable {
+            if up { app.swipeUp() } else { app.swipeDown() }
+        }
+    }
+
     private func saveScreenshot(named name: String, app: XCUIApplication) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = name
