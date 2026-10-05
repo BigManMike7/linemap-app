@@ -1,12 +1,12 @@
 -- Security model (NFR-5) and no stored coordinates (FR-26).
--- The app reaches data only through the 14 API functions in PRD 7.2; every
+-- The app reaches data only through the 16 API functions in PRD 7.2; every
 -- table is private, has RLS on, and no role but the owner can touch it.
 
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(66);
+select plan(70);
 
 -- Schema and table lockdown ----------------------------------------------------
 
@@ -62,9 +62,10 @@ select is(
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
                        'register_install', 'log_view', 'delete_my_data', 'cancel_session',
-                       'report_conditions', 'my_recent_reports', 'delete_report')),
-  14::bigint,
-  'each of the 14 API functions exists exactly once (no overloads)');
+                       'report_conditions', 'my_recent_reports', 'delete_report',
+                       'reopen_session', 'bar_history')),
+  16::bigint,
+  'each of the 16 API functions exists exactly once (no overloads)');
 
 -- Functions created by the migrations' owner in public that anon can run.
 select set_eq(
@@ -75,8 +76,9 @@ select set_eq(
       and has_function_privilege('anon', p.oid, 'execute')$$,
   array['get_bars', 'get_estimates', 'submit_report', 'start_session', 'update_line_size',
         'end_session', 'send_feedback', 'register_install', 'log_view', 'delete_my_data',
-        'cancel_session', 'report_conditions', 'my_recent_reports', 'delete_report'],
-  'anon can execute exactly the 14 API functions');
+        'cancel_session', 'report_conditions', 'my_recent_reports', 'delete_report',
+        'reopen_session', 'bar_history'],
+  'anon can execute exactly the 16 API functions');
 
 select is(
   (select array_agg(p.proname::text order by p.proname::text)
@@ -85,7 +87,8 @@ select is(
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
                        'register_install', 'log_view', 'delete_my_data', 'cancel_session',
-                       'report_conditions', 'my_recent_reports', 'delete_report')
+                       'report_conditions', 'my_recent_reports', 'delete_report',
+                       'reopen_session', 'bar_history')
      and has_function_privilege('authenticated', p.oid, 'execute')),
   null::text[],
   'authenticated cannot execute any API function');
@@ -97,7 +100,8 @@ select is(
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
                        'register_install', 'log_view', 'delete_my_data', 'cancel_session',
-                       'report_conditions', 'my_recent_reports', 'delete_report')
+                       'report_conditions', 'my_recent_reports', 'delete_report',
+                       'reopen_session', 'bar_history')
      and not p.prosecdef),
   null::text[],
   'every API function is SECURITY DEFINER');
@@ -109,7 +113,8 @@ select is(
      and p.proname in ('get_bars', 'get_estimates', 'submit_report', 'start_session',
                        'update_line_size', 'end_session', 'send_feedback',
                        'register_install', 'log_view', 'delete_my_data', 'cancel_session',
-                       'report_conditions', 'my_recent_reports', 'delete_report')
+                       'report_conditions', 'my_recent_reports', 'delete_report',
+                       'reopen_session', 'bar_history')
      and not (coalesce(p.proconfig, '{}'::text[])
               && array['search_path=""', 'search_path=', $q$search_path=''$q$])),
   null::text[],
@@ -222,6 +227,13 @@ select is(
                        p_client_report_id => '5ec00000-0000-4000-8000-000000000099') ->> 'error',
   'not_found',
   'anon can call delete_report');
+select is(
+  public.reopen_session('5ec00000-0000-4000-8000-000000000098', '5ec00000-0000-4000-8000-000000000001'),
+  '{"ok": true, "reopened": false, "removed": true}'::jsonb,
+  'anon can call reopen_session');
+select is(
+  (public.bar_history(p_bar_id => (public.get_bars() -> 0 ->> 'id')::bigint) ->> 'logic_version')::integer, 1,
+  'anon can call bar_history');
 
 reset role;
 
@@ -264,6 +276,12 @@ select throws_ok(
   $$select public.delete_report(p_anon_id => '5ec00000-0000-4000-8000-000000000001',
                                 p_client_report_id => '5ec00000-0000-4000-8000-000000000003')$$,
   '42501', null, 'authenticated cannot call delete_report');
+select throws_ok(
+  $$select public.reopen_session('5ec00000-0000-4000-8000-000000000098', '5ec00000-0000-4000-8000-000000000001')$$,
+  '42501', null, 'authenticated cannot call reopen_session');
+select throws_ok(
+  $$select public.bar_history(p_bar_id => 1)$$,
+  '42501', null, 'authenticated cannot call bar_history');
 select throws_ok('select * from app.reports', '42501', null, 'authenticated cannot select app.reports');
 
 reset role;

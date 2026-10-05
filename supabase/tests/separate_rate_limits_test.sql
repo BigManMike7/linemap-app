@@ -222,21 +222,22 @@ select is(pg_temp.r('p2_cond') ->> 'ok', 'true',
 select is((pg_temp.session(2001)).status, 'open', 'the line stays open');
 select is((pg_temp.report(2003)).wait_session_id, null::bigint, 'the conditions report is not linked to the line');
 
--- A second manual report within 10 minutes.
-insert into res values ('p2_cond_again', pg_temp.cond(2, 2004, pg_temp.bar(1), pg_temp.ago(92)));
+-- A second manual report within 10 minutes, past the 5-minute redo (FR-46).
+insert into res values ('p2_cond_again', pg_temp.cond(2, 2004, pg_temp.bar(1), pg_temp.ago(89)));
 
 select is(pg_temp.r('p2_cond_again') ->> 'error', 'rate_limited',
-  'a second Report conditions 3 minutes later is rate_limited');
-select is(pg_temp.r('p2_cond_again') ->> 'retry_after_seconds', '420', 'it is told the time left');
+  'a second Report conditions 6 minutes later is rate_limited');
+select is(pg_temp.r('p2_cond_again') ->> 'retry_after_seconds', '240', 'it is told the time left');
 select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(2004)), 0::bigint,
   'the refused report is not saved');
 
--- Gave up, then I'm in line again at the same bar within 10 minutes.
-insert into res values ('p2_gave_up', pg_temp.end_line(2, 2001, 'gave_up', pg_temp.ago(94)));
+-- Gave up, then I'm in line again at the same bar within 10 minutes of the
+-- last start but more than 5 after giving up (past the redo, FR-46).
+insert into res values ('p2_gave_up', pg_temp.end_line(2, 2001, 'gave_up', pg_temp.ago(99)));
 insert into res values ('p2_start_again', pg_temp.start(2, 2005, 2006, pg_temp.bar(1), pg_temp.ago(93)));
 
 select is(pg_temp.r('p2_start_again') ->> 'error', 'rate_limited',
-  'I''m in line 7 minutes after the last one, after giving up, is rate_limited');
+  'I''m in line 7 minutes after the last one, 6 after giving up, is rate_limited');
 select is(pg_temp.r('p2_start_again') ->> 'retry_after_seconds', '180', 'it is told the time left');
 select is((select count(*) from app.wait_sessions s where s.anon_id = pg_temp.uid(2)), 1::bigint,
   'the refused line creates no session');
@@ -283,14 +284,14 @@ select is(pg_temp.r('p4_start') ->> 'ok', 'true', 'I''m in line 4 minutes after 
 
 insert into res values ('p5_cond', pg_temp.cond(5, 5001, pg_temp.bar(1), pg_temp.ago(60)));
 insert into res values ('p5_del', pg_temp.del_report(5, 5001));
-insert into res values ('p5_again', pg_temp.cond(5, 5002, pg_temp.bar(1), pg_temp.ago(57)));
+insert into res values ('p5_again', pg_temp.cond(5, 5002, pg_temp.bar(1), pg_temp.ago(54)));
 insert into res values ('p5_start', pg_temp.start(5, 5003, 5004, pg_temp.bar(1), pg_temp.ago(56)));
 
 select is(pg_temp.r('p5_del') ->> 'ok', 'true', 'the conditions report is deleted');
 select is(pg_temp.hold_kind(5), 'conditions', 'its hold carries the kind conditions');
 select is(pg_temp.r('p5_again') ->> 'error', 'rate_limited',
-  'Report conditions 3 minutes after the deleted one is still rate_limited');
-select is(pg_temp.r('p5_again') ->> 'retry_after_seconds', '420', 'the limit runs from the deleted report');
+  'Report conditions 6 minutes after the deleted one (past the redo) is still rate_limited');
+select is(pg_temp.r('p5_again') ->> 'retry_after_seconds', '240', 'the limit runs from the deleted report');
 select is(pg_temp.r('p5_start') ->> 'ok', 'true', 'I''m in line 4 minutes after the deleted report is allowed');
 select is((pg_temp.session(5003)).status, 'open', 'the line is open');
 

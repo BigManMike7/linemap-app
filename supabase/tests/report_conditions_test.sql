@@ -296,7 +296,7 @@ select is(pg_temp.r('p17_other') ->> 'ok', 'true', 'Report conditions at a diffe
 -- Person 18: Report conditions, then other manual reports at the same bar, then I'm in line.
 insert into res values ('p18_cond', pg_temp.cond(18, 1801, pg_temp.bar(1), pg_temp.ago(100),
                                                  p_line => 2, p_line_state => 'answered'));
-insert into res values ('p18_cond_again', pg_temp.cond(18, 1803, pg_temp.bar(1), pg_temp.ago(97),
+insert into res values ('p18_cond_again', pg_temp.cond(18, 1803, pg_temp.bar(1), pg_temp.ago(94),
                                                        p_line => 3, p_line_state => 'answered'));
 insert into res values ('p18_inside', public.submit_report(
   p_client_report_id => pg_temp.uid(1804), p_anon_id => pg_temp.uid(18), p_install_id => pg_temp.uid(518),
@@ -304,7 +304,7 @@ insert into res values ('p18_inside', public.submit_report(
   p_app_version => '1.0', p_definitions_version => 1::smallint));
 
 select is(pg_temp.r('p18_cond') ->> 'ok', 'true', 'the first conditions report is accepted');
-select is(pg_temp.r('p18_cond_again') ->> 'error', 'rate_limited', 'a second conditions report 3 minutes later is rate-limited');
+select is(pg_temp.r('p18_cond_again') ->> 'error', 'rate_limited', 'a second conditions report 6 minutes later (past the 5-minute redo, FR-46) is rate-limited');
 select is(pg_temp.r('p18_inside') ->> 'error', 'rate_limited',
   'I''m inside (older builds) after Report conditions is rate-limited: same manual clock');
 
