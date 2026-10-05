@@ -143,7 +143,7 @@ The data model before launch, the database tests, location on a real phone, that
 - [ ] Location on a real phone (M3/M5)
 - [x] Delete my data removes rows (checked 2026-10-05 with the Data check workflow: 0 rows left for the deleted ID).
 - [ ] Privacy policy (M4). Draft in `docs/privacy.md` (covers Made a wrong report?, Undo and Redo, and history). Waiting for Max; GitHub Pages stays off until he approves it.
-- [ ] M4 data model change: the setting `redo_minutes` (5). No table, field, or answer-code change.
+- [x] M4 data model change: the setting `redo_minutes` (5). No table, field, or answer-code change (approved 2026-10-05).
 
 ## Status
 
@@ -168,7 +168,7 @@ The data model before launch, the database tests, location on a real phone, that
 
 Still to do in M4:
 
-1. **Max reviews:** the privacy policy draft, the `redo_minutes` setting, and the new screens on the phone (build 16, the latest: it has the large-text fixes and History from the Bars list as a calendar).
+1. **Max reviews:** the privacy policy draft, and the new screens on the phone (build 16, the latest: it has the large-text fixes and History from the Bars list as a calendar).
 2. **After the privacy policy is approved:** enable GitHub Pages from `/docs` on main (`gh api -X POST repos/BigManMike7/linemap-app/pages -f "source[branch]=main" -f "source[path]=/docs"`), then check that the Settings links open.
 3. **Review the light-mode and large-text screenshots** for anything clipped or unreadable, and fix it.
 4. **App Store Connect:** privacy labels, age rating, beta description, and Beta App Review notes, as in PRD section 9. Max fills these in on the web.
@@ -190,6 +190,9 @@ Still to do in M4:
 **UI test notes:** MapKit sometimes exposes the pins as its own map features on a second app launch, so the light-mode walkthrough opens bars from the Bars tab. Bars-list cards zoom the map to a 0.007° span so nearby bars stay visible.
 
 **Decisions made 2026-10-05** (already in PRD.md):
+
+- **Line-level colors** (FR-2, FR-3, FR-43, FR-45): pins, Bars cards, the bar sheet, and History rows are green, orange, or red by the wait or line size the pin shows (under 10 min or 0–10 in line; 10–25; 25+). The crowd never counts. Older reports show outlined or faded. Cutoffs live in `LineMapCore/LineLevel.swift`, not `config`. Each level also has its own symbol. The accent color changed from amber to indigo so it doesn't clash with orange.
+- **History & details** shows Right now and History as two separate cards.
 
 - **Tab bar** (FR-44): Map, Bars, Settings, icons with short labels. Opens on Map after a full close; going to the home screen and back resumes where the person left. The Settings gear and sheet go away (FR-5).
 - **Bars list** (FR-45): simple cards, fresh before stale, shortest wait first, then line size only, then no data in `display_order`. Tapping a card switches to Map and opens that bar's sheet. No report buttons on cards.

@@ -2,12 +2,14 @@ import LineMapCore
 import SwiftUI
 
 /// History & details (FR-43), opened from a Bars-list card: a bar's estimate
-/// right now in full, then a calendar of nights. The chosen night shows as one
-/// row per half hour, 9:00 p.m. to 1:30 a.m. Only combined estimates, never
-/// individual reports.
+/// right now in full, then a calendar of nights, each in its own card. The
+/// chosen night shows as one row per half hour, 9:00 p.m. to 1:30 a.m., with a
+/// dot colored by its line level. Only combined estimates, never individual
+/// reports.
 struct BarDetailsScreen: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var typeSize
     let bar: Bar
 
     /// The calendar's selection: noon Eastern on the chosen night's date.
@@ -36,12 +38,15 @@ struct BarDetailsScreen: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 28) {
+                VStack(alignment: .leading, spacing: 20) {
                     nowSection
+                        .cardStyle()
                     historySection
+                        .cardStyle()
                 }
-                .padding(20)
+                .padding(16)
             }
+            .background(Color(uiColor: .systemGroupedBackground))
             .navigationTitle(bar.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -62,9 +67,21 @@ struct BarDetailsScreen: View {
 
     private var nowSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Right now")
-                .font(.title3.bold())
-                .accessibilityAddTraits(.isHeader)
+            // The pill goes under the heading at the largest text sizes.
+            let header = typeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
+            header {
+                Text("Right now")
+                    .font(.title3.bold())
+                    .accessibilityAddTraits(.isHeader)
+                if !typeSize.isAccessibilitySize {
+                    Spacer(minLength: 8)
+                }
+                if let status = LineStatus(estimate: model.estimate(for: bar.id)) {
+                    LineLevelBadge(status: status)
+                }
+            }
             TimelineView(.periodic(from: .now, by: 30)) { context in
                 let summary = BarSummary(estimate: model.estimate(for: bar.id), now: context.date)
                 VStack(alignment: .leading, spacing: 12) {
@@ -154,7 +171,7 @@ private struct NightRows: View {
                         }
                     }
                 }
-                Text("Grayed rows are reports 30 to 60 minutes old.")
+                Text("Dots show the line: green short, orange some, red long. Grayed rows are reports 30 to 60 minutes old.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -166,20 +183,32 @@ private struct NightRows: View {
     }
 }
 
-/// "10:30 PM   25–50 in line · 30–60 min wait · Busy", with the number of
-/// people under it. Stacks at the largest text sizes.
+/// "● 10:30 PM   25–50 in line · 30–60 min wait · Busy", with the number of
+/// people under it. The dot is the line level's color. Stacks at the largest
+/// text sizes.
 private struct HalfHourRow: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let point: HistoryPoint
+
+    private var status: LineStatus? { LineStatus(point: point) }
+
+    private var accessibilityValue: String {
+        [status?.level.title, point.isGrayed ? "Older reports" : nil]
+            .compactMap { $0 }
+            .joined(separator: ", ")
+    }
 
     var body: some View {
         let layout = typeSize.isAccessibilitySize
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
             : AnyLayout(HStackLayout(alignment: .firstTextBaseline, spacing: 16))
         layout {
-            Text(point.at, format: Eastern.time)
-                .font(.subheadline.weight(.semibold).monospacedDigit())
-                .frame(minWidth: typeSize.isAccessibilitySize ? nil : 72, alignment: .leading)
+            HStack(spacing: 10) {
+                LineLevelDot(status: status)
+                Text(point.at, format: Eastern.time)
+                    .font(.subheadline.weight(.semibold).monospacedDigit())
+            }
+            .frame(minWidth: typeSize.isAccessibilitySize ? nil : 92, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(Labels.historyRow(point))
                     .foregroundStyle(point.hasData && !point.isGrayed ? .primary : .secondary)
@@ -194,7 +223,7 @@ private struct HalfHourRow: View {
         .font(.subheadline)
         .padding(.vertical, 10)
         .accessibilityElement(children: .combine)
-        .accessibilityValue(point.isGrayed ? "Older reports" : "")
+        .accessibilityValue(accessibilityValue)
         .accessibilityIdentifier("history-row")
     }
 }

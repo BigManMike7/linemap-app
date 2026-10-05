@@ -1,8 +1,8 @@
 import LineMapCore
 import SwiftUI
 
-/// A bar's line, wait, crowd, and freshness, with Start line timer and Report
-/// conditions (FR-3). While in line here, Report conditions becomes I'm in.
+/// A bar's line level, line, wait, crowd, and freshness, with Start line timer
+/// and Report conditions (FR-3). While in line here, Report conditions becomes I'm in.
 /// History & details opens from the Bars list instead (FR-43, FR-45).
 struct BarSheet: View {
     @Environment(AppModel.self) private var model
@@ -70,6 +70,9 @@ struct BarSheet: View {
                     .foregroundStyle(.secondary)
                     .accessibilityIdentifier("bar-status")
             } else {
+                if let status = LineStatus(estimate: model.estimate(for: bar.id)) {
+                    LineLevelBadge(status: status)
+                }
                 InfoRow(title: "Line", systemImage: "person.3.sequence", line: summary.lineSize)
                 InfoRow(title: "Wait", systemImage: "clock", line: summary.wait)
                 InfoRow(title: "Crowd", systemImage: "person.2.wave.2", line: summary.busyness)

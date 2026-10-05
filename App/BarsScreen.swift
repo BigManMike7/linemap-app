@@ -61,13 +61,17 @@ struct BarsScreen: View {
 }
 
 /// One bar in the list: name, line, wait, crowd, and freshness, grayed out
-/// when older (FR-45). The top of the card is one button that shows the bar on
-/// the map; History & details sits under it as its own button (FR-43).
+/// when older (FR-45). A colored pill and a strip down the left edge show how
+/// hard it is to get in. The top of the card is one button that shows the bar
+/// on the map; History & details sits under it as its own button (FR-43).
 struct BarCard: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let bar: Bar
     let estimate: BarEstimate?
     let action: () -> Void
     let showDetails: () -> Void
+
+    private var status: LineStatus? { LineStatus(estimate: estimate) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -91,20 +95,26 @@ struct BarCard: View {
             .accessibilityLabel("History & details for \(bar.name)")
             .accessibilityIdentifier("details-button-\(bar.id)")
         }
-        .padding(16)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: .rect(cornerRadius: 16))
+        .cardStyle(stripe: status?.color)
     }
 
     private func content(_ summary: BarSummary) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack {
+            HStack(alignment: .firstTextBaseline) {
                 Text(bar.name)
                     .font(.headline)
-                Spacer()
+                Spacer(minLength: 8)
+                if let status, !typeSize.isAccessibilitySize {
+                    LineLevelBadge(status: status)
+                }
                 Image(systemName: "chevron.right")
                     .font(.footnote.weight(.semibold))
                     .foregroundStyle(.tertiary)
                     .accessibilityHidden(true)
+            }
+            // The pill gets its own line at the largest text sizes.
+            if let status, typeSize.isAccessibilitySize {
+                LineLevelBadge(status: status)
             }
             if let status = summary.status {
                 Text(status)

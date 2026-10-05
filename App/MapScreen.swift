@@ -121,11 +121,24 @@ struct BarPin: View {
 
     private var label: PinLabel { PinLabel(estimate: estimate) }
 
-    /// Colored only when the pin shows a fresh line or wait; gray for older
-    /// reports, no data, closed, and outside hours.
-    private var isLive: Bool {
-        guard let estimate, estimate.display == .estimate, !label.isGrayed else { return false }
-        return estimate.wait != nil || estimate.lineSize != nil
+    /// Green, orange, or red by the line or wait the label shows, outlined for
+    /// older reports; a gray pin for no data, closed, and outside hours.
+    private var status: LineStatus? { LineStatus(estimate: estimate) }
+
+    /// Filled for fresh reports; an outlined ring on white for older ones.
+    @ViewBuilder
+    private var pinImage: some View {
+        if let status, status.isOlder {
+            Image(systemName: status.level.outlineSystemImage)
+                .font(.title)
+                .foregroundStyle(status.level.color)
+                .background(Circle().fill(.white).padding(2))
+        } else {
+            Image(systemName: status?.level.systemImage ?? "mappin.circle.fill")
+                .font(.title)
+                .symbolRenderingMode(.palette)
+                .foregroundStyle(.white, status?.level.color ?? Color.gray)
+        }
     }
 
     var body: some View {
@@ -139,16 +152,14 @@ struct BarPin: View {
                 .padding(.vertical, 6)
                 .background(.regularMaterial, in: .capsule)
                 .overlay(Capsule().strokeBorder(.quaternary))
-            Image(systemName: "mappin.circle.fill")
-                .font(.title)
-                .symbolRenderingMode(.palette)
-                .foregroundStyle(.white, isLive ? Color.accentColor : Color.gray)
+            pinImage
         }
         .contentShape(.rect)
         // Labels stop growing at a size where neighbouring pins stay readable.
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label.title(barName: bar.name))
+        .accessibilityValue(status?.level.title ?? "")
         .accessibilityHint(label.isGrayed ? "Older reports. Shows the line and crowd." : "Shows the line and crowd.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { action() }
