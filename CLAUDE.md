@@ -141,35 +141,33 @@ The data model before launch, the database tests, location on a real phone, that
 - [x] Data model (approved 2026-10-01, as built in M2). Point out any later change to tables, fields, or answer codes again.
 - [x] Database tests (approved 2026-10-01, 493 pgTAP tests).
 - [ ] Location on a real phone (M3/M5)
-- [ ] Delete my data removes rows (M3)
+- [x] Delete my data removes rows (checked 2026-10-05 with the Data check workflow: 0 rows left for the deleted ID).
 - [ ] Privacy policy (M4). Must cover Made a wrong report? (FR-41) and history (FR-43).
 
 ## Status
 
 - [x] **M1. Setup:** repo, XcodeGen project, LineMapCore package, CI pipeline. Done when an empty app builds in CI and installs on Max's iPhone through TestFlight.
 - [x] **M2. Backend:** tables, RLS, functions, cron jobs, seed bars, pgTAP tests.
-- [ ] **M3. App:** map, bar sheet, report flow, wait card, location, IDs, offline queue, feedback, Settings, Directions (FR-40), Made a wrong report? (FR-41), thank-you (FR-42).
+- [x] **M3. App:** map, bar sheet, report flow, wait card, location, IDs, offline queue, feedback, Settings, Directions (FR-40), Made a wrong report? (FR-41), thank-you (FR-42).
 - [ ] **M4. Polish:** bar history by night (FR-43), dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
 - [ ] **M5. Field test:** downtown testing, then Beta App Review.
 - [ ] **M6. Launch:** public TestFlight link.
 
-**Current milestone: M3** (built and on TestFlight; waiting for Max's end-to-end check).
+**Current milestone: M4** (not started; wait for Max to say go).
 
-## Where we left off (2026-10-04)
+## Where we left off (2026-10-05)
 
-**M3 is built.** TestFlight build 12 is the latest (map-pin selection, the 0–90 Adjust time wheel, no Directions on the wait card). All CI passed: pgTAP (793 tests), LineMapCore unit tests, the 15-screen screenshot walkthrough, and the database deploy. M3 is done when Max confirms the full flow on his phone. Next session:
+**M3 is done.** Max tested every M3 item on build 12 and it worked. Build 13 adds his last changes (FR-6, FR-7, FR-42): Line size is a wheel of the same five sizes with Save and no Skip (swiping away skips it), Adjust time has Save (swiping away changes nothing), and Save on either shows a short confirmation. All CI passed, including the 15-screen screenshot walkthrough.
 
-1. Have Max install build 12 and check:
-   - Start line timer (one tap) → Line size (a wheel with Save and no Skip; the saved message shows) → Adjust time (one 0–90 wheel with Save; swiping away changes nothing) → I'm in (no question, thank-you shows).
-   - Report conditions: one screen, Send off until an answer is picked, thank-you shows.
-   - The ✕ on the wait card: "I gave up on the line" and "Started it by mistake".
-   - Directions on the bar sheet opens Apple Maps. The wait card has no Directions.
-   - Report conditions, then Start line timer at the same bar right away: allowed (separate limits, FR-13). A second Report conditions there within 10 minutes is refused.
-   - Settings → Made a wrong report? lists and deletes a report; reporting that bar again within 10 minutes is still refused.
-   - A report made in Airplane Mode says it will send later, then sends itself.
-   - Settings → Delete my data.
-2. After Delete my data his phone gets a new anonymous ID. Have him send it from Settings and run the `test_anon_ids` SQL again (`supabase/README.md`, Admin section) so his testing stays marked as test data.
-3. If everything works: tick M3, tick "Delete my data removes rows" above, and stop for Max before M4. M4 starts with bar history (FR-43).
+Next session:
+
+1. **Mark Max's testing as test data.** The database is clean (the Data check on 2026-10-05 found only one row, his current install, stored as real) and `test_anon_ids` is empty. Have Max copy his current anonymous ID from Settings and run this in the dashboard SQL Editor:
+   ```sql
+   update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';
+   update app.installs set is_test = true where anon_id = '<ID>';
+   ```
+   Every Delete my data gives a new ID, so this has to be redone after each one. Don't commit his ID to this public repo: anyone with it can call the functions as him.
+2. **M4** starts with bar history (FR-43). Stop for Max before starting it.
 
 **Decisions made 2026-10-04** (already in PRD.md):
 
@@ -186,6 +184,5 @@ The data model before launch, the database tests, location on a real phone, that
 
 - Ship a build: `gh workflow run testflight.yml`. CI deploys passing migrations to Supabase automatically.
 - Supabase project ref `jjsccwmvgfzsxozhjlrt`. There is no local database access: the password lives only in GitHub Secrets, so Max runs one-off SQL in the dashboard SQL Editor.
-- Max's test anonymous ID: `cb1d32c5-1a2d-4d7d-898e-dcb9871ef2d7` (in `test_anon_ids`).
+- **Data check:** `gh workflow run data-check.yml` runs a read-only, counts-only check of the live database (rows left for a deleted ID, recent deletions, test and real rows per day). Its logs are public, so it never prints IDs.
 - The privacy and support links in Settings point at GitHub Pages pages that M4 still has to write. The privacy policy must cover Made a wrong report? and history.
-- On 2026-10-01 Max was given SQL to delete all of his testing data. Still unconfirmed: check that `app.reports`, `app.wait_sessions`, `app.views`, `app.feedback`, and `app.installs` only hold rows from after that.
