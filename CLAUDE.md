@@ -161,12 +161,13 @@ The data model before launch, the database tests, location on a real phone, that
 
 Next session:
 
-1. **Mark Max's testing as test data.** The database is clean (the Data check on 2026-10-05 found only one row, his current install, stored as real) and `test_anon_ids` is empty. Have Max copy his current anonymous ID from Settings and run this in the dashboard SQL Editor:
+1. **Test ID: wait until launch (Max's call, 2026-10-05).** Each Delete my data gives a new anonymous ID, so for now `test_anon_ids` stays empty and Max's rows are stored as real. Before anyone other than Max uses the app (the M5 field test with other people, or M6 at the latest), run one cleanup in the SQL Editor: mark every row so far as test (or delete it), then add Max's then-current ID:
    ```sql
+   -- for each of app.installs, app.wait_sessions, app.reports, app.views, app.feedback:
+   update app.reports set is_test = true where not is_test;
    update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';
-   update app.installs set is_test = true where anon_id = '<ID>';
    ```
-   Every Delete my data gives a new ID, so this has to be redone after each one. Don't commit his ID to this public repo: anyone with it can call the functions as him.
+   After that, a Delete my data on his phone means adding the new ID again. Don't commit his ID to this public repo: anyone with it can call the functions as him.
 2. **M4** starts with bar history (FR-43). Stop for Max before starting it.
 
 **Decisions made 2026-10-04** (already in PRD.md):
