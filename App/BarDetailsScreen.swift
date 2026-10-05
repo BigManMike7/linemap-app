@@ -305,6 +305,8 @@ private struct SignalChart: View {
                 }
             }
             .chartXSelection(value: $selectedTime)
+            // Axis text stops growing at a size that fits; VoiceOver reads every value.
+            .dynamicTypeSize(...DynamicTypeSize.xLarge)
             .frame(height: 140)
             .accessibilityLabel(title)
         }

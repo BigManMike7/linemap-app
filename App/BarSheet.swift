@@ -42,12 +42,15 @@ struct BarSheet: View {
     }
 
     private var header: some View {
-        HStack {
+        // Directions goes under the name at the largest text sizes, so neither wraps.
+        let layout = typeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12)) : AnyLayout(HStackLayout())
+        return layout {
             // Name only; the address stays in the data for door pins (Max, 2026-10-04).
             Text(bar.name)
                 .font(.title2.bold())
                 .accessibilityAddTraits(.isHeader)
-            Spacer()
+            if !typeSize.isAccessibilitySize { Spacer(minLength: 0) }
             Button {
                 bar.openDirections()
             } label: {
@@ -93,7 +96,7 @@ struct BarSheet: View {
                 .buttonBorderShape(.capsule)
                 .accessibilityHint("Shows earlier tonight and past nights")
                 .accessibilityIdentifier("details-button")
-                Spacer()
+                if !typeSize.isAccessibilitySize { Spacer() }
                 Button("This looks wrong") {
                     model.sendFeedback(for: bar)
                 }
@@ -150,20 +153,28 @@ struct BarSheet: View {
 }
 
 /// One line of the bar sheet: an icon, a title, and a value that grays out when older.
+/// At the largest text sizes the value goes under the title instead of beside it.
 struct InfoRow: View {
+    @Environment(\.dynamicTypeSize) private var typeSize
     let title: String
     let systemImage: String
     let line: BarSummary.Line?
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline) {
+        let stacked = typeSize.isAccessibilitySize
+        let layout = stacked
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 2))
+            : AnyLayout(HStackLayout(alignment: .firstTextBaseline))
+        layout {
             Label(title, systemImage: systemImage)
                 .foregroundStyle(.secondary)
-            Spacer()
+            if !stacked {
+                Spacer()
+            }
             Text(line?.text ?? "No reports")
                 .fontWeight(.semibold)
                 .foregroundStyle(line == nil || line?.isGrayed == true ? .secondary : .primary)
-                .multilineTextAlignment(.trailing)
+                .multilineTextAlignment(stacked ? .leading : .trailing)
         }
         .font(.body)
         .accessibilityElement(children: .combine)

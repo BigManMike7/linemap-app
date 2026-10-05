@@ -145,6 +145,8 @@ struct BarPin: View {
                 .foregroundStyle(.white, isLive ? Color.accentColor : Color.gray)
         }
         .contentShape(.rect)
+        // Labels stop growing at a size where neighbouring pins stay readable.
+        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label.title(barName: bar.name))
         .accessibilityHint(label.isGrayed ? "Older reports. Shows the line and crowd." : "Shows the line and crowd.")
