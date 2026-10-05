@@ -34,24 +34,32 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertFalse(app.buttons["wait-directions"].exists, "the wait card has no Directions (FR-40)")
         saveScreenshot(named: "03-WaitCard", app: app)
 
-        // Line size from the card (FR-6).
+        // Line size from the card (FR-6): one wheel and Save, no Skip.
         app.buttons["wait-update-line"].tap()
         XCTAssertTrue(app.staticTexts["How many people are in line?"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["Skip"].exists, "Line size has no Skip; swiping away skips it")
+        let lineWheel = app.pickerWheels.firstMatch
+        XCTAssertTrue(lineWheel.waitForExistence(timeout: 5))
+        lineWheel.adjust(toPickerWheelValue: "10–25")
         saveScreenshot(named: "04-LineSize", app: app)
-        app.buttons["option-2"].tap()
+        app.buttons["line-save"].tap()
 
-        // Adjust time from the card (FR-7): one wheel, 0 to 90, saved when the sheet closes.
+        // Save confirms the answer was sent (FR-42).
+        let thanks = app.descendants(matching: .any)["thanks-message"]
+        XCTAssertTrue(thanks.waitForExistence(timeout: 10))
+        saveScreenshot(named: "05-LineSizeSaved", app: app)
+
+        // Adjust time from the card (FR-7): one wheel, 0 to 90, and Save.
         let adjust = app.buttons["wait-adjust-time"]
         XCTAssertTrue(adjust.waitForExistence(timeout: 5))
         adjust.tap()
         XCTAssertTrue(app.staticTexts["Adjust time"].waitForExistence(timeout: 5))
-        saveScreenshot(named: "05-AdjustTime", app: app)
         let wheel = app.pickerWheels.firstMatch
         XCTAssertTrue(wheel.waitForExistence(timeout: 5))
         wheel.adjust(toPickerWheelValue: "15 min")
         saveScreenshot(named: "06-AdjustTimeWheel", app: app)
-        // Tap the map above the sheet to close it.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.15)).tap()
+        app.buttons["adjust-save"].tap()
+        XCTAssertTrue(message(containing: "timer now includes", in: app).waitForExistence(timeout: 10))
 
         // The timer now includes the 15 minutes from the wheel.
         let imIn = app.buttons["wait-im-in"]
@@ -61,8 +69,7 @@ final class ScreenshotTests: XCTestCase {
 
         // I'm in ends the timer and asks nothing, then says thanks (FR-8, FR-42).
         imIn.tap()
-        let thanks = app.descendants(matching: .any)["thanks-message"]
-        XCTAssertTrue(thanks.waitForExistence(timeout: 10))
+        XCTAssertTrue(message(containing: "now visible to everyone", in: app).waitForExistence(timeout: 10))
         saveScreenshot(named: "08-Thanks", app: app)
         XCTAssertTrue(app.buttons["settings-button"].waitForExistence(timeout: 5))
         sleep(1)
@@ -128,6 +135,14 @@ final class ScreenshotTests: XCTestCase {
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(app.buttons["settings-done"].waitForExistence(timeout: 5))
         app.buttons["settings-done"].tap()
+    }
+
+    /// The thank-you message showing this text (FR-42).
+    @MainActor
+    private func message(containing text: String, in app: XCUIApplication) -> XCUIElement {
+        app.descendants(matching: .any)
+            .matching(NSPredicate(format: "identifier == 'thanks-message' AND label CONTAINS %@", text))
+            .firstMatch
     }
 
     @MainActor

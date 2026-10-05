@@ -108,7 +108,7 @@ These are summaries. The PRD has the details.
 
 - **Rate limit.** Two separate 10-minute limits per person per bar, enforced on the server: timed lines (Start line timer) and manual reports (Report conditions). Neither blocks the other. Not limited: line-size updates in an open session (each its own row), I'm in, Gave up, and the busyness answer after I'm in, which only older builds send (FR-13).
 - **Sessions.** Only one open wait session at a time (FR-14). Report conditions never touches a session; the server's I'm inside rule (FR-15) remains only for older builds. Sessions become unfinished after 90 minutes (FR-10). Adjust time moves the start back 0–90 minutes (FR-7).
-- **Answers.** Every answer can be skipped (FR-12). Line size and Adjust time save immediately; Report conditions sends once. The app no longer offers "I can't tell", "Can't see the end", or the recalled-wait question, but their stored codes stay reserved and never change meaning.
+- **Answers.** Every answer can be skipped (FR-12). Line size and Adjust time send when Save is tapped (swiping away skips); Report conditions sends once. The app no longer offers "I can't tell", "Can't see the end", or the recalled-wait question, but their stored codes stay reserved and never change meaning.
 - **Offline queue.** Every report and session event has a client-generated ID, so retries never duplicate. The queue survives restarts (FR-16).
 
 **Estimates**
@@ -160,7 +160,7 @@ The data model before launch, the database tests, location on a real phone, that
 **M3 is built.** TestFlight build 12 is the latest (map-pin selection, the 0–90 Adjust time wheel, no Directions on the wait card). All CI passed: pgTAP (793 tests), LineMapCore unit tests, the 15-screen screenshot walkthrough, and the database deploy. M3 is done when Max confirms the full flow on his phone. Next session:
 
 1. Have Max install build 12 and check:
-   - Start line timer (one tap) → Line size → Adjust time (one 0–90 wheel, saves when the sheet closes) → I'm in (no question, thank-you shows).
+   - Start line timer (one tap) → Line size (a wheel with Save and no Skip; the saved message shows) → Adjust time (one 0–90 wheel with Save; swiping away changes nothing) → I'm in (no question, thank-you shows).
    - Report conditions: one screen, Send off until an answer is picked, thank-you shows.
    - The ✕ on the wait card: "I gave up on the line" and "Started it by mistake".
    - Directions on the bar sheet opens Apple Maps. The wait card has no Directions.

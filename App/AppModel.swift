@@ -13,12 +13,14 @@ nonisolated struct ActiveWait: Codable, Hashable {
     var startedAt: Date
     /// Adjust time in minutes (FR-7); nil when just started.
     var offsetMinutes: Int?
+    /// The last Line size answer, so the wheel opens on it (FR-6). Only kept on the phone.
+    var lineSize: LineSize?
 
     var timer: WaitTimer { WaitTimer(startedAt: startedAt, offsetMinutes: offsetMinutes ?? 0) }
 
     // "offset" is the key builds before 2026-10-04 saved, so an open wait survives the update.
     private nonisolated enum CodingKeys: String, CodingKey {
-        case clientSessionId, startReportId, barId, startedAt
+        case clientSessionId, startReportId, barId, startedAt, lineSize
         case offsetMinutes = "offset"
     }
 }
@@ -48,6 +50,8 @@ nonisolated struct Thanks: Identifiable, Hashable {
 
     static let visible = "Thanks! Your update is now visible to everyone."
     static let offline = "Thanks! Your update will send when you're back online."
+    /// After Adjust time, which counts only once the wait ends, so it isn't visible yet.
+    static let startTime = "Saved! Your timer now includes your time in line."
 }
 
 nonisolated struct AppAlert: Identifiable, Hashable {
@@ -91,8 +95,8 @@ final class AppModel {
     @ObservationIgnored private var started = false
     @ObservationIgnored private var refusedReports: Set<UUID> = []
     /// Reports and timers to thank for once the server accepts them, keyed by
-    /// their client ID, with when they were made (FR-42).
-    @ObservationIgnored private var awaitingThanks: [UUID: Date] = [:]
+    /// their client ID, with when they were made and what to say (FR-42).
+    @ObservationIgnored private var awaitingThanks: [UUID: (madeAt: Date, text: String)] = [:]
     @ObservationIgnored private var thanksTask: Task<Void, Never>?
     @ObservationIgnored private var isOnline = true
     private let pathMonitor = NWPathMonitor()
@@ -251,9 +255,9 @@ final class AppModel {
 
     /// Offline, thanks right away and says it will send later. Online, waits
     /// for the server to accept it, so "now visible" is true.
-    private func thankWhenAccepted(_ id: UUID) {
+    private func thankWhenAccepted(_ id: UUID, text: String = Thanks.visible) {
         if isOnline {
-            awaitingThanks[id] = Date()
+            awaitingThanks[id] = (Date(), text)
         } else {
             showThanks(Thanks.offline)
         }
@@ -262,9 +266,9 @@ final class AppModel {
     /// Thanks for an accepted report, unless it took so long (a retry after a
     /// dropped connection) that the message would come out of nowhere.
     private func deliveredForThanks(_ id: UUID?, accepted: Bool) {
-        guard let id, let madeAt = awaitingThanks.removeValue(forKey: id) else { return }
-        if accepted && Date().timeIntervalSince(madeAt) < 90 {
-            showThanks(Thanks.visible)
+        guard let id, let waiting = awaitingThanks.removeValue(forKey: id) else { return }
+        if accepted && Date().timeIntervalSince(waiting.madeAt) < 90 {
+            showThanks(waiting.text)
         }
     }
 
@@ -305,14 +309,18 @@ final class AppModel {
         sheet = .question(.lineSize)
     }
 
-    /// Each answer is its own line-size report in the session (FR-13 exempt).
-    func answerLineSize(_ answer: Answer<LineSize>) {
+    /// Save on the Line size wheel. Each answer is its own line-size report in
+    /// the session (FR-13 exempt), confirmed by the thank-you (FR-42).
+    func answerLineSize(_ size: LineSize) {
         sheet = nil
-        // Skipping has nothing to save.
-        guard let wait = activeWait, let meta = reportMeta(), answer != .skipped else { return }
+        guard var wait = activeWait, let meta = reportMeta() else { return }
+        wait.lineSize = size
+        setActiveWait(wait)
+        let reportId = UUID()
+        thankWhenAccepted(reportId)
         enqueue(.updateLineSize(UpdateLineSizeCall(
-            clientReportId: UUID(), clientSessionId: wait.clientSessionId, phoneTime: Date(),
-            location: .noFix, meta: meta, lineSize: answer)), locate: true)
+            clientReportId: reportId, clientSessionId: wait.clientSessionId, phoneTime: Date(),
+            location: .noFix, meta: meta, lineSize: .answered(size))), locate: true)
     }
 
     /// Adjust time on the wait card (FR-7).
@@ -321,16 +329,23 @@ final class AppModel {
         sheet = .question(.adjustTime)
     }
 
-    /// Moves the timer's start back by this many minutes (0 to 90); nil or 0
-    /// undoes it. Called as the sheet closes, so it leaves the sheet alone.
+    /// Save on the Adjust time wheel: moves the timer's start back by this many
+    /// minutes (0 to 90); nil or 0 undoes it. Confirmed by a short message (FR-42).
     func adjustTime(minutes: Int?) {
+        sheet = nil
         let clamped = min(max(minutes ?? 0, 0), StartOffset.maxMinutes)
         let offset: Int? = clamped == 0 ? nil : clamped
-        guard var wait = activeWait, wait.offsetMinutes != offset, let meta = reportMeta() else { return }
+        guard var wait = activeWait, let meta = reportMeta() else { return }
+        // Unchanged: it's already saved, so just confirm.
+        guard wait.offsetMinutes != offset else {
+            showThanks(Thanks.startTime)
+            return
+        }
         wait.offsetMinutes = offset
         setActiveWait(wait)
         var call = startCall(for: wait, meta: meta)
         call.startOffsetMinutes = clamped
+        thankWhenAccepted(call.clientReportId, text: Thanks.startTime)
         enqueue(.startSession(call))
     }
 
@@ -462,8 +477,11 @@ final class AppModel {
 
     private func handle(_ delivery: OfflineQueue.Delivery) {
         let call = delivery.item.call
+        // A start_session is thanked only when Adjust time sent it.
         let thanksId: UUID? = switch call {
         case .reportConditions(let c): c.clientReportId
+        case .updateLineSize(let c): c.clientReportId
+        case .startSession(let c): c.clientReportId
         case .endSession(let c) where c.outcome == .entered: c.clientSessionId
         default: nil
         }

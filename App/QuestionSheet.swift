@@ -15,15 +15,7 @@ struct QuestionSheet: View {
     var body: some View {
         switch question {
         case .lineSize:
-            OptionsView(
-                id: "lineSize",
-                // The whole line, not just the people ahead (2026-10-04, see supabase/README.md).
-                title: "How many people are in line?",
-                options: LineSize.offered.map { (Labels.option($0), Answer.answered($0)) },
-                skip: .skipped
-            ) { answer in
-                model.answerLineSize(answer)
-            }
+            LineSizeView(lineSize: model.activeWait?.lineSize)
         case .adjustTime:
             AdjustTimeView(minutes: model.activeWait?.offsetMinutes ?? 0)
         case .conditions(let barId):
@@ -39,46 +31,42 @@ extension LineSize {
     }
 }
 
-/// A question with big one-tap answers (NFR-3).
-struct OptionsView<Value: Hashable>: View {
-    let id: String
-    let title: String
-    var subtitle: String? = nil
-    let options: [(String, Value)]
-    /// The Skip answer, or nil to leave Skip out.
-    let skip: Value?
-    /// The current answer, shown highlighted.
-    var selected: Value? = nil
-    let onAnswer: (Value) -> Void
+/// Line size (FR-6): one wheel of the offered sizes, starting on the last
+/// answer in this wait. Save sends it; swiping the sheet away sends nothing.
+struct LineSizeView: View {
+    @Environment(AppModel.self) private var model
+    @State private var lineSize: LineSize
+
+    init(lineSize: LineSize?) {
+        _lineSize = State(initialValue: lineSize ?? .nobody)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            QuestionHeader(title: title, subtitle: subtitle)
+            // The whole line, not just the people ahead (2026-10-04, see supabase/README.md).
+            QuestionHeader(title: "How many people are in line?")
 
-            ForEach(Array(options.enumerated()), id: \.offset) { index, option in
-                OptionButton(title: option.0, isSelected: selected == option.1, id: "option-\(index)") {
-                    onAnswer(option.1)
+            Picker("People in line", selection: $lineSize) {
+                ForEach(LineSize.offered, id: \.self) { size in
+                    Text(Labels.option(size)).tag(size)
                 }
             }
+            .pickerStyle(.wheel)
+            .accessibilityIdentifier("line-wheel")
 
-            if let skip {
-                HStack {
-                    Spacer()
-                    Button(Labels.skip) { onAnswer(skip) }
-                        .buttonStyle(.borderless)
-                        .accessibilityIdentifier("option-skip")
-                }
-                .padding(.top, 4)
+            SaveButton(id: "line-save") {
+                model.answerLineSize(lineSize)
             }
         }
         .padding(20)
         .sheetFitsContent()
-        .accessibilityIdentifier("question-\(id)")
+        .accessibilityIdentifier("question-lineSize")
     }
 }
 
 /// Adjust time (FR-7): one wheel of every minute from 0 to 90, starting on the
-/// current time. It saves when the sheet closes; 0 undoes it.
+/// current time. Save sends it, and 0 undoes it; swiping the sheet away
+/// changes nothing.
 struct AdjustTimeView: View {
     @Environment(AppModel.self) private var model
     @State private var minutes: Int
@@ -99,11 +87,14 @@ struct AdjustTimeView: View {
             }
             .pickerStyle(.wheel)
             .accessibilityIdentifier("adjust-wheel")
+
+            SaveButton(id: "adjust-save") {
+                model.adjustTime(minutes: minutes)
+            }
         }
         .padding(20)
         .sheetFitsContent()
         .accessibilityIdentifier("question-adjustTime")
-        .onDisappear { model.adjustTime(minutes: minutes) }
     }
 }
 
@@ -174,22 +165,19 @@ private struct QuestionHeader: View {
     }
 }
 
-/// One big answer button, highlighted when it's the current answer.
-private struct OptionButton: View {
-    let title: String
-    let isSelected: Bool
+/// The big Save button under a wheel. The sheet closes and a short message
+/// confirms the answer was sent (FR-42).
+private struct SaveButton: View {
     let id: String
     let action: () -> Void
 
     var body: some View {
         Button(action: action) {
-            Text(title).frame(maxWidth: .infinity, minHeight: 34)
+            Text("Save").frame(maxWidth: .infinity, minHeight: 34)
         }
-        .buttonStyle(.bordered)
-        .tint(isSelected ? .accentColor : nil)
-        .fontWeight(isSelected ? .semibold : .regular)
+        .buttonStyle(.borderedProminent)
         .controlSize(.large)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .padding(.top, 4)
         .accessibilityIdentifier(id)
     }
 }
