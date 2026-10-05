@@ -20,7 +20,7 @@ LineMap needs an iPhone with iOS 17 or later. TestFlight updates the app for you
 
 ## Using LineMap
 
-- **Map** shows every bar with its current wait or line, such as "The Phyrst · 25 min". Tap a bar for details.
+- **Map** shows every bar with its current wait or line, such as "The Phyrst · 25 min". The pin's color shows how hard it is to get in: green for a short line, orange for some line, red for a long one. Tap a bar for details.
 - **Bars** lists every bar, shortest wait first. Tap one to see it on the map.
 - **Start line timer** when you join a line, and tap **I'm in** when you get in. Your wait is timed, not guessed. While you wait, you can add the **Line size** or **Adjust time** if you were already in line before you started the timer.
 - **Report conditions** shares how many people are in line and how busy it is inside. Answer one or both.
@@ -30,6 +30,9 @@ LineMap needs an iPhone with iOS 17 or later. TestFlight updates the app for you
 
 **Why does a bar say "No data" or "Not enough data"?**
 Nobody has reported there in the last hour. Reports are fresh for 30 minutes, grayed out from 30 to 60 minutes, and then they stop counting.
+
+**Why does a bar say "Uncertain"?**
+The latest reports disagree: for example, someone timed a 0-minute wait while someone else reported 50+ people in line. LineMap doesn't guess which is right. Tap the bar to see both and decide for yourself.
 
 **Why does it say "Outside usual hours" or "Closed"?**
 Live estimates run Thursday to Saturday, 9 p.m. to 2 a.m. Eastern. From 2 to 4 a.m. bars show "Closed". At other times bars show "Outside usual hours" unless someone has just reported.

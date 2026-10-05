@@ -103,7 +103,7 @@ Call with `POST /rest/v1/rpc/<name>` and named JSON parameters. Writes return `{
 | `my_recent_reports(p_anon_id)` | Made a wrong report? (FR-41): the person's own reports and finished waits from the last 24 hours, newest first, at most 100 (shape below) |
 | `delete_report(p_anon_id, p_client_report_id?, p_client_session_id?)` | Deletes one item from that list: exactly one ID. A report ID deletes a standalone report; a session ID deletes a finished wait and every report in it. Returns `{"ok": true, "rows_removed": n}`, `{"ok": false, "error": "session_open"}` for an open wait (cancel it instead), or `{"ok": false, "error": "not_found"}` for anything not theirs, older than 24 hours, inside a wait, or already deleted. The rate limit keeps running from what was deleted, on its own clock |
 | `delete_my_data(p_anon_id)` | Deletes everything for the ID (holds included); the app then makes a new one |
-| `bar_history(p_anon_id?, p_bar_id, p_night?)` | History & details (FR-43): one bar's estimate every 15 minutes of a night day, 4 a.m. to 4 a.m. Eastern (default tonight), and its nights with data (shape below). Read-only. A missing, unknown, or inactive bar, or a test bar for a real ID, is bad input |
+| `bar_history(p_anon_id?, p_bar_id, p_night?)` | History (FR-43): one bar's estimate every 15 minutes of a night day, 4 a.m. to 4 a.m. Eastern (default tonight), and its nights with data (shape below). Read-only. A missing, unknown, or inactive bar, or a test bar for a real ID, is bad input |
 
 Every report and session carries a client-generated ID, so the offline queue can retry safely (FR-16). Phone times are capped at server time.
 

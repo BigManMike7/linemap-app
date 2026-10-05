@@ -159,7 +159,8 @@ struct BarPin: View {
         .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label.title(barName: bar.name))
-        .accessibilityValue(status?.level.title ?? "")
+        // "Uncertain" is already the label's text, so it isn't read twice.
+        .accessibilityValue(status.flatMap { $0.level == .uncertain ? nil : $0.level.title } ?? "")
         .accessibilityHint(label.isGrayed ? "Older reports. Shows the line and crowd." : "Shows the line and crowd.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { action() }

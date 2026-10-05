@@ -133,7 +133,7 @@ public struct HistoryPoint: Codable, Sendable, Hashable, Identifiable {
         return !signals.isEmpty && signals.allSatisfy { $0.freshness == .stale }
     }
 
-    /// Line size, then wait, then crowd, for picking the busiest half hour.
+    /// Line size, then wait, then crowd, for picking the busiest quarter hour.
     fileprivate var busyness3: [Int] {
         [lineSize?.code ?? -1, wait?.code ?? -1, busyness?.code ?? -1]
     }
@@ -296,7 +296,7 @@ extension Labels {
         Busyness(rawValue: signal.code).map { option($0) }
     }
 
-    /// One half-hour row of History (FR-43): "10–25 in line · 15–30 min wait · Busy".
+    /// One quarter-hour row of History (FR-43): "10–25 in line · 15–30 min wait · Busy".
     public static func historyRow(_ point: HistoryPoint) -> String {
         let parts = [
             point.lineSize.flatMap(historyLineSize),

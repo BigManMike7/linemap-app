@@ -41,7 +41,7 @@ extension LineStatus {
     }
 }
 
-/// A pill such as "✓ Short line", on Bars cards, the bar sheet, and Right now.
+/// A pill such as "✓ Short line", on Bars cards and the bar sheet.
 struct LineLevelBadge: View {
     let status: LineStatus
 
@@ -65,7 +65,7 @@ struct LineLevelBadge: View {
     }
 }
 
-/// A dot for one half hour of History (FR-43): the level's color, or an empty
+/// A dot for one quarter hour of History (FR-43): the level's color, or an empty
 /// ring when nothing was reported.
 struct LineLevelDot: View {
     let status: LineStatus?
