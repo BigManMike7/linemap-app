@@ -192,12 +192,16 @@ final class ScreenshotTests: XCTestCase {
         ]
         app.launch()
 
-        let pin = app.descendants(matching: .any)["pin-1"].firstMatch
-        XCTAssertTrue(pin.waitForExistence(timeout: 15))
-        sleep(2)
+        // MapKit sometimes exposes pins as its own map features on a second
+        // launch, so this walkthrough opens bars from the Bars tab instead.
+        XCTAssertTrue(app.tabBars.buttons["Bars"].waitForExistence(timeout: 15))
+        sleep(3) // let pins and map tiles load
         saveScreenshot(named: "L01-Map", app: app)
 
-        pin.tap()
+        app.tabBars.buttons["Bars"].tap()
+        let doggies = app.buttons["bar-card-1"]
+        XCTAssertTrue(doggies.waitForExistence(timeout: 10))
+        doggies.tap()
         XCTAssertTrue(app.buttons["in-line-button"].waitForExistence(timeout: 5))
         saveScreenshot(named: "L02-BarSheet", app: app)
 

@@ -35,6 +35,9 @@ struct BarDetailsScreen: View {
             }
             .task(id: night) { await load() }
         }
+        // Times are State College times, whatever the phone's time zone. Text
+        // formats with the environment's zone, so set it here.
+        .environment(\.timeZone, Eastern.zone)
         .accessibilityIdentifier("bar-details")
     }
 
@@ -256,17 +259,16 @@ private struct SignalChart: View {
             Text(title)
                 .font(.subheadline.weight(.semibold))
             Chart {
-                ForEach(history.points) { point in
-                    if let signal = point[keyPath: value] {
-                        RectangleMark(
-                            xStart: .value("Time", point.at),
-                            xEnd: .value("Time", point.at.addingTimeInterval(300)),
-                            yStart: .value("Level", Double(signal.code) - 0.35),
-                            yEnd: .value("Level", Double(signal.code) + 0.35))
-                            .foregroundStyle(Color.accentColor.opacity(signal.freshness == .stale ? 0.35 : 1))
-                            .accessibilityLabel(point.at.formatted(Eastern.time))
-                            .accessibilityValue(label(for: signal.code))
-                    }
+                ForEach(segments) { segment in
+                    RectangleMark(
+                        xStart: .value("Time", segment.start),
+                        xEnd: .value("Time", segment.end),
+                        yStart: .value("Level", Double(segment.code) - 0.35),
+                        yEnd: .value("Level", Double(segment.code) + 0.35))
+                        .foregroundStyle(Color.accentColor.opacity(segment.isStale ? 0.35 : 1))
+                        .accessibilityLabel(
+                            "\(segment.start.formatted(Eastern.time)) to \(segment.end.formatted(Eastern.time))")
+                        .accessibilityValue(label(for: segment.code) + (segment.isStale ? ", older reports" : ""))
                 }
                 if let selectedTime {
                     RuleMark(x: .value("Selected", selectedTime))
@@ -310,6 +312,33 @@ private struct SignalChart: View {
 
     private func label(for code: Int) -> String {
         levels.first { $0.code == code }?.label ?? ""
+    }
+
+    /// A stretch of the night with one value and one freshness.
+    private struct Segment: Identifiable {
+        let start: Date
+        var end: Date
+        let code: Int
+        let isStale: Bool
+
+        var id: Date { start }
+    }
+
+    /// Back-to-back 5-minute points with the same value become one block, so
+    /// the chart has no seams and VoiceOver reads one span per stretch.
+    private var segments: [Segment] {
+        var result: [Segment] = []
+        for point in history.points {
+            guard let signal = point[keyPath: value] else { continue }
+            let isStale = signal.freshness == .stale
+            let end = min(point.at.addingTimeInterval(300), history.end)
+            if let last = result.last, last.end == point.at, last.code == signal.code, last.isStale == isStale {
+                result[result.count - 1].end = end
+            } else {
+                result.append(Segment(start: point.at, end: end, code: signal.code, isStale: isStale))
+            }
+        }
+        return result
     }
 }
 
