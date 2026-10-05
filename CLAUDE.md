@@ -168,7 +168,7 @@ The data model before launch, the database tests, location on a real phone, that
 
 Still to do in M4:
 
-1. **Max reviews:** the privacy policy draft, the `redo_minutes` setting, and the new screens on the phone (build 15, the latest: it has the large-text fixes).
+1. **Max reviews:** the privacy policy draft, the `redo_minutes` setting, and the new screens on the phone (build 16, the latest: it has the large-text fixes and History from the Bars list as a calendar).
 2. **After the privacy policy is approved:** enable GitHub Pages from `/docs` on main (`gh api -X POST repos/BigManMike7/linemap-app/pages -f "source[branch]=main" -f "source[path]=/docs"`), then check that the Settings links open.
 3. **Review the light-mode and large-text screenshots** for anything clipped or unreadable, and fix it.
 4. **App Store Connect:** privacy labels, age rating, beta description, and Beta App Review notes, as in PRD section 9. Max fills these in on the web.
