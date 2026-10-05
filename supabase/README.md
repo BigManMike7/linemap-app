@@ -74,7 +74,7 @@ A person can replace their own last attempt at a bar within `redo_minutes` (5, i
 
 ### History (FR-43, since 2026-10-05)
 
-`bar_history` computes one bar's estimate as of every 5 minutes of a night with the live rules (`app.bar_estimate`), straight from `app.reports` and `app.wait_sessions`. Deleted, replaced, and hidden reports aren't there, so they never appear; snapshots are not used. The chart always covers the usual window from `active_window_start` to `active_window_end` (9 p.m. to 2 a.m. Eastern, computed per date so daylight saving is right: the night of 2026-10-31 has 6 hours, 73 points), never an event-night window. Points stop at now, so tonight shows only what has happened and a future night shows none. The nights list holds every night with visible data at the bar (reports not hidden, or waits that ended as `entered`), within `retention_days`, newest first; the app adds Tonight, Last night, and Same night last week itself. Test rows count only for test IDs, as in `get_estimates`. The internal `app.history(bar_id, night, at, include_test)` takes the moment, so tests can fix it.
+`bar_history` computes one bar's estimate as of every 15 minutes of a night with the live rules (`app.bar_estimate`), straight from `app.reports` and `app.wait_sessions`. Deleted, replaced, and hidden reports aren't there, so they never appear; snapshots are not used. Points cover the whole night day (since 2026-10-05, approved by Max: bars get busy early, especially on football Saturdays): from `night_boundary_hour` (4 a.m.) Eastern on the night's date up to, but not including, 4 a.m. the next day, the same boundary as `app.night_date`, so every point belongs to the night. They are 15 real minutes apart, so a normal night has 96 points, the spring-forward night (2026-03-07) 92, and the fall-back night (2026-10-31) 100. A fresh report at 2 p.m. shows in the 2 p.m. points like any other, since the signals don't depend on the active window. `start` and `end` are still the usual window from `active_window_start` to `active_window_end` (9 p.m. to 2 a.m. Eastern, computed per date so daylight saving is right), never an event-night window; the app uses them to pick the rows it always shows. Points stop at now, so tonight shows only what has happened and a future night shows none. The nights list holds every night with visible data at the bar (reports not hidden, or waits that ended as `entered`), within `retention_days`, newest first; the app adds Tonight, Last night, and Same night last week itself. Test rows count only for test IDs, as in `get_estimates`. The internal `app.history(bar_id, night, at, include_test)` takes the moment, so tests can fix it.
 
 ### Deleting a single report (FR-41)
 
@@ -103,7 +103,7 @@ Call with `POST /rest/v1/rpc/<name>` and named JSON parameters. Writes return `{
 | `my_recent_reports(p_anon_id)` | Made a wrong report? (FR-41): the person's own reports and finished waits from the last 24 hours, newest first, at most 100 (shape below) |
 | `delete_report(p_anon_id, p_client_report_id?, p_client_session_id?)` | Deletes one item from that list: exactly one ID. A report ID deletes a standalone report; a session ID deletes a finished wait and every report in it. Returns `{"ok": true, "rows_removed": n}`, `{"ok": false, "error": "session_open"}` for an open wait (cancel it instead), or `{"ok": false, "error": "not_found"}` for anything not theirs, older than 24 hours, inside a wait, or already deleted. The rate limit keeps running from what was deleted, on its own clock |
 | `delete_my_data(p_anon_id)` | Deletes everything for the ID (holds included); the app then makes a new one |
-| `bar_history(p_anon_id?, p_bar_id, p_night?)` | History & details (FR-43): one bar's estimate every 5 minutes of a night (default tonight), and its nights with data (shape below). Read-only. A missing, unknown, or inactive bar, or a test bar for a real ID, is bad input |
+| `bar_history(p_anon_id?, p_bar_id, p_night?)` | History & details (FR-43): one bar's estimate every 15 minutes of a night day, 4 a.m. to 4 a.m. Eastern (default tonight), and its nights with data (shape below). Read-only. A missing, unknown, or inactive bar, or a test bar for a real ID, is bad input |
 
 Every report and session carries a client-generated ID, so the offline queue can retry safely (FR-16). Phone times are capped at server time.
 
@@ -146,8 +146,8 @@ Dates are `YYYY-MM-DD`; times are Postgres ISO 8601 with an offset, as in the ot
   "end": "2026-10-03T06:00:00+00:00",
   "nights": ["2026-10-04", "2026-10-02"],
   "points": [
-    {"at": "2026-10-03T01:00:00+00:00", "people": 0, "line_size": null, "wait": null, "busyness": null},
-    {"at": "2026-10-03T01:05:00+00:00", "people": 2,
+    {"at": "2026-10-02T08:00:00+00:00", "people": 0, "line_size": null, "wait": null, "busyness": null},
+    {"at": "2026-10-02T08:15:00+00:00", "people": 2,
      "line_size": {"code": 2, "freshness": "fresh"},
      "wait": {"code": 3, "minutes": 25, "freshness": "stale"},
      "busyness": {"code": 3, "freshness": "fresh"}}
@@ -156,7 +156,7 @@ Dates are `YYYY-MM-DD`; times are Postgres ISO 8601 with an offset, as in the ot
 ```
 
 - `night` is the night shown; `tonight` is tonight's night date (FR-22).
-- `start` and `end` are the night's usual window; `points` run every 5 minutes from `start` through `end`, but only up to now.
+- `start` and `end` are the night's usual window (9 p.m. to 2 a.m. Eastern). `points` run every 15 minutes over the whole night day, from 4 a.m. Eastern on the night's date up to (not including) 4 a.m. the next day, but only up to now: 96 points on a normal night, 92 or 100 on a daylight-saving night. The usual window's start and end always fall on a point.
 - `people` is how many distinct people reported within the freshness of the newest report, like the live estimate; 0 when nothing is within 60 minutes.
 - `wait.minutes` is a measured wait in minutes, or `null` for a reported range. `freshness` is `fresh` or `stale` (drawn lighter).
 - `nights`: nights with visible data at this bar, newest first.
