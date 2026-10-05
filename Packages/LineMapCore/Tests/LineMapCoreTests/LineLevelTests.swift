@@ -44,15 +44,48 @@ struct LineLevelTests {
     }
 
     @Test func titles() {
-        #expect(LineLevel.allCases.map(\.title) == ["Short line", "Some line", "Long line"])
+        #expect(LineLevel.allCases.map(\.title) == ["Short line", "Some line", "Long line", "Uncertain"])
+    }
+
+    @Test(arguments: [
+        (LineLevel.short, LineLevel.long, LineLevel.uncertain),
+        (.long, .short, .uncertain),
+        (.short, .some, .short),      // one level apart: the wait wins
+        (.long, .some, .long),
+        (.some, .short, .some),
+        (.long, .long, .long),
+    ])
+    func combiningAWaitAndALineSize(wait: LineLevel, lineSize: LineLevel, expected: LineLevel) {
+        #expect(LineLevel.combining(wait: wait, lineSize: lineSize) == expected)
+    }
+
+    @Test func combiningWithOneSignal() {
+        #expect(LineLevel.combining(wait: .long, lineSize: nil) == .long)
+        #expect(LineLevel.combining(wait: nil, lineSize: .short) == .short)
+        #expect(LineLevel.combining(wait: nil, lineSize: nil) == nil)
     }
 }
 
 struct LineStatusTests {
     @Test func theWaitWinsOverTheLineSize() throws {
         let status = try #require(LineStatus(estimate: estimate(
-            lineSize: signal(0), wait: signal(3, minutes: 40, source: .measured))))
+            lineSize: signal(2), wait: signal(3, minutes: 40, source: .measured))))
         #expect(status == LineStatus(level: .long, isOlder: false))
+    }
+
+    @Test func aZeroMinuteTimerNextTo50PlusIsUncertain() throws {
+        let status = try #require(LineStatus(estimate: estimate(
+            lineSize: signal(4), wait: signal(1, minutes: 0, source: .measured))))
+        #expect(status == LineStatus(level: .uncertain, isOlder: false))
+    }
+
+    @Test func uncertainIsOlderOnlyWhenBothSignalsAre() throws {
+        let oneFresh = try #require(LineStatus(estimate: estimate(
+            lineSize: signal(4), wait: signal(1, freshness: .stale))))
+        #expect(oneFresh == LineStatus(level: .uncertain, isOlder: false))
+        let bothOld = try #require(LineStatus(estimate: estimate(
+            lineSize: signal(4, freshness: .stale), wait: signal(1, freshness: .stale))))
+        #expect(bothOld == LineStatus(level: .uncertain, isOlder: true))
     }
 
     @Test func aMeasuredWaitUsesItsMinutesNotItsRange() throws {
@@ -83,10 +116,14 @@ struct LineStatusTests {
 
     @Test func historyPointsUseTheSameRule() throws {
         let point = HistoryPoint(at: now, people: 3,
-                                 lineSize: HistorySignal(code: 4),
+                                 lineSize: HistorySignal(code: 2),
                                  wait: HistorySignal(code: 2, minutes: 6, freshness: .stale),
                                  busyness: HistorySignal(code: 4))
         #expect(LineStatus(point: point) == LineStatus(level: .short, isOlder: true))
+
+        let contradiction = HistoryPoint(at: now, people: 2, lineSize: HistorySignal(code: 0),
+                                         wait: HistorySignal(code: 4, minutes: 40))
+        #expect(LineStatus(point: contradiction)?.level == .uncertain)
 
         let lineOnly = HistoryPoint(at: now, people: 1, lineSize: HistorySignal(code: 3))
         #expect(LineStatus(point: lineOnly)?.level == .long)

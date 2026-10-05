@@ -133,7 +133,7 @@ private struct NightRows: View {
                         }
                     }
                 }
-                Text("Dots show the line: green short, orange some, red long. Grayed rows are reports 30 to 60 minutes old.")
+                Text("Dots show the line: green short, orange some, red long, gray when the wait and line disagree. Grayed rows are reports 30 to 60 minutes old.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

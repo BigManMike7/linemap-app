@@ -3,13 +3,14 @@ import SwiftUI
 
 /// Colors and symbols for how hard a bar is to get into (FR-2, FR-43, FR-45):
 /// green, orange, and red, each with its own symbol so color is never the only
-/// signal. Reports 30–60 minutes old show faded or outlined.
+/// signal, and a gray question mark when the wait and line size contradict. Reports 30–60 minutes old show faded or outlined.
 extension LineLevel {
     var color: Color {
         switch self {
         case .short: .green
         case .some: .orange
         case .long: .red
+        case .uncertain: .gray
         }
     }
 
@@ -18,6 +19,7 @@ extension LineLevel {
         case .short: "checkmark.circle.fill"
         case .some: "clock.circle.fill"
         case .long: "exclamationmark.circle.fill"
+        case .uncertain: "questionmark.circle.fill"
         }
     }
 
@@ -27,6 +29,7 @@ extension LineLevel {
         case .short: "checkmark.circle"
         case .some: "clock.circle"
         case .long: "exclamationmark.circle"
+        case .uncertain: "questionmark.circle"
         }
     }
 }

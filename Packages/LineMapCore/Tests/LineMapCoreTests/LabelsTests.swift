@@ -151,6 +151,15 @@ struct PinLabelTests {
         #expect(label.text == "5–15 min")
     }
 
+    @Test func aContradictionIsUncertain() {
+        // A 0-minute timer next to 50+ in line (FR-2).
+        let label = PinLabel(estimate: estimate(lineSize: signal(4), wait: signal(1, minutes: 0, source: .measured)))
+        #expect(label == PinLabel(text: "Uncertain", isGrayed: false))
+        let older = PinLabel(estimate: estimate(lineSize: signal(0, freshness: .stale),
+                                                wait: signal(4, freshness: .stale)))
+        #expect(older == PinLabel(text: "Uncertain", isGrayed: true))
+    }
+
     @Test(arguments: [
         (0, "No line"),
         (1, "~1–10 in line"),

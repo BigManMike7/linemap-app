@@ -5,25 +5,35 @@ import Foundation
 /// crowd never does, since a packed bar can be the one people want (Max,
 /// 2026-10-05). Cutoffs live in the app, not `config`, because they only
 /// color what's shown and never change an estimate.
-public enum LineLevel: Int, Sendable, Hashable, Comparable, CaseIterable {
+public enum LineLevel: Int, Sendable, Hashable, CaseIterable {
     /// A wait under 10 minutes, or 0 or 1–10 in line.
     case short
     /// A wait of 10 to 25 minutes, or 10–25 in line.
     case some
     /// A wait of 25 minutes or more, or 25 or more in line.
     case long
+    /// The wait and the line size contradict each other: one is short and the
+    /// other long, such as a 0-minute timer next to 50+ in line. The app
+    /// doesn't pick one; the bar sheet shows both (Max, 2026-10-05).
+    case uncertain
 
-    public static func < (lhs: LineLevel, rhs: LineLevel) -> Bool {
-        lhs.rawValue < rhs.rawValue
-    }
-
-    /// "Short line", "Some line", or "Long line".
+    /// "Short line", "Some line", "Long line", or "Uncertain".
     public var title: String {
         switch self {
         case .short: "Short line"
         case .some: "Some line"
         case .long: "Long line"
+        case .uncertain: "Uncertain"
         }
+    }
+
+    /// The level of a wait and a line size together: uncertain when one is
+    /// short and the other long, else the wait's level, else the line size's.
+    public static func combining(wait: LineLevel?, lineSize: LineLevel?) -> LineLevel? {
+        if let wait, let lineSize, Set([wait, lineSize]) == [.short, .long] {
+            return .uncertain
+        }
+        return wait ?? lineSize
     }
 
     /// A measured wait in minutes.
@@ -77,30 +87,43 @@ public struct LineStatus: Sendable, Hashable {
         self.isOlder = isOlder
     }
 
-    /// The level of what the pin label shows (FR-2): the wait, else the line
-    /// size. Nil for no data, closed, and outside hours.
+    /// A bar's level now (FR-2): the wait, else the line size, or uncertain
+    /// when they contradict. Nil for no data, closed, and outside hours.
     public init?(estimate: BarEstimate?) {
         guard let estimate, estimate.display == .estimate else { return nil }
-        if let wait = estimate.wait,
-           let level = LineLevel(waitCode: wait.code, minutes: wait.source == .measured ? wait.minutes : nil) {
-            self.init(level: level, isOlder: wait.freshness == .stale)
-        } else if let line = estimate.lineSize, let level = LineLevel(lineSizeCode: line.code) {
-            self.init(level: level, isOlder: line.freshness == .stale)
-        } else {
-            return nil
+        let wait = estimate.wait.flatMap { signal in
+            LineLevel(waitCode: signal.code, minutes: signal.source == .measured ? signal.minutes : nil)
+                .map { (level: $0, isOlder: signal.freshness == .stale) }
         }
+        let line = estimate.lineSize.flatMap { signal in
+            LineLevel(lineSizeCode: signal.code).map { (level: $0, isOlder: signal.freshness == .stale) }
+        }
+        self.init(wait: wait, line: line)
     }
 
-    /// The level of a past moment (FR-43), by the same rule: the wait, else
-    /// the line size. Nil when neither was reported.
+    /// The level of a past moment (FR-43), by the same rule. Nil when neither
+    /// the wait nor the line size was reported.
     public init?(point: HistoryPoint) {
-        if let wait = point.wait, let level = LineLevel(waitCode: wait.code, minutes: wait.minutes) {
-            self.init(level: level, isOlder: wait.freshness == .stale)
-        } else if let line = point.lineSize, let level = LineLevel(lineSizeCode: line.code) {
-            self.init(level: level, isOlder: line.freshness == .stale)
-        } else {
-            return nil
+        let wait = point.wait.flatMap { signal in
+            LineLevel(waitCode: signal.code, minutes: signal.minutes).map { (level: $0, isOlder: signal.freshness == .stale) }
         }
+        let line = point.lineSize.flatMap { signal in
+            LineLevel(lineSizeCode: signal.code).map { (level: $0, isOlder: signal.freshness == .stale) }
+        }
+        self.init(wait: wait, line: line)
+    }
+
+    /// Each signal's level and whether it's older. Uncertain is older only
+    /// when both signals are.
+    private init?(wait: (level: LineLevel, isOlder: Bool)?, line: (level: LineLevel, isOlder: Bool)?) {
+        guard let level = LineLevel.combining(wait: wait?.level, lineSize: line?.level) else { return nil }
+        let isOlder = if level == .uncertain {
+            (wait?.isOlder ?? true) && (line?.isOlder ?? true)
+        } else {
+            // Any other level is the wait's when there is one.
+            (wait ?? line)?.isOlder ?? false
+        }
+        self.init(level: level, isOlder: isOlder)
     }
 
     /// "Short line", or "Short line, older reports" for VoiceOver.

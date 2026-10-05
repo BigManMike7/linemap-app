@@ -64,7 +64,8 @@ nonisolated struct FixtureTransport: RPCTransport {
 
     /// Every night is a football Saturday: a few reports in the afternoon,
     /// nothing until after 9 p.m., then a line and wait that build to a peak
-    /// near midnight and ease off; the crowd drops out for a stretch. Points
+    /// near midnight and ease off, with one contradiction at 1:15 a.m.; the
+    /// crowd drops out for a stretch. Points
     /// every 15 minutes from 4 a.m., like the server.
     private static func history(night: String?) -> String {
         let eastern = TimeZone(identifier: "America/New_York") ?? .current
@@ -82,8 +83,10 @@ nonisolated struct FixtureTransport: RPCTransport {
                 continue
             }
             let peak = afternoon ? 0.1 : 1 - abs(Double(index - 80)) / 12
-            let line = min(4, max(0, Int((peak * 4).rounded())))
-            let minutes = max(2, Int(peak * 40))
+            // 1:15 a.m. is a contradiction: a 2-minute timer next to 50+ in line.
+            let contradiction = index == 85
+            let line = contradiction ? 4 : min(4, max(0, Int((peak * 4).rounded())))
+            let minutes = contradiction ? 2 : max(2, Int(peak * 40))
             let wait = minutes < 5 ? 1 : minutes < 15 ? 2 : minutes < 30 ? 3 : 4
             let stale = index % 4 == 3 ? "stale" : "fresh"
             let crowd = (82...83).contains(index) ? "null"

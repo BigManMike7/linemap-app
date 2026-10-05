@@ -82,7 +82,10 @@ public struct PinLabel: Sendable, Hashable {
         case .notEnoughData:
             self.init(text: "No data", isGrayed: false)
         case .estimate:
-            if let wait = estimate.wait, let text = PinLabel.waitText(wait) {
+            // A wait and line size that contradict show neither (FR-2).
+            if let status = LineStatus(estimate: estimate), status.level == .uncertain {
+                self.init(text: LineLevel.uncertain.title, isGrayed: status.isOlder)
+            } else if let wait = estimate.wait, let text = PinLabel.waitText(wait) {
                 self.init(text: text, isGrayed: wait.freshness == .stale)
             } else if let line = estimate.lineSize, let text = PinLabel.lineText(line.code) {
                 self.init(text: text, isGrayed: line.freshness == .stale)

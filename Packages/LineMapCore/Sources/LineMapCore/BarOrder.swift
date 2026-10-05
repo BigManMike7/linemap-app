@@ -4,7 +4,8 @@ import Foundation
 ///
 /// 1. Fresh estimates, then grayed-out (stale) ones.
 /// 2. Within each: bars with a wait, shortest first; then bars with only a
-///    line size, smallest first; then bars with only a crowd answer.
+///    line size, smallest first; then Uncertain bars, whose wait and line size
+///    contradict (FR-2); then bars with only a crowd answer.
 /// 3. Bars showing Not enough data, Closed, or Outside hours come last.
 ///
 /// Ties keep the dashboard order (`displayOrder`), then the bar ID.
@@ -35,7 +36,7 @@ public enum BarOrder {
     private struct Key: Comparable {
         /// 0 fresh, 1 grayed out, 2 nothing to show.
         var freshness: Int
-        /// 0 wait, 1 line size only, 2 crowd only.
+        /// 0 wait, 1 line size only, 2 uncertain, 3 crowd only.
         var kind: Int
         var value: Int
         var displayOrder: Int
@@ -48,12 +49,14 @@ public enum BarOrder {
                 (freshness, kind, value) = (2, 0, 0)
                 return
             }
-            if let wait = estimate.wait {
+            if let status = LineStatus(estimate: estimate), status.level == .uncertain {
+                (freshness, kind, value) = (status.isOlder ? 1 : 0, 2, 0)
+            } else if let wait = estimate.wait {
                 (freshness, kind, value) = (Self.tier(wait), 0, BarOrder.comparableMinutes(wait))
             } else if let line = estimate.lineSize {
                 (freshness, kind, value) = (Self.tier(line), 1, line.code)
             } else if let crowd = estimate.busyness {
-                (freshness, kind, value) = (Self.tier(crowd), 2, crowd.code)
+                (freshness, kind, value) = (Self.tier(crowd), 3, crowd.code)
             } else {
                 (freshness, kind, value) = (2, 0, 0)
             }

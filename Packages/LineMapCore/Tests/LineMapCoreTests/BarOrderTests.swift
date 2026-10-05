@@ -65,6 +65,17 @@ struct BarOrderTests {
         #expect(ids == [4, 3, 2, 1])
     }
 
+    @Test func uncertainComesAfterLineSizeOnlyAndBeforeCrowdOnly() {
+        let bars = [bar(1, order: 1), bar(2, order: 2), bar(3, order: 3)]
+        let ids = order(bars, [
+            estimate(1, crowd: line(3)),
+            // A 0-minute timer next to 50+ in line (FR-2).
+            estimate(2, wait: wait(1, minutes: 0), line: line(4)),
+            estimate(3, line: line(4)),
+        ])
+        #expect(ids == [3, 2, 1])
+    }
+
     @Test func noDataComesLastInDashboardOrder() {
         let bars = [bar(1, order: 3), bar(2, order: 1), bar(3, order: 2), bar(4, order: 4)]
         let ids = order(bars, [
