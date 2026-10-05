@@ -142,7 +142,8 @@ The data model before launch, the database tests, location on a real phone, that
 - [x] Database tests (approved 2026-10-01, 493 pgTAP tests).
 - [ ] Location on a real phone (M3/M5)
 - [x] Delete my data removes rows (checked 2026-10-05 with the Data check workflow: 0 rows left for the deleted ID).
-- [ ] Privacy policy (M4). Must cover Made a wrong report? (FR-41) and history (FR-43).
+- [ ] Privacy policy (M4). Draft in `docs/privacy.md` (covers Made a wrong report?, Undo and Redo, and history). Waiting for Max; GitHub Pages stays off until he approves it.
+- [ ] M4 data model change: the setting `redo_minutes` (5). No table, field, or answer-code change.
 
 ## Status
 
@@ -153,22 +154,40 @@ The data model before launch, the database tests, location on a real phone, that
 - [ ] **M5. Field test:** downtown testing, then Beta App Review.
 - [ ] **M6. Launch:** public TestFlight link.
 
-**Current milestone: M4** (not started; wait for Max to say go).
+**Current milestone: M4** (in progress).
 
-## Where we left off (2026-10-05)
+## Where we left off (2026-10-05, evening)
 
-**M3 is done.** Max tested every M3 item on build 12 and it worked. Build 13 adds his last changes (FR-6, FR-7, FR-42): Line size is a wheel of the same five sizes with Save and no Skip (swiping away skips it), Adjust time has Save (swiping away changes nothing), and Save on either shows a short confirmation. All CI passed, including the 15-screen screenshot walkthrough.
+**M4 is mostly built.** Done and passing CI:
 
-Next session:
+- Tab bar (FR-44), Bars list (FR-45), History & details (FR-43), Undo (FR-47), and Redo on the server (FR-46).
+- Server: migration `20261005200000_redo_undo_history.sql` adds `redo_minutes`, `reopen_session`, and `bar_history`. It is deployed. pgTAP: 1020 tests. Built by an Opus subagent on branch `m4-sql`, reviewed, and merged.
+- The app now calls 15 functions (`submit_report` stays for older builds only).
+- Screenshots: the main walkthrough (18 screens, dark mode) and a light-mode walkthrough at a large accessibility text size (`L01`–`L07`).
+- Docs drafted in `docs/` (privacy, support, index). Pages is not enabled.
 
-1. **Test ID: wait until launch (Max's call, 2026-10-05).** Each Delete my data gives a new anonymous ID, so for now `test_anon_ids` stays empty and Max's rows are stored as real. Before anyone other than Max uses the app (the M5 field test with other people, or M6 at the latest), run one cleanup in the SQL Editor: mark every row so far as test (or delete it), then add Max's then-current ID:
+Still to do in M4:
+
+1. **Max reviews:** the privacy policy draft, the `redo_minutes` setting, and the new screens on the phone (build 14 or later).
+2. **After the privacy policy is approved:** enable GitHub Pages from `/docs` on main (`gh api -X POST repos/BigManMike7/linemap-app/pages -f "source[branch]=main" -f "source[path]=/docs"`), then check that the Settings links open.
+3. **Review the light-mode and large-text screenshots** for anything clipped or unreadable, and fix it.
+4. **App Store Connect:** privacy labels, age rating, beta description, and Beta App Review notes, as in PRD section 9. Max fills these in on the web.
+5. **Test ID: wait until launch (Max's call, 2026-10-05).** Each Delete my data gives a new anonymous ID, so for now `test_anon_ids` stays empty and Max's rows are stored as real. Before anyone other than Max uses the app (the M5 field test with other people, or M6 at the latest), run one cleanup in the SQL Editor: mark every row so far as test (or delete it), then add Max's then-current ID:
    ```sql
    -- for each of app.installs, app.wait_sessions, app.reports, app.views, app.feedback:
    update app.reports set is_test = true where not is_test;
    update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';
    ```
    After that, a Delete my data on his phone means adding the new ID again. Don't commit his ID to this public repo: anyone with it can call the functions as him.
-2. **M4 is planned but not started.** Max hasn't said to build yet. The plan is in PRD.md (decided 2026-10-05, below). Suggested order: tab bar and Bars list, then Redo and Undo, then History & details, then the rest of M4.
+
+**Judgment calls in the server work** (from the subagent's report; point them out to Max if they matter):
+
+- Undo's 5 minutes count by server time, so an Undo sent late from the offline queue gets `too_late` and the app says "Couldn't undo".
+- A timer closed by starting a line at another bar (FR-14) can be redone but not undone. Undo only reverses an I'm in or Gave up tap.
+- Redo from a deleted wait's rate-limit hold uses the wait's start time, since holds don't store an end time.
+- I'm inside from older builds is never redone.
+
+**UI test notes:** MapKit sometimes exposes the pins as its own map features on a second app launch, so the light-mode walkthrough opens bars from the Bars tab. Bars-list cards zoom the map to a 0.007° span so nearby bars stay visible.
 
 **Decisions made 2026-10-05** (already in PRD.md):
 
