@@ -141,7 +141,7 @@ private struct NightRows: View {
     }
 }
 
-/// "● 10:30 PM   25–50 in line · 30–60 min wait · Busy", with the number of
+/// "● 10:30 PM   25–50 in line · 30–60 min wait", with the number of
 /// people under it. The dot is the line level's color. Stacks at the largest
 /// text sizes. Rows built from reports 30–60 minutes old look like any other:
 /// everything in History is in the past (Max's call, 2026-10-06).

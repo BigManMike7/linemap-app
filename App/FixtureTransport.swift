@@ -74,7 +74,7 @@ nonisolated struct FixtureTransport: RPCTransport {
     /// nothing until after 9 p.m., then a line and wait that build to a peak
     /// near midnight (up to 50–100 in line) and ease off, with one
     /// contradiction at 1:15 a.m. Points every 15 minutes from 4 a.m., each
-    /// covering its own quarter hour, like the server (logic version 3).
+    /// covering its own quarter hour, like the server (logic version 4).
     private static func history(night: String?) -> String {
         let eastern = TimeZone(identifier: "America/New_York") ?? .current
         let tonight = NightDate(nightOf: Date(), timeZone: eastern)
@@ -90,7 +90,7 @@ nonisolated struct FixtureTransport: RPCTransport {
                 continue
             }
             let peak = afternoon ? 0.1 : 1 - abs(Double(index - 80)) / 12
-            // 1:15 a.m. is a contradiction: a 2-minute timer next to 50+ in line.
+            // 1:15 a.m. is a contradiction: a 2-minute timer next to 100+ in line.
             let contradiction = index == 85
             // By size: no line, 1–10, 10–25, 25–50, 50–100; the contradiction is 100+.
             let sizes = [0, 1, 2, 3, 6]
@@ -106,7 +106,7 @@ nonisolated struct FixtureTransport: RPCTransport {
                 """#)
         }
         return """
-            {"logic_version": 3, "bar_id": 1, "night": "\(shown)", "tonight": "\(tonight)",
+            {"logic_version": 4, "bar_id": 1, "night": "\(shown)", "tonight": "\(tonight)",
              "start": "\(ServerDate.format(dayStart))",
              "end": "\(ServerDate.format(dayStart.addingTimeInterval(24 * 3600)))",
              "nights": ["2026-10-02", "2026-09-26", "2026-09-25"],

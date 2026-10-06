@@ -13,7 +13,7 @@ public enum LineLevel: Int, Sendable, Hashable, CaseIterable {
     /// A wait of 25 minutes or more, or 25 or more in line.
     case long
     /// The wait and the line size contradict each other: one is short and the
-    /// other long, such as a 0-minute timer next to 50+ in line. The app
+    /// other long, such as a 0-minute timer next to 100+ in line. The app
     /// doesn't pick one; the bar sheet shows both (Max, 2026-10-05).
     case uncertain
 

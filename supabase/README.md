@@ -11,7 +11,7 @@ Postgres on Supabase. The server is the source of truth for estimates and the ni
 | `migrations/*_estimates.sql` | Estimate rules and snapshots; the newest definitions are in `*_remove_active_window.sql` and `*_line_sizes_no_crowd.sql` |
 | `migrations/*_api.sql`, `*_cancel_session.sql`, `*_report_conditions.sql`, `*_delete_report.sql`, `*_separate_rate_limits.sql`, `*_redo_undo_history.sql`, `*_line_sizes_no_crowd.sql` | The 16 API functions: 15 the app calls, plus `submit_report` for older builds |
 | `migrations/*_jobs.sql` | Scheduled jobs (`pg_cron`); `*_delete_report.sql` adds `expire-rate-limit-holds` |
-| `migrations/*_starting_data.sql` | Default settings and the three starting bars |
+| `migrations/*_starting_data.sql` | Default settings and the three original bars (the launch list is `*_bar_list.sql`) |
 | `migrations/*_bar_list.sql` | The first-release bar list (approved by Max on 2026-10-06): Pmans, Doggie's Pub, Brothers Bar & Grill, Champs Downtown, Cafe 210 West, The Gaff, in that order. Door pins are OpenStreetMap (Nominatim) geocodes. The Phyrst is kept, inactive |
 | `tests/` | pgTAP tests, run in CI on every push |
 
@@ -29,7 +29,7 @@ CI runs the tests on a local database, then applies new migrations to the live p
 | Question | Codes |
 | --- | --- |
 | Line size | 0 nobody, 1 = 1–10, 2 = 10–25, 3 = 25–50, 4 = 50+ (version 1 only), 5 = can't see the end (reserved), 6 = 50–100 (version 2), 7 = 100+ (version 2) |
-| Busyness | Reserved, never stored since 2026-10-07: 1 quiet, 2 comfortable, 3 busy, 4 packed |
+| Busyness | Reserved, never stored since 2026-10-06: 1 quiet, 2 comfortable, 3 busy, 4 packed |
 | Recalled wait | Reserved (older builds only): 1 under 5, 2 = 5–15, 3 = 15–30, 4 = 30–60, 5 = 60+ min |
 | Adjust time (start offset) | Any whole number of minutes, 0 to 90 (0, 5, 10, or 20 before 2026-10-04) |
 | Answer state | `answered`, `cant_tell`, `skipped`; empty if not asked |
@@ -43,7 +43,7 @@ Every report records the definitions version the app used. The server accepts ve
 | Version | Line sizes it may send | Since |
 | --- | --- | --- |
 | 1 | 0, 1, 2, 3, 4 (50+), 5 (can't see the end) | first release; builds up to 19 |
-| 2 | 0, 1, 2, 3, 6 (50–100), 7 (100+) | 2026-10-07 |
+| 2 | 0, 1, 2, 3, 6 (50–100), 7 (100+) | 2026-10-06 |
 
 A line size outside its version's list is bad input (`line_size: answered needs a valid code`), checked by `start_session`, `update_line_size`, and `report_conditions`, retries included. Code 4 keeps meaning "50+" forever; version 2 just doesn't offer it. The `reports.line_size` check allows 0–7.
 
@@ -59,7 +59,7 @@ Two answers agree when they are at most one apart (FR-19): waits by code, line s
 | `line_update` | `line` | Line-size update in an open session | Exempt |
 | `inside` | `inside` | I'm inside (older builds only) | Manual clock |
 | `inside_after_entry` | `inside` | The answer after I'm in, or I'm inside that ended a session (older builds only) | Exempt |
-| `conditions` | `unspecified` | Report conditions (since 2026-10-04): a line size from someone in line, inside, or walking by (busyness, accepted from older builds, is never stored since 2026-10-07) | Manual clock |
+| `conditions` | `unspecified` | Report line size (Report conditions from 2026-10-04 to 2026-10-06): a line size from someone in line, inside, or walking by (busyness, accepted from older builds, is never stored since 2026-10-06) | Manual clock |
 
 Since 2026-10-04 there are two separate clocks per person per bar, each `rate_limit_minutes` (10) long, by phone time:
 
@@ -75,7 +75,7 @@ Only `line_start`, `line_update`, and `inside_after_entry` belong to a wait sess
 A person can replace their own last attempt at a bar within `redo_minutes` (5, in `app.config`) instead of being refused. `app.redo_allowed(anon_id, bar_id, at, clock)` decides, and is asked only when `rate_limit_wait` says the clock is blocked. All times are phone times, and "within" means less than 5 minutes, so exactly 5 minutes is refused.
 
 - **Timers.** A new Start line timer is a redo when every `line_start` blocking it belongs to a timer that ended as `entered` or `gave_up` less than 5 minutes before the new start (a timer closed by a line at another bar, FR-14, ended as `gave_up` too). The earlier timer is **not** deleted at start. When the new timer finishes through `end_session` (I'm in or Gave up), every earlier timer of that person at that bar that ended less than 5 minutes before the new one started is deleted with all its reports (`app.delete_replaced_sessions`). If the new timer is cancelled (FR-39), times out (FR-10), or is closed by a line at another bar, the earlier one stays. Chains work: A stops, B starts; B finishes and A is deleted; C starts within 5 minutes of B stopping; C finishes and B is deleted.
-- **Report conditions.** A new Report conditions is a redo when every report blocking it is a `conditions` report sent less than 5 minutes before it. Those reports are deleted at once, before the new one is saved.
+- **Report line size.** A new Report line size is a redo when every report blocking it is a `conditions` report sent less than 5 minutes before it. Those reports are deleted at once, before the new one is saved.
 - **Holds.** A hold left by `delete_report` (FR-41) with kind `line_start` or `conditions` counts the same way, by its phone time (for a deleted wait, its start): it can be redone while that is less than 5 minutes before the new attempt. Nothing is left to delete. An older hold doesn't stop a chain once something newer can be redone.
 - **Never redone:** I'm inside (`inside` reports and holds, older builds) still blocks the manual clock for the full 10 minutes, and `submit_report` has no redo. A blocker later than the new attempt's phone time (a late offline retry) is never replaced, so re-sending a replaced report is refused instead of bringing it back.
 - Replaced attempts are deleted like a cancelled line: no `app.deletions` count and no rate-limit hold. The newest attempt keeps the clock running, so only it ever counts.
@@ -95,7 +95,7 @@ LineMap has no active window. Logic version 3 (migration `*_remove_active_window
 - `app.event_nights` (FR-23) is kept, empty, for later. Nothing reads it.
 - The night boundary (4 a.m. Eastern, FR-22) is unchanged.
 
-### Line sizes and no crowd (logic version 4, since 2026-10-07)
+### Line sizes and no crowd (logic version 4, since 2026-10-06)
 
 Migration `*_line_sizes_no_crowd.sql`, approved by Max on 2026-10-06:
 
@@ -165,11 +165,11 @@ Every report and session carries a client-generated ID, so the offline queue can
 }
 ```
 
-- `logic_version`: 4 since 2026-10-07. Version 1 hid a 30-to-60-minute-old report outside the active window; version 2 used the live rule at every hour but still showed `closed` from 2 to 4 a.m. after an active night; version 3 has no active window at all, and History points cover only their own quarter hour; version 4 ignores busyness, needs a line size or a wait for `display: estimate`, and compares line sizes by size rank.
+- `logic_version`: 4 since 2026-10-06. Version 1 hid a 30-to-60-minute-old report outside the active window; version 2 used the live rule at every hour but still showed `closed` from 2 to 4 a.m. after an active night; version 3 has no active window at all, and History points cover only their own quarter hour; version 4 ignores busyness, needs a line size or a wait for `display: estimate`, and compares line sizes by size rank.
 - `window_state`: always `live` since version 3. It used to be `live`, `closed`, or `outside_hours`; the key stays because older builds decode it.
 - `display`: `estimate` when a line size or a wait is within 60 minutes (stale ones grayed out), else `not_enough_data` ("No live reports"), at every hour. `closed` (since version 3) and `outside_hours` (since version 2) are no longer returned, but older builds still accept them.
 - `busyness`: always `null` since version 4; the key stays because older builds decode it.
-- `line_size.code` can be 6 (50–100) or 7 (100+) since 2026-10-07, besides 0–5.
+- `line_size.code` can be 6 (50–100) or 7 (100+) since 2026-10-06, besides 0–5.
 - `freshness` (bar and signal): `fresh` (30 minutes or less), `stale` (30 to 60, shown grayed out), or `none`.
 - A wait with `source: measured` has `minutes`, and its `at` is when the person got in. A `reported` wait has only a range `code`.
 - `rule`: `newest`, or `majority` when 2 or more other people's fresh reports disagreed with the newest one.
@@ -221,7 +221,7 @@ A JSON array (empty `[]` when there is nothing). Times are Postgres ISO 8601 wit
 
 - `report`: a standalone Report conditions (`kind: conditions`) or I'm inside from older builds (`kind: inside`). `at` is its phone time.
 - `wait`: a finished wait, `status` `entered`, `gave_up`, or `unfinished`. `at` is when Start line timer was tapped. `line_size` is the newest answered line size in the wait. Open waits are not listed.
-- `busyness` is always `null` in both kinds since 2026-10-07; the key stays for older builds.
+- `busyness` is always `null` in both kinds since 2026-10-06; the key stays for older builds.
 - Hidden reports are still listed: they are the person's own.
 
 ## Admin in the dashboard (FR-37)

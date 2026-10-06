@@ -30,7 +30,7 @@ public enum Labels {
         "\(minutes) min"
     }
 
-    /// Line size on one short button: "0", "1–10" … "50+" (FR-11).
+    /// Line size on one short button: "0", "1–10" … "100+" (FR-11).
     public static func shortOption(_ value: LineSize) -> String {
         value == .nobody ? "0" : option(value)
     }

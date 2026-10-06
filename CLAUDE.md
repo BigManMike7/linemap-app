@@ -1,6 +1,6 @@
 # LineMap
 
-An iPhone beta that shows live, community-reported lines and crowds at State College bars. People at a bar tap "Start line timer" or "Report conditions", and everyone else sees each bar's line and wait on a map. This is a learning project: keep it simple, polished, and modular.
+An iPhone beta that shows live, community-reported lines and waits at State College bars. People at a bar tap "Start line timer" or "Report line size", and everyone else sees each bar's line and wait on a map. This is a learning project: keep it simple, polished, and modular.
 
 **The full spec is `PRD.md`.** Read it before starting any milestone. Requirement IDs (FR-x, NFR-x) refer to it. If the PRD and the code disagree, or the PRD is unclear, ask Max. Don't guess.
 
@@ -72,7 +72,8 @@ App/                       # SwiftUI app target: views, MapKit, location, Keycha
 Packages/LineMapCore/      # pure Swift logic + tests
 supabase/migrations/       # tables, RLS, functions, cron jobs (SQL)
 supabase/tests/            # pgTAP tests
-supabase/migrations/*_starting_data.sql  # the three starting bars + default config
+supabase/migrations/*_starting_data.sql  # default config + the three original bars
+supabase/migrations/*_bar_list.sql       # the six launch bars (the Phyrst inactive)
 fastlane/
 .github/workflows/         # ci.yml (tests + screenshots), testflight.yml, keepalive.yml
 ```
@@ -199,7 +200,7 @@ The data model before launch, the database tests, location on a real phone, that
 **M4 is mostly built.** Done and passing CI:
 
 - Tab bar (FR-44), Bars list (FR-45), History (FR-43), Undo (FR-47), Redo on the server (FR-46), and line-level colors (FR-2).
-- Server: migration `20261005200000_redo_undo_history.sql` adds `redo_minutes`, `reopen_session`, and `bar_history`. It is deployed. Built by an Opus subagent on branch `m4-sql`, reviewed, and merged. Migration `20261005220000_history_full_day.sql` (deployed) makes `bar_history` cover 4 a.m. to 4 a.m. every 15 minutes. pgTAP: 1042 tests (1048 after logic version 2).
+- Server: migration `20261005200000_redo_undo_history.sql` adds `redo_minutes`, `reopen_session`, and `bar_history`. It is deployed. Built by an Opus subagent on branch `m4-sql`, reviewed, and merged. Migration `20261005220000_history_full_day.sql` (deployed) makes `bar_history` cover 4 a.m. to 4 a.m. every 15 minutes. pgTAP: 1077 tests after the 2026-10-06 changes (logic version 4, six bars).
 - The app now calls 15 functions (`submit_report` stays for older builds only).
 - Screenshots: the main walkthrough (20 screens, dark mode) and a light-mode walkthrough at a large accessibility text size (`L01`–`L08`).
 - Docs drafted in `docs/` (privacy, support, index). Pages is not enabled.

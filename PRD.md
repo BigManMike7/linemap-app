@@ -1,6 +1,6 @@
 # LineMap Beta — PRD
 
-LineMap is an iPhone beta that shows live, community-reported lines and waits at three State College bars. It ships on TestFlight to learn whether students will report, and how accurate crowd-sourced estimates can be.
+LineMap is an iPhone beta that shows live, community-reported lines and waits at six State College bars. It ships on TestFlight to learn whether students will report, and how accurate crowd-sourced estimates can be.
 
 This file is the full product spec. `CLAUDE.md` holds the working rules and points here.
 
