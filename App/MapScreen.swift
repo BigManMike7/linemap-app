@@ -112,7 +112,9 @@ extension Bar {
     }
 }
 
-/// A bar's pin with its label, e.g. "The Phyrst · 25 min" (FR-2).
+/// A bar's pin with a two-line label, the name over its status, e.g. "The
+/// Phyrst" over "25 min" (FR-2). Two lines keep labels narrow, so they fit
+/// the opening view and nearby pins overlap less (2026-10-06).
 struct BarPin: View {
     let bar: Bar
     let estimate: BarEstimate?
@@ -145,13 +147,19 @@ struct BarPin: View {
         // No Button: a button would keep any finger that lands on it, so a
         // pinch starting on a label couldn't zoom. MapKit selection handles taps.
         VStack(spacing: 2) {
-            Text(label.title(barName: bar.name))
-                .font(.footnote.weight(.semibold))
-                .foregroundStyle(label.isGrayed ? .secondary : .primary)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 6)
-                .background(.regularMaterial, in: .capsule)
-                .overlay(Capsule().strokeBorder(.quaternary))
+            VStack(spacing: 0) {
+                Text(bar.name)
+                    .font(.footnote.weight(.semibold))
+                Text(label.text)
+                    .font(.caption.weight(.medium))
+            }
+            .lineLimit(1)
+            .fixedSize()
+            .foregroundStyle(label.isGrayed ? .secondary : .primary)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.regularMaterial, in: .rect(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(.quaternary))
             pinImage
         }
         .contentShape(.rect)
