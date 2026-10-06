@@ -112,8 +112,8 @@ extension Bar {
     }
 }
 
-/// A bar's pin with a two-line label, the name over its status, e.g. "The
-/// Phyrst" over "25 min" (FR-2). Two lines keep labels narrow, so they fit
+/// A bar's pin with a two-line label, the name over its status, e.g. "Doggie's
+/// Pub" over "25 min" (FR-2). Two lines keep labels narrow, so they fit
 /// the opening view and nearby pins overlap less (2026-10-06).
 struct BarPin: View {
     let bar: Bar

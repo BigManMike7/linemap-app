@@ -34,14 +34,22 @@ nonisolated struct FixtureTransport: RPCTransport {
         return RPCResponse(status: 200, body: Data(reply.utf8))
     }
 
+    /// The six bars of the first release (2026-10-06), at their real door pins
+    /// and display order. Fixture IDs differ from the server's.
     private static let bars = """
         [
           {"id": 1, "name": "Doggie's Pub", "address": "108 S Pugh St, State College, PA 16801",
-           "door_lat": 40.7950443, "door_lon": -77.8602538, "size_class": "medium", "display_order": 1},
-          {"id": 2, "name": "The Phyrst", "address": "111 E Beaver Ave, State College, PA 16801",
-           "door_lat": 40.7937487, "door_lon": -77.8600643, "size_class": "medium", "display_order": 2},
+           "door_lat": 40.7950443, "door_lon": -77.8602538, "size_class": "medium", "display_order": 2},
+          {"id": 2, "name": "Champs Downtown", "address": "139 S Allen St, State College, PA 16801",
+           "door_lat": 40.7937545, "door_lon": -77.8605492, "size_class": "medium", "display_order": 4},
           {"id": 3, "name": "Cafe 210 West", "address": "210 W College Ave, State College, PA 16801",
-           "door_lat": 40.7931773, "door_lon": -77.8630037, "size_class": "medium", "display_order": 3}
+           "door_lat": 40.7931773, "door_lon": -77.8630037, "size_class": "medium", "display_order": 5},
+          {"id": 4, "name": "Pmans", "address": "130 Heister St, State College, PA 16801",
+           "door_lat": 40.7966833, "door_lon": -77.8569426, "size_class": "medium", "display_order": 1},
+          {"id": 5, "name": "Brothers Bar & Grill", "address": "134 S Allen St, State College, PA 16801",
+           "door_lat": 40.7936366, "door_lon": -77.8607833, "size_class": "medium", "display_order": 3},
+          {"id": 6, "name": "The Gaff", "address": "212 E College Ave (rear), State College, PA 16801",
+           "door_lat": 40.7953248, "door_lon": -77.8595640, "size_class": "medium", "display_order": 6}
         ]
         """
 
@@ -106,7 +114,9 @@ nonisolated struct FixtureTransport: RPCTransport {
             """
     }
 
-    /// Doggie's: a fresh measured wait. The Phyrst: older (grayed) reports. Cafe 210: no data.
+    /// Doggie's: a fresh measured wait. Pmans: a fresh line size only. Brothers:
+    /// a contradiction (Uncertain). Champs: older (grayed) reports. Cafe 210 and
+    /// the Gaff: no data.
     private static func estimates(now: Date) -> String {
         func ago(_ minutes: Double) -> String {
             ServerDate.format(now.addingTimeInterval(-minutes * 60))
@@ -132,6 +142,20 @@ nonisolated struct FixtureTransport: RPCTransport {
                           "freshness": "stale", "rule": "newest"},
                  "busyness": null},
                 {"bar_id": 3, "display": "not_enough_data", "freshness": "none", "people": 0,
+                 "latest_at": null, "line_size": null, "wait": null, "busyness": null},
+                {"bar_id": 4, "display": "estimate", "freshness": "fresh", "people": 1,
+                 "latest_at": "\(ago(6))",
+                 "line_size": {"code": 2, "minutes": null, "source": "reported", "at": "\(ago(6))",
+                               "freshness": "fresh", "rule": "newest"},
+                 "wait": null, "busyness": null},
+                {"bar_id": 5, "display": "estimate", "freshness": "fresh", "people": 2,
+                 "latest_at": "\(ago(4))",
+                 "line_size": {"code": 7, "minutes": null, "source": "reported", "at": "\(ago(9))",
+                               "freshness": "fresh", "rule": "newest"},
+                 "wait": {"code": 1, "minutes": 1, "source": "measured", "at": "\(ago(4))",
+                          "freshness": "fresh", "rule": "newest"},
+                 "busyness": null},
+                {"bar_id": 6, "display": "not_enough_data", "freshness": "none", "people": 0,
                  "latest_at": null, "line_size": null, "wait": null, "busyness": null}
               ]
             }

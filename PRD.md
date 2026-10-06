@@ -8,7 +8,7 @@ This file is the full product spec. `CLAUDE.md` holds the working rules and poin
 
 - **Problem.** Students heading downtown can't tell how long a bar's line is until they walk there. Lines move fast on busy nights, so word of mouth is quickly out of date.
 - **Solution.** People at a bar tap **Start line timer** or **Report line size**. Everyone else sees the current line size, the wait, and how fresh that information is. Waits are measured with a simple in-app timer, not guessed.
-- **Context.** LineMap is a learning project, not a business. It launches with Doggie's Pub, The Phyrst and Cafe 210 West, and grows to 5–8 bars if reporting keeps up.
+- **Context.** LineMap is a learning project, not a business. It launches with six bars: Pmans, Doggie's Pub, Brothers Bar & Grill, Champs Downtown, Cafe 210 West, and The Gaff (2026-10-06; it started with Doggie's Pub, The Phyrst, and Cafe 210 West).
 
 ## 2. Goals and success metrics
 
@@ -223,13 +223,16 @@ Every table also has `id`, `created_at`, and `is_test`. All data stored before 2
 | `deletions` | A count of data deletions | time, rows removed, scope (all for Delete my data, one for a single report) (no ID) |
 | `rate_limit_holds` | Keeps the rate limit running after a report is deleted (FR-41) | anon ID, bar, kind (which limit it holds), phone time; cleared after 10 minutes |
 
-**Starting bars.** Pins are geocoded from these addresses and can be adjusted later in the dashboard.
+**Bars at launch** (Max, 2026-10-06), in display order. Pins are geocoded from these addresses (OpenStreetMap) and can be adjusted later in the dashboard. The Phyrst, a starting bar, is kept inactive.
 
 | Bar | Address |
 | --- | --- |
+| Pmans (Primanti Bros.) | 130 Heister St, State College, PA 16801 |
 | Doggie's Pub | 108 S Pugh St, State College, PA 16801 |
-| The Phyrst | 111 E Beaver Ave, State College, PA 16801 (downstairs, below Local Whiskey) |
+| Brothers Bar & Grill | 134 S Allen St, State College, PA 16801 |
+| Champs Downtown | 139 S Allen St, State College, PA 16801 |
 | Cafe 210 West | 210 W College Ave, State College, PA 16801 |
+| The Gaff (The Shandygaff) | 212 E College Ave (rear entrance), State College, PA 16801 |
 
 ## 8. Release plan
 

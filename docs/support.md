@@ -4,7 +4,7 @@ title: LineMap Support
 
 # LineMap Support
 
-LineMap shows live, community-reported lines and waits at State College bars: Doggie's Pub, The Phyrst, and Cafe 210 West. Check before you head out, and help others by reporting when you're there.
+LineMap shows live, community-reported lines and waits at State College bars: Pmans, Doggie's Pub, Brothers Bar & Grill, Champs Downtown, Cafe 210 West, and The Gaff. Check before you head out, and help others by reporting when you're there.
 
 Questions, bugs, or ideas: **[line.map.support@gmail.com](mailto:line.map.support@gmail.com)**
 
@@ -20,7 +20,7 @@ LineMap needs an iPhone with iOS 17 or later. TestFlight updates the app for you
 
 ## Using LineMap
 
-- **Map** shows every bar with its current wait or line, such as "The Phyrst · 25 min". The pin's color shows how hard it is to get in: green for a short line, orange for some line, red for a long one. Tap a bar for details.
+- **Map** shows every bar with its current wait or line, such as "Doggie's Pub" over "25 min". The pin's color shows how hard it is to get in: green for a short line, orange for some line, red for a long one. Tap a bar for details.
 - **Bars** lists every bar, shortest wait first. Tap one to see it on the map.
 - **Start line timer** when you join a line, and tap **I'm in** when you get in. Your wait is timed, not guessed. While you wait, you can add the **Line size** or **Adjust time** if you were already in line before you started the timer.
 - **Report line size** shares how many people are in line, from No line to 100+.
