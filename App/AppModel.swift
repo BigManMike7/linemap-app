@@ -31,7 +31,7 @@ nonisolated enum Question: Hashable {
     case lineSize
     /// Adjust time, from the wait card (FR-7).
     case adjustTime
-    /// Report conditions, from the bar sheet (FR-11).
+    /// Report line size, from the bar sheet (FR-11).
     case conditions(barId: Int64)
 }
 
@@ -254,22 +254,21 @@ final class AppModel {
         enqueue(.startSession(startCall(for: wait, meta: meta)), locate: true)
     }
 
-    /// Report conditions on the bar sheet (FR-11): opens the form.
+    /// Report line size on the bar sheet (FR-11): opens the form.
     func askConditions(at bar: Bar) {
         sheet = .question(.conditions(barId: bar.id))
     }
 
-    /// Sends Report conditions once, with whichever answers were given. Nothing
-    /// is sent if both were left out (FR-12). It never touches a wait session.
-    func sendConditions(at barId: Int64, lineSize: LineSize?, busyness: Busyness?) {
+    /// Sends Report line size once. Nothing is sent without a size (FR-12). It
+    /// never touches a wait session. The crowd is always skipped (2026-10-06).
+    func sendConditions(at barId: Int64, lineSize: LineSize?) {
         sheet = nil
-        guard lineSize != nil || busyness != nil, let meta = reportMeta() else { return }
+        guard let lineSize, let meta = reportMeta() else { return }
         let reportId = UUID()
         thankWhenAccepted(reportId)
         enqueue(.reportConditions(ReportConditionsCall(
             clientReportId: reportId, barId: barId, phoneTime: Date(), location: .noFix, meta: meta,
-            lineSize: lineSize.map { Answer.answered($0) } ?? .skipped,
-            busyness: busyness.map { Answer.answered($0) } ?? .skipped)), locate: true)
+            lineSize: .answered(lineSize), busyness: .skipped)), locate: true)
     }
 
     /// I'm in (FR-8): ends the timer and asks nothing.

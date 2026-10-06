@@ -169,7 +169,7 @@ struct BarPin: View {
         .accessibilityLabel(label.title(barName: bar.name))
         // "Uncertain" is already the label's text, so it isn't read twice.
         .accessibilityValue(status.flatMap { $0.level == .uncertain ? nil : $0.level.title } ?? "")
-        .accessibilityHint(label.isGrayed ? "Older reports. Shows the line and crowd." : "Shows the line and crowd.")
+        .accessibilityHint(label.isGrayed ? "Older reports. Shows the line and wait." : "Shows the line and wait.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { action() }
         .accessibilityIdentifier("pin-\(bar.id)")

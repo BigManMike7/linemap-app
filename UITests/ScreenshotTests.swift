@@ -152,14 +152,13 @@ final class ScreenshotTests: XCTestCase {
         sleep(1)
         saveScreenshot(named: "11-BarSheetFromList", app: app)
 
-        // Report conditions: line size and crowd on one screen (FR-11).
+        // Report line size: one question, six sizes, sent once (FR-11).
         conditions.tap()
         let send = app.buttons["conditions-send"]
         XCTAssertTrue(send.waitForExistence(timeout: 5))
         XCTAssertFalse(send.isEnabled, "Send waits for at least one answer")
         saveScreenshot(named: "12-ConditionsEmpty", app: app)
         app.buttons["line-2"].tap()
-        app.buttons["crowd-2"].tap()
         XCTAssertTrue(send.isEnabled)
         saveScreenshot(named: "13-ConditionsAnswered", app: app)
         send.tap()

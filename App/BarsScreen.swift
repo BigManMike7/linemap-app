@@ -60,7 +60,7 @@ struct BarsScreen: View {
     }
 }
 
-/// One bar in the list: name, line, wait, crowd, and freshness, grayed out
+/// One bar in the list: name, line, wait, and freshness, grayed out
 /// when older (FR-45). A colored pill and a strip down the left edge show how
 /// hard it is to get in. The top of the card is one button that shows the bar
 /// on the map; History sits under it as its own button (FR-43).
@@ -122,7 +122,6 @@ struct BarCard: View {
             } else {
                 InfoRow(title: "Line", systemImage: "person.3.sequence", line: summary.lineSize)
                 InfoRow(title: "Wait", systemImage: "clock", line: summary.wait)
-                InfoRow(title: "Crowd", systemImage: "person.2.wave.2", line: summary.busyness)
             }
             if let freshness = summary.freshness {
                 Text(freshness)
