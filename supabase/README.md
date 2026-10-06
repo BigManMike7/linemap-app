@@ -12,6 +12,7 @@ Postgres on Supabase. The server is the source of truth for estimates and the ni
 | `migrations/*_api.sql`, `*_cancel_session.sql`, `*_report_conditions.sql`, `*_delete_report.sql`, `*_separate_rate_limits.sql`, `*_redo_undo_history.sql`, `*_line_sizes_no_crowd.sql` | The 16 API functions: 15 the app calls, plus `submit_report` for older builds |
 | `migrations/*_jobs.sql` | Scheduled jobs (`pg_cron`); `*_delete_report.sql` adds `expire-rate-limit-holds` |
 | `migrations/*_starting_data.sql` | Default settings and the three starting bars |
+| `migrations/*_bar_list.sql` | The first-release bar list (approved by Max on 2026-10-06): Pmans, Doggie's Pub, Brothers Bar & Grill, Champs Downtown, Cafe 210 West, The Gaff, in that order. Door pins are OpenStreetMap (Nominatim) geocodes. The Phyrst is kept, inactive |
 | `tests/` | pgTAP tests, run in CI on every push |
 
 CI runs the tests on a local database, then applies new migrations to the live project after they pass on `main`.

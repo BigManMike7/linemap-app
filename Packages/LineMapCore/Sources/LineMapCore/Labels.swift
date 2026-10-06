@@ -90,7 +90,7 @@ public struct PinLabel: Sendable, Hashable {
         }
     }
 
-    /// "The Phyrst · 25 min"
+    /// "Doggie's Pub · 25 min"
     public func title(barName: String) -> String {
         "\(barName) · \(text)"
     }

@@ -198,7 +198,7 @@ select throws_ok('select app.expire_rate_limit_holds()', '42501', null, 'anon ca
 -- Behavior as anon: the API works -------------------------------------------------
 
 select lives_ok('select public.get_bars()', 'anon can call get_bars');
-select is(jsonb_array_length(public.get_bars()), 3, 'anon sees the 3 starting bars');
+select is(jsonb_array_length(public.get_bars()), 6, 'anon sees the 6 active bars');
 select lives_ok('select public.get_estimates()', 'anon can call get_estimates');
 select is((public.get_estimates() ->> 'logic_version')::integer, 4, 'get_estimates carries the logic version (FR-21)');
 select lives_ok(

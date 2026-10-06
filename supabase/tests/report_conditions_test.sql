@@ -6,7 +6,7 @@
 -- Same conventions as reporting_api_test.sql: now() is fixed for the whole
 -- transaction, each step passes an explicit phone time in the past
 -- (pg_temp.ago(minutes)), and each person is a separate anonymous ID.
--- Seed bars: 1 = Doggie's Pub, 2 = The Phyrst, 3 = Cafe 210 West.
+-- Seed bars (by display_order): 1 = Pmans, 2 = Doggie's Pub, 3 = Brothers Bar & Grill.
 
 begin;
 create extension if not exists pgtap with schema extensions;

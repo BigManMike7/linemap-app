@@ -390,10 +390,10 @@ select is((app.estimates('2026-10-05 20:00 America/New_York', false) ->> 'logic_
 select is(app.logic_version(), 4, 'logic version is 4');
 select is(app.estimates(pg_temp.ago(0), false) ->> 'window_state', 'live', 'Friday 11 p.m. is live');
 select is((app.estimates(pg_temp.ago(0), false) ->> 'generated_at')::timestamptz, pg_temp.ago(0), 'generated_at is the time asked for');
-select is(jsonb_array_length(app.estimates(pg_temp.ago(0), false) -> 'bars'), 32,
-  'every active non-test bar is listed (3 starting bars + 29 test scenarios)');
+select is(jsonb_array_length(app.estimates(pg_temp.ago(0), false) -> 'bars'), 35,
+  'every active non-test bar is listed (6 real bars + 29 test scenarios)');
 select is(app.estimates(pg_temp.ago(0), false) -> 'bars' -> 0 ->> 'bar_id',
-  (select b.id::text from app.bars b where b.name = 'Doggie''s Pub'),
+  (select b.id::text from app.bars b where b.name = 'Pmans'),
   'bars are listed in display order');
 
 select * from finish();

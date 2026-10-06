@@ -4,7 +4,7 @@
 -- now(), so each step passes an explicit phone time in the past
 -- (pg_temp.ago(minutes)). Each person is a separate anonymous ID, so the
 -- rate limit and session rules of one scenario never touch another.
--- Seed bars: 1 = Doggie's Pub, 2 = The Phyrst, 3 = Cafe 210 West.
+-- Seed bars (by display_order): 1 = Pmans, 2 = Doggie's Pub, 3 = Brothers Bar & Grill.
 
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -647,11 +647,11 @@ select is((pg_temp.session(1001)).is_test, false, 'other people''s sessions are 
 insert into app.bars (name, address, door_lat, door_lon, is_test)
 values ('Max test bar', 'Test address', 40.7940, -77.8610, true);
 
-select is(jsonb_array_length(public.get_bars()), 3, 'get_bars hides test bars');
-select is(jsonb_array_length(public.get_bars(pg_temp.uid(1))), 3, 'get_bars hides test bars from real IDs');
-select is(jsonb_array_length(public.get_bars('abcdef00-0000-4000-8000-0000000000aa')), 4, 'get_bars shows test bars to test IDs');
-select is(jsonb_array_length(public.get_estimates() -> 'bars'), 3, 'get_estimates hides test bars');
-select is(jsonb_array_length(public.get_estimates('abcdef00-0000-4000-8000-0000000000aa') -> 'bars'), 4,
+select is(jsonb_array_length(public.get_bars()), 6, 'get_bars hides test bars');
+select is(jsonb_array_length(public.get_bars(pg_temp.uid(1))), 6, 'get_bars hides test bars from real IDs');
+select is(jsonb_array_length(public.get_bars('abcdef00-0000-4000-8000-0000000000aa')), 7, 'get_bars shows test bars to test IDs');
+select is(jsonb_array_length(public.get_estimates() -> 'bars'), 6, 'get_estimates hides test bars');
+select is(jsonb_array_length(public.get_estimates('abcdef00-0000-4000-8000-0000000000aa') -> 'bars'), 7,
   'get_estimates shows test bars to test IDs');
 select is((public.get_estimates() ->> 'logic_version')::integer, 4, 'get_estimates carries the logic version');
 
