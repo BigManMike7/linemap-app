@@ -111,7 +111,7 @@ Every report and session carries a client-generated ID, so the offline queue can
 
 ```json
 {
-  "logic_version": 1,
+  "logic_version": 2,
   "generated_at": "2026-10-02T02:15:00Z",
   "window_state": "live",
   "bars": [{
@@ -127,7 +127,9 @@ Every report and session carries a client-generated ID, so the offline queue can
 }
 ```
 
-- `display`: `estimate`, `not_enough_data`, `closed`, or `outside_hours`.
+- `logic_version`: 2 since 2026-10-06. Version 1 hid a 30-to-60-minute-old report outside the active window; version 2 uses the live rule at every hour.
+- `window_state`: `live`, `closed`, or `outside_hours`. Unchanged in version 2; older builds still read it.
+- `display`: `closed` while `window_state` is `closed` (2 to 4 a.m. after an active night). At every other hour, `estimate` when any signal is within 60 minutes (stale ones grayed out), else `not_enough_data`. `outside_hours` is no longer returned as a `display` value (since logic version 2), but older builds still accept it.
 - `freshness` (bar and signal): `fresh` (30 minutes or less), `stale` (30 to 60, shown grayed out), or `none`.
 - A wait with `source: measured` has `minutes`, and its `at` is when the person got in. A `reported` wait has only a range `code`.
 - `rule`: `newest`, or `majority` when 2 or more other people's fresh reports disagreed with the newest one.
@@ -138,7 +140,7 @@ Dates are `YYYY-MM-DD`; times are Postgres ISO 8601 with an offset, as in the ot
 
 ```json
 {
-  "logic_version": 1,
+  "logic_version": 2,
   "bar_id": 1,
   "night": "2026-10-02",
   "tonight": "2026-10-05",

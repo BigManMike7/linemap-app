@@ -148,7 +148,7 @@ select is(
   (select array_agg(k order by k) from hist, jsonb_object_keys(hist.j) as k),
   array['bar_id', 'end', 'logic_version', 'night', 'nights', 'points', 'start', 'tonight'],
   'the history has exactly the contract''s keys');
-select is((select (j ->> 'logic_version')::integer from hist), 1, 'it carries the logic version');
+select is((select (j ->> 'logic_version')::integer from hist), 2, 'it carries the logic version');
 select is((select (j ->> 'bar_id')::bigint from hist), pg_temp.bar('History bar'), 'it names the bar');
 select is((select j ->> 'night' from hist), '2026-10-02', 'night is the date asked for, as YYYY-MM-DD');
 select is((select j ->> 'tonight' from hist), '2026-10-06', 'tonight is the night of the moment asked about');

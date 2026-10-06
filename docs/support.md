@@ -28,14 +28,14 @@ LineMap needs an iPhone with iOS 17 or later. TestFlight updates the app for you
 
 ## Common questions
 
-**Why does a bar say "No data" or "Not enough data"?**
-Nobody has reported there in the last hour. Reports are fresh for 30 minutes, grayed out from 30 to 60 minutes, and then they stop counting.
+**Why does a bar say "No live reports"?**
+Nobody has reported there in the last hour. Reports are fresh for 30 minutes, grayed out from 30 to 60 minutes, and then they stop counting. You can report at any time of day, and earlier nights are still in the bar's History.
 
 **Why does a bar say "Uncertain"?**
 The latest reports disagree: for example, someone timed a 0-minute wait while someone else reported 50+ people in line. LineMap doesn't guess which is right. Tap the bar to see both and decide for yourself.
 
-**Why does it say "Outside usual hours" or "Closed"?**
-Live estimates run Thursday to Saturday, 9 p.m. to 2 a.m. Eastern. From 2 to 4 a.m. bars show "Closed". At other times bars show "Outside usual hours" unless someone has just reported.
+**Why does it say "Closed"?**
+Bars stop serving at 2 a.m., so from 2 to 4 a.m. Eastern after a Thursday, Friday, or Saturday night, bars show "Closed".
 
 **Does LineMap track my location?**
 No. It checks your location only when you send a report, to confirm you're near the bar, and never stores your exact location. You can deny location access and still use everything. See the [privacy policy](privacy).

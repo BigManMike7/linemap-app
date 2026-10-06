@@ -6,7 +6,7 @@ import Foundation
 /// 2. Within each: bars with a wait, shortest first; then bars with only a
 ///    line size, smallest first; then Uncertain bars, whose wait and line size
 ///    contradict (FR-2); then bars with only a crowd answer.
-/// 3. Bars showing Not enough data, Closed, or Outside hours come last.
+/// 3. Bars showing No live reports or Closed come last.
 ///
 /// Ties keep the dashboard order (`displayOrder`), then the bar ID.
 public enum BarOrder {

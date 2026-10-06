@@ -9,7 +9,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(80);
+select plan(86);
 
 -- Helpers ----------------------------------------------------------------------------
 
@@ -293,25 +293,41 @@ select is(pg_temp.est(pg_temp.bar('Empty'), pg_temp.ago(0)) ->> 'display', 'not_
 -- Saturday 2:30 a.m., after Friday night: closed even with a fresh report.
 select pg_temp.rep(1, pg_temp.bar('Closed'), '2026-10-03 02:25 America/New_York', p_line => 2);
 select is(app.estimates('2026-10-03 02:30 America/New_York', false) ->> 'window_state', 'closed', 'Saturday 2:30 a.m. is closed');
+select is(pg_temp.est(pg_temp.bar('Closed'), '2026-10-03 02:30 America/New_York') ->> 'freshness', 'fresh',
+  'the closed bar''s report is fresh');
 select is(pg_temp.est(pg_temp.bar('Closed'), '2026-10-03 02:30 America/New_York') ->> 'display', 'closed',
   'closed hours show closed, even with a fresh report');
 
--- Monday 8 p.m. is outside hours.
+-- Monday 8 p.m. is outside hours. Since logic version 2, display follows the
+-- live rule at every hour: anything within 60 minutes shows, stale grayed out.
 select pg_temp.rep(1, pg_temp.bar('Outside stale'), '2026-10-05 19:15 America/New_York', p_line => 2);
 select pg_temp.rep(1, pg_temp.bar('Outside fresh'), '2026-10-05 19:50 America/New_York', p_line => 2);
-select is(app.estimates('2026-10-05 20:00 America/New_York', false) ->> 'window_state', 'outside_hours', 'Monday 8 p.m. is outside hours');
-select is(pg_temp.est(pg_temp.bar('Outside empty'), '2026-10-05 20:00 America/New_York') ->> 'display', 'outside_hours',
-  'outside hours with no reports: outside hours');
-select is(pg_temp.est(pg_temp.bar('Outside stale'), '2026-10-05 20:00 America/New_York') ->> 'display', 'outside_hours',
-  'outside hours with only a stale report: outside hours');
+select is(app.estimates('2026-10-05 20:00 America/New_York', false) ->> 'window_state', 'outside_hours',
+  'Monday 8 p.m. is outside hours (window_state is unchanged for older builds)');
+select is(pg_temp.est(pg_temp.bar('Outside empty'), '2026-10-05 20:00 America/New_York') ->> 'display', 'not_enough_data',
+  'outside hours with no reports: not enough data');
+select is(pg_temp.est(pg_temp.bar('Outside stale'), '2026-10-05 20:00 America/New_York') ->> 'display', 'estimate',
+  'outside hours with a 45-minute-old report: estimate');
+select is(pg_temp.est(pg_temp.bar('Outside stale'), '2026-10-05 20:00 America/New_York') ->> 'freshness', 'stale',
+  'outside hours with a 45-minute-old report: bar freshness is stale');
+select is(pg_temp.est(pg_temp.bar('Outside stale'), '2026-10-05 20:00 America/New_York') -> 'line_size' ->> 'freshness', 'stale',
+  'outside hours with a 45-minute-old report: the line size is grayed out');
+select is(pg_temp.est(pg_temp.bar('Outside stale'), '2026-10-05 20:16 America/New_York') ->> 'display', 'not_enough_data',
+  'outside hours with only a 61-minute-old report: not enough data');
 select is(pg_temp.est(pg_temp.bar('Outside fresh'), '2026-10-05 20:00 America/New_York') ->> 'display', 'estimate',
   'outside hours with a fresh report: estimate');
+select is(
+  (select count(*) from jsonb_array_elements(app.estimates('2026-10-05 20:00 America/New_York', false) -> 'bars') as e
+   where e ->> 'display' = 'outside_hours'),
+  0::bigint, 'outside_hours is no longer a display value');
 
 -- Response shape (FR-21) ----------------------------------------------------------------
 
 select is((app.estimates(pg_temp.ago(0), false) ->> 'logic_version')::integer, app.logic_version(),
   'estimates carry the logic version');
-select is(app.logic_version(), 1, 'logic version is 1');
+select is((app.estimates('2026-10-05 20:00 America/New_York', false) ->> 'logic_version')::integer, 2,
+  'the estimates response says logic version 2');
+select is(app.logic_version(), 2, 'logic version is 2');
 select is(app.estimates(pg_temp.ago(0), false) ->> 'window_state', 'live', 'Friday 11 p.m. is live');
 select is((app.estimates(pg_temp.ago(0), false) ->> 'generated_at')::timestamptz, pg_temp.ago(0), 'generated_at is the time asked for');
 select is(jsonb_array_length(app.estimates(pg_temp.ago(0), false) -> 'bars'), 27,

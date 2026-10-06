@@ -42,6 +42,10 @@ public enum Labels {
         value == .nobody ? "0" : option(value)
     }
 
+    /// What a bar shows with no report in the last hour, at any time of day
+    /// (2026-10-06; it replaced "No data", "Not enough data", and "Outside usual hours").
+    public static let noLiveReports = "No live reports"
+
     public static let cantTell = "I can't tell"
     public static let skip = "Skip"
 
@@ -71,16 +75,14 @@ public struct PinLabel: Sendable, Hashable {
 
     public init(estimate: BarEstimate?) {
         guard let estimate else {
-            self.init(text: "No data", isGrayed: false)
+            self.init(text: Labels.noLiveReports, isGrayed: false)
             return
         }
         switch estimate.display {
         case .closed:
             self.init(text: "Closed", isGrayed: false)
-        case .outsideHours:
-            self.init(text: "Outside hours", isGrayed: false)
-        case .notEnoughData:
-            self.init(text: "No data", isGrayed: false)
+        case .notEnoughData, .outsideHours:
+            self.init(text: Labels.noLiveReports, isGrayed: false)
         case .estimate:
             // A wait and line size that contradict show neither (FR-2).
             if let status = LineStatus(estimate: estimate), status.level == .uncertain {
@@ -90,7 +92,7 @@ public struct PinLabel: Sendable, Hashable {
             } else if let line = estimate.lineSize, let text = PinLabel.lineText(line.code) {
                 self.init(text: text, isGrayed: line.freshness == .stale)
             } else {
-                self.init(text: "No data", isGrayed: false)
+                self.init(text: Labels.noLiveReports, isGrayed: false)
             }
         }
     }
@@ -151,7 +153,7 @@ public struct BarSummary: Sendable, Hashable {
             wait = nil
             busyness = nil
             freshness = nil
-            status = "Not enough data"
+            status = Labels.noLiveReports
             return
         }
 
@@ -173,18 +175,14 @@ public struct BarSummary: Sendable, Hashable {
             } else {
                 busyness = nil
             }
-        case .notEnoughData:
-            status = "Not enough data"
+        case .notEnoughData, .outsideHours:
+            // Servers before logic version 2 send outside_hours.
+            status = Labels.noLiveReports
             lineSize = nil
             wait = nil
             busyness = nil
         case .closed:
             status = "Closed"
-            lineSize = nil
-            wait = nil
-            busyness = nil
-        case .outsideHours:
-            status = "Outside usual hours, no recent reports"
             lineSize = nil
             wait = nil
             busyness = nil

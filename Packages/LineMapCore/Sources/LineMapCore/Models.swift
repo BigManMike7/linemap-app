@@ -55,11 +55,12 @@ public enum WindowState: String, Codable, Sendable, Hashable {
 public enum Display: String, Codable, Sendable, Hashable {
     /// Show the signals; stale ones grayed out.
     case estimate
-    /// In the active window but nothing within 60 minutes.
+    /// Nothing within 60 minutes, at any time of day ("No live reports").
     case notEnoughData = "not_enough_data"
     /// 2-4 a.m. after an active night.
     case closed
-    /// Outside the window with no fresh signal.
+    /// Sent only by servers before logic version 2 (2026-10-06); shown like
+    /// `notEnoughData`. The server now shows recent reports at any hour.
     case outsideHours = "outside_hours"
 }
 

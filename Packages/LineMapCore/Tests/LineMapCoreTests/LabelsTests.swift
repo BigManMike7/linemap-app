@@ -106,7 +106,7 @@ struct AgoTests {
 
 struct PinLabelTests {
     @Test func nilEstimate() {
-        #expect(PinLabel(estimate: nil) == PinLabel(text: "No data", isGrayed: false))
+        #expect(PinLabel(estimate: nil) == PinLabel(text: "No live reports", isGrayed: false))
     }
 
     @Test func closed() {
@@ -116,12 +116,12 @@ struct PinLabelTests {
 
     @Test func outsideHours() {
         let label = PinLabel(estimate: estimate(display: .outsideHours))
-        #expect(label == PinLabel(text: "Outside hours", isGrayed: false))
+        #expect(label == PinLabel(text: "No live reports", isGrayed: false))
     }
 
     @Test func notEnoughData() {
         let label = PinLabel(estimate: estimate(display: .notEnoughData, freshness: .none, latestAt: nil))
-        #expect(label == PinLabel(text: "No data", isGrayed: false))
+        #expect(label == PinLabel(text: "No live reports", isGrayed: false))
     }
 
     @Test func measuredWait() {
@@ -175,7 +175,7 @@ struct PinLabelTests {
 
     @Test func busynessOnlyIsNoData() {
         let label = PinLabel(estimate: estimate(busyness: signal(3)))
-        #expect(label == PinLabel(text: "No data", isGrayed: false))
+        #expect(label == PinLabel(text: "No live reports", isGrayed: false))
     }
 
     @Test func staleWaitIsGrayed() {
@@ -195,8 +195,8 @@ struct PinLabelTests {
     }
 
     @Test func unknownCodesFallBackToNoData() {
-        #expect(PinLabel(estimate: estimate(wait: signal(9))).text == "No data")
-        #expect(PinLabel(estimate: estimate(lineSize: signal(9))).text == "No data")
+        #expect(PinLabel(estimate: estimate(wait: signal(9))).text == "No live reports")
+        #expect(PinLabel(estimate: estimate(lineSize: signal(9))).text == "No live reports")
     }
 
     @Test func title() {
@@ -208,7 +208,7 @@ struct PinLabelTests {
 struct BarSummaryTests {
     @Test func nilEstimate() {
         let summary = BarSummary(estimate: nil, now: now)
-        #expect(summary.status == "Not enough data")
+        #expect(summary.status == "No live reports")
         #expect(summary.lineSize == nil)
         #expect(summary.wait == nil)
         #expect(summary.busyness == nil)
@@ -282,7 +282,7 @@ struct BarSummaryTests {
             estimate: estimate(display: .notEnoughData, freshness: .none, people: 0, latestAt: nil,
                                lineSize: signal(2)),
             now: now)
-        #expect(summary.status == "Not enough data")
+        #expect(summary.status == "No live reports")
         #expect(summary.lineSize == nil)
     }
 
@@ -294,7 +294,7 @@ struct BarSummaryTests {
 
     @Test func outsideHours() {
         let summary = BarSummary(estimate: estimate(display: .outsideHours, freshness: .none, latestAt: nil), now: now)
-        #expect(summary.status == "Outside usual hours, no recent reports")
+        #expect(summary.status == "No live reports")
         #expect(summary.busyness == nil)
     }
 }

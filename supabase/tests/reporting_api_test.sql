@@ -584,7 +584,7 @@ select is(jsonb_array_length(public.get_bars('abcdef00-0000-4000-8000-0000000000
 select is(jsonb_array_length(public.get_estimates() -> 'bars'), 3, 'get_estimates hides test bars');
 select is(jsonb_array_length(public.get_estimates('abcdef00-0000-4000-8000-0000000000aa') -> 'bars'), 4,
   'get_estimates shows test bars to test IDs');
-select is((public.get_estimates() ->> 'logic_version')::integer, 1, 'get_estimates carries the logic version');
+select is((public.get_estimates() ->> 'logic_version')::integer, 2, 'get_estimates carries the logic version');
 
 -- Installs, views, feedback (FR-30, FR-34, FR-35) ------------------------------------------------------
 
