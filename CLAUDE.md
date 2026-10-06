@@ -162,7 +162,7 @@ The data model before launch, the database tests, location on a real phone, that
 
 ## Where we left off (2026-10-06, evening)
 
-**Build 21 is going to TestFlight.** CI is green, `main` is clean, and the live database was **wiped** and holds the six launch bars (data check: 0 rows). Next: Max tries build 21 and adds his test ID (below).
+**Build 21 is on TestFlight (uploaded 2026-10-06); Max is on a break.** CI is green, `main` is clean, and the live database was **wiped** and holds the six launch bars (data check: 0 rows). Next: Max tries build 21 and adds his test ID (below).
 
 **Max's first step:** Settings, Copy ID, then in the Supabase SQL Editor: `update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';` Don't commit his ID. One install row from opening the app before this may be real; mark it test later if so.
 
