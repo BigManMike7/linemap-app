@@ -112,8 +112,8 @@ extension Bar {
     }
 }
 
-/// A bar's pin with a two-line label, the name over its status, e.g. "The
-/// Phyrst" over "25 min" (FR-2). Two lines keep labels narrow, so they fit
+/// A bar's pin with a two-line label, the name over its status, e.g. "Doggie's
+/// Pub" over "25 min" (FR-2). Two lines keep labels narrow, so they fit
 /// the opening view and nearby pins overlap less (2026-10-06).
 struct BarPin: View {
     let bar: Bar
@@ -169,7 +169,7 @@ struct BarPin: View {
         .accessibilityLabel(label.title(barName: bar.name))
         // "Uncertain" is already the label's text, so it isn't read twice.
         .accessibilityValue(status.flatMap { $0.level == .uncertain ? nil : $0.level.title } ?? "")
-        .accessibilityHint(label.isGrayed ? "Older reports. Shows the line and crowd." : "Shows the line and crowd.")
+        .accessibilityHint(label.isGrayed ? "Older reports. Shows the line and wait." : "Shows the line and wait.")
         .accessibilityAddTraits(.isButton)
         .accessibilityAction { action() }
         .accessibilityIdentifier("pin-\(bar.id)")

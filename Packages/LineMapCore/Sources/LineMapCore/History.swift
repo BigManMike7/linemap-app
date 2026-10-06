@@ -75,12 +75,12 @@ public struct BarHistory: Codable, Sendable, Hashable {
         return rows
     }
 
-    /// The quarter hour with the biggest line, then the longest wait, then the
-    /// biggest crowd; the earliest wins a tie. Nil when no row has data.
+    /// The quarter hour with the biggest line, then the longest wait; the
+    /// earliest wins a tie. Nil when no row has data.
     public var busiestRow: HistoryPoint? {
         var best: HistoryPoint?
         for row in quarterHours where row.hasData {
-            if best.map({ $0.busyness3.lexicographicallyPrecedes(row.busyness3) }) ?? true {
+            if best.map({ $0.busyKey.lexicographicallyPrecedes(row.busyKey) }) ?? true {
                 best = row
             }
         }
@@ -120,18 +120,19 @@ public struct HistoryPoint: Codable, Sendable, Hashable, Identifiable {
     public let people: Int
     public let lineSize: HistorySignal?
     public let wait: HistorySignal?
+    /// Always nil since logic version 4 (2026-10-06): the crowd isn't shown.
     public let busyness: HistorySignal?
 
     public var id: Date { at }
 
-    /// True when any signal has a value.
+    /// True when the line size or wait has a value.
     public var hasData: Bool {
-        lineSize != nil || wait != nil || busyness != nil
+        lineSize != nil || wait != nil
     }
 
-    /// Line size, then wait, then crowd, for picking the busiest quarter hour.
-    fileprivate var busyness3: [Int] {
-        [lineSize?.code ?? -1, wait?.code ?? -1, busyness?.code ?? -1]
+    /// Line size by size rank, then wait, for picking the busiest quarter hour.
+    fileprivate var busyKey: [Int] {
+        [lineSize.map { LineSize.rank(code: $0.code) } ?? -1, wait?.code ?? -1]
     }
 
     public init(at: Date, people: Int, lineSize: HistorySignal? = nil,
@@ -282,17 +283,11 @@ extension Labels {
         return RecalledWait(rawValue: signal.code).map { "\(option($0)) wait" }
     }
 
-    /// Busyness in the history readout: "Busy".
-    public static func historyBusyness(_ signal: HistorySignal) -> String? {
-        Busyness(rawValue: signal.code).map { option($0) }
-    }
-
-    /// One quarter-hour row of History (FR-43): "10–25 in line · 15–30 min wait · Busy".
+    /// One quarter-hour row of History (FR-43): "10–25 in line · 15–30 min wait".
     public static func historyRow(_ point: HistoryPoint) -> String {
         let parts = [
             point.lineSize.flatMap(historyLineSize),
             point.wait.flatMap(historyWait),
-            point.busyness.flatMap(historyBusyness),
         ].compactMap { $0 }
         return parts.isEmpty ? "No reports" : parts.joined(separator: " · ")
     }

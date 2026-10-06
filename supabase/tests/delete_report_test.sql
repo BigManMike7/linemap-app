@@ -4,14 +4,14 @@
 -- Same conventions as reporting_api_test.sql: now() is fixed for the whole
 -- transaction, each step passes an explicit phone time in the past
 -- (pg_temp.ago(minutes)), and each person is a separate anonymous ID.
--- Seed bars: 1 = Doggie's Pub, 2 = The Phyrst, 3 = Cafe 210 West. Estimate
--- checks use a bar of their own, so no other scenario reaches them.
+-- Seed bars (by display_order): 1 = Pmans, 2 = Doggie's Pub, 3 = Brothers Bar & Grill.
+-- Estimate checks use a bar of their own, so no other scenario reaches them.
 
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(99);
+select plan(101);
 
 -- Helpers ----------------------------------------------------------------------------
 
@@ -204,11 +204,12 @@ select throws_ok(
 
 -- my_recent_reports ------------------------------------------------------------------
 -- Person 1, oldest first: two items from more than 24 hours ago, a timed wait
--- (line size 2, then 3, then a skip; busyness 4 after I'm in), a Report
--- conditions (later hidden), an I'm inside, a wait given up, and an open wait.
+-- (line size 2, then 3, then a skip; a busyness-only answer after I'm in,
+-- which stores nothing since 2026-10-07), a Report conditions (later hidden),
+-- an I'm inside, a wait given up, and an open wait. Busyness is always null.
 
 insert into res values ('p1_old_cond', pg_temp.cond(1, 1101, pg_temp.bar(1), pg_temp.ago(1500),
-                                                    p_busy => 2, p_busy_state => 'answered'));
+                                                    p_line => 2, p_line_state => 'answered'));
 insert into res values ('p1_old_start', pg_temp.start(1, 1102, 1103, pg_temp.bar(2), pg_temp.ago(1450)));
 insert into res values ('p1_old_end', pg_temp.end_line(1, 1102, 'entered', pg_temp.ago(1430)));
 insert into res values ('p1_start', pg_temp.start(1, 1201, 1202, pg_temp.bar(1), pg_temp.ago(300),
@@ -258,14 +259,14 @@ select is(pg_temp.recent(1) -> 1,
 select is(pg_temp.recent(1) -> 2,
   jsonb_build_object('type', 'report', 'kind', 'conditions', 'client_report_id', pg_temp.uid(1301),
                      'bar_id', pg_temp.bar(2), 'at', pg_temp.ago(200),
-                     'line_size', 1, 'busyness', 2, 'recalled_wait', null),
-  'a Report conditions item is listed with its codes, even when hidden');
+                     'line_size', 1, 'busyness', null, 'recalled_wait', null),
+  'a Report conditions item is listed with its codes, even when hidden (busyness is never stored)');
 select is(pg_temp.recent(1) -> 3,
   jsonb_build_object('type', 'wait', 'client_session_id', pg_temp.uid(1201), 'bar_id', pg_temp.bar(1),
                      'at', pg_temp.ago(300), 'ended_at', pg_temp.ago(280), 'status', 'entered',
                      'measured_wait_seconds', 1200, 'start_offset_minutes', 0,
-                     'line_size', 3, 'busyness', 4),
-  'a timed wait has its measured wait, its newest answered line size, and busyness after I''m in');
+                     'line_size', 3, 'busyness', null),
+  'a timed wait has its measured wait and its newest answered line size; busyness is null');
 select ok((pg_temp.recent(1) -> 0 ->> 'at') ~ '^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?[+-]\d{2}:\d{2}$',
   'times are ISO 8601 with an offset, like get_estimates');
 select ok(not exists (select 1 from jsonb_array_elements(pg_temp.recent(1)) as e
@@ -278,7 +279,7 @@ select ok(not exists (select 1 from jsonb_array_elements(pg_temp.recent(1)) as e
 
 -- Person 2 only sees their own.
 insert into res values ('p2_cond', pg_temp.cond(2, 2101, pg_temp.bar(1), pg_temp.ago(30),
-                                                p_busy => 3, p_busy_state => 'answered'));
+                                                p_line => 3, p_line_state => 'answered'));
 
 select is(jsonb_array_length(pg_temp.recent(2)), 1, 'another person sees only their own report');
 select ok(not exists (select 1 from jsonb_array_elements(pg_temp.recent(1)) as e
@@ -313,6 +314,9 @@ select is(pg_temp.recent(5) -> 0 ->> 'client_report_id', pg_temp.uid(50001)::tex
   'the newest item comes first');
 select is(pg_temp.recent(5) -> 99 ->> 'client_report_id', pg_temp.uid(50100)::text,
   'the 5 oldest are left out');
+select is(pg_temp.recent(5) -> 0 -> 'busyness', 'null'::jsonb,
+  'busyness is always null, even for an older row that stored one');
+select ok(pg_temp.recent(5) -> 0 ? 'busyness', 'the busyness key stays for older builds');
 
 -- delete_report: one Report conditions, and the rate-limit hold -------------------------
 
@@ -339,12 +343,12 @@ select is(pg_temp.recent(10), '[]'::jsonb, 'a deleted report is no longer listed
 -- The deleted report's clock (manual) keeps running from it (FR-13); the
 -- timed clock (I'm in line) is separate.
 insert into res values ('p10_again', pg_temp.cond(10, 10002, pg_temp.bar(1), pg_temp.ago(25),
-                                                  p_busy => 2, p_busy_state => 'answered'));
+                                                  p_line => 2, p_line_state => 'answered'));
 insert into res values ('p10_line', pg_temp.start(10, 10003, 10004, pg_temp.bar(1), pg_temp.ago(22)));
 insert into res values ('p10_other_bar', pg_temp.cond(10, 10005, pg_temp.bar(2), pg_temp.ago(22),
-                                                      p_busy => 2, p_busy_state => 'answered'));
+                                                      p_line => 2, p_line_state => 'answered'));
 insert into res values ('p10_later', pg_temp.cond(10, 10006, pg_temp.bar(1), pg_temp.ago(19),
-                                                  p_busy => 2, p_busy_state => 'answered'));
+                                                  p_line => 2, p_line_state => 'answered'));
 
 select is(pg_temp.r('p10_again') ->> 'error', 'rate_limited',
   'Report conditions 5 minutes after a deleted one is still rate-limited');
@@ -380,8 +384,8 @@ select is(pg_temp.est() -> 'line_size' ->> 'code', '3', 'the wait''s newest line
 
 insert into res values ('p12_del', pg_temp.del_wait(12, 12001));
 
-select is(pg_temp.r('p12_del'), '{"ok": true, "rows_removed": 4}'::jsonb,
-  'deleting a wait removes the session and its 3 reports');
+select is(pg_temp.r('p12_del'), '{"ok": true, "rows_removed": 3}'::jsonb,
+  'deleting a wait removes the session and its 2 reports (the busyness-only answer stored none)');
 select is((select count(*) from app.wait_sessions s where s.anon_id = pg_temp.uid(12)), 0::bigint,
   'the session is deleted');
 select is((select count(*) from app.reports r where r.anon_id = pg_temp.uid(12)), 0::bigint,
@@ -392,8 +396,8 @@ select is((select h.phone_time from app.rate_limit_holds h where h.anon_id = pg_
 select is(pg_temp.est() -> 'wait', 'null'::jsonb, 'the deleted measured wait no longer counts in estimates');
 select is(pg_temp.est() -> 'line_size', 'null'::jsonb, 'the deleted wait''s line size no longer counts');
 select is(pg_temp.est() ->> 'people', '0', 'the person no longer counts at the bar');
-select is((pg_temp.last_deletion()).scope || ':' || (pg_temp.last_deletion()).rows_removed, 'one:4',
-  'the wait deletion is logged as scope one with 4 rows');
+select is((pg_temp.last_deletion()).scope || ':' || (pg_temp.last_deletion()).rows_removed, 'one:3',
+  'the wait deletion is logged as scope one with 3 rows');
 
 insert into res values ('p12_again', pg_temp.start(12, 12005, 12006, pg_temp.dbar(), pg_temp.ago(45)));
 
@@ -492,9 +496,9 @@ select is(pg_temp.r('p6_del') ->> 'ok', 'true', 'it is treated as unfinished and
 -- Delete my data (FR-32) removes holds -------------------------------------------------------
 
 insert into res values ('p16_a', pg_temp.cond(16, 16001, pg_temp.bar(3), pg_temp.ago(8),
-                                              p_busy => 2, p_busy_state => 'answered'));
+                                              p_line => 2, p_line_state => 'answered'));
 insert into res values ('p16_b', pg_temp.cond(16, 16002, pg_temp.bar(1), pg_temp.ago(7),
-                                              p_busy => 2, p_busy_state => 'answered'));
+                                              p_line => 2, p_line_state => 'answered'));
 insert into res values ('p16_del', pg_temp.del_report(16, 16001));
 
 select is(pg_temp.holds(16), 1::bigint, 'person 16 has a hold');
@@ -515,7 +519,7 @@ insert into res values ('t_cond', public.report_conditions(
   p_client_report_id => pg_temp.uid(9001), p_anon_id => 'abcdef00-0000-4000-8000-0000000000aa',
   p_install_id => pg_temp.uid(9002), p_bar_id => pg_temp.bar(2), p_phone_time => pg_temp.ago(8),
   p_location_status => 'no_fix', p_app_version => '1.0', p_definitions_version => 1::smallint,
-  p_busyness => 2::smallint, p_busyness_state => 'answered'));
+  p_line_size => 2::smallint, p_line_size_state => 'answered'));
 insert into res values ('t_del', public.delete_report(
   p_anon_id => 'abcdef00-0000-4000-8000-0000000000aa', p_client_report_id => pg_temp.uid(9001)));
 

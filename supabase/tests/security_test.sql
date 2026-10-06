@@ -198,9 +198,9 @@ select throws_ok('select app.expire_rate_limit_holds()', '42501', null, 'anon ca
 -- Behavior as anon: the API works -------------------------------------------------
 
 select lives_ok('select public.get_bars()', 'anon can call get_bars');
-select is(jsonb_array_length(public.get_bars()), 3, 'anon sees the 3 starting bars');
+select is(jsonb_array_length(public.get_bars()), 6, 'anon sees the 6 active bars');
 select lives_ok('select public.get_estimates()', 'anon can call get_estimates');
-select is((public.get_estimates() ->> 'logic_version')::integer, 3, 'get_estimates carries the logic version (FR-21)');
+select is((public.get_estimates() ->> 'logic_version')::integer, 4, 'get_estimates carries the logic version (FR-21)');
 select lives_ok(
   $$select public.register_install('5ec00000-0000-4000-8000-000000000001',
                                    '5ec00000-0000-4000-8000-000000000002',
@@ -216,8 +216,8 @@ select lives_ok(
       p_location_status     => 'denied',
       p_app_version         => '1.0',
       p_definitions_version => 1::smallint,
-      p_busyness            => 2::smallint,
-      p_busyness_state      => 'answered')$$,
+      p_line_size           => 2::smallint,
+      p_line_size_state     => 'answered')$$,
   'anon can call report_conditions');
 select is(
   jsonb_array_length(public.my_recent_reports('5ec00000-0000-4000-8000-000000000001')), 1,
@@ -232,7 +232,7 @@ select is(
   '{"ok": true, "reopened": false, "removed": true}'::jsonb,
   'anon can call reopen_session');
 select is(
-  (public.bar_history(p_bar_id => (public.get_bars() -> 0 ->> 'id')::bigint) ->> 'logic_version')::integer, 3,
+  (public.bar_history(p_bar_id => (public.get_bars() -> 0 ->> 'id')::bigint) ->> 'logic_version')::integer, 4,
   'anon can call bar_history');
 
 reset role;

@@ -74,12 +74,12 @@ language sql as $$
 $$;
 
 -- Tuesday Oct 6, 2026, a weekday morning: a real report at Doggie's Pub at
--- 10:50 a.m.; a test report at The Phyrst (must not reach a snapshot); real
+-- 10:50 a.m.; a test report at Brothers Bar & Grill (must not reach a snapshot); real
 -- reports at an inactive bar and at a test bar (never snapshotted). Cafe 210
 -- West has a report only on Saturday Oct 3 at 2:20 a.m., after a Friday night
 -- (the old "Closed" hours).
 select pg_temp.rep('Doggie''s Pub', '2026-10-06 10:50 America/New_York');
-select pg_temp.rep('The Phyrst', '2026-10-06 10:55 America/New_York', p_is_test => true);
+select pg_temp.rep('Brothers Bar & Grill', '2026-10-06 10:55 America/New_York', p_is_test => true);
 select pg_temp.rep('Closed for good', '2026-10-06 10:55 America/New_York');
 select pg_temp.rep('Snapshot test bar', '2026-10-06 10:55 America/New_York');
 select pg_temp.rep('Cafe 210 West', '2026-10-03 02:20 America/New_York');
@@ -92,7 +92,7 @@ select set_eq(
   'only that bar: not inactive bars, test bars, or bars without a real report');
 select is(
   (select count(*) from app.estimate_snapshots s join app.bars b on b.id = s.bar_id
-   where b.name in ('The Phyrst', 'Cafe 210 West')),
+   where b.name in ('Brothers Bar & Grill', 'Cafe 210 West')),
   0::bigint, 'nothing is saved for a bar without a recent real report (snapshots never include test rows)');
 select is((select bool_and(s.logic_version = app.logic_version()) from app.estimate_snapshots s), true,
   'snapshots record the logic version');

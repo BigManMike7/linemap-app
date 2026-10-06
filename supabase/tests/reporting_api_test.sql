@@ -4,13 +4,13 @@
 -- now(), so each step passes an explicit phone time in the past
 -- (pg_temp.ago(minutes)). Each person is a separate anonymous ID, so the
 -- rate limit and session rules of one scenario never touch another.
--- Seed bars: 1 = Doggie's Pub, 2 = The Phyrst, 3 = Cafe 210 West.
+-- Seed bars (by display_order): 1 = Pmans, 2 = Doggie's Pub, 3 = Brothers Bar & Grill.
 
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(201);
+select plan(225);
 
 -- Helpers ----------------------------------------------------------------------------
 
@@ -45,7 +45,8 @@ $$ select r.* from app.reports r where r.client_report_id = pg_temp.uid(p_n) $$;
 -- I'm in line.
 create function pg_temp.start(p_person integer, p_session integer, p_report integer,
                               p_bar bigint, p_at timestamptz, p_offset integer default null,
-                              p_line integer default null, p_line_state text default null)
+                              p_line integer default null, p_line_state text default null,
+                              p_version integer default 1)
 returns jsonb
 language sql as $$
   select public.start_session(
@@ -57,7 +58,7 @@ language sql as $$
     p_phone_time           => p_at,
     p_location_status      => 'denied',
     p_app_version          => '1.0',
-    p_definitions_version  => 1::smallint,
+    p_definitions_version  => p_version::smallint,
     p_start_offset_minutes => p_offset::smallint,
     p_line_size            => p_line::smallint,
     p_line_size_state      => p_line_state)
@@ -65,7 +66,8 @@ $$;
 
 -- Line-size update in a session.
 create function pg_temp.line(p_person integer, p_report integer, p_session integer,
-                             p_at timestamptz, p_state text, p_line integer default null)
+                             p_at timestamptz, p_state text, p_line integer default null,
+                             p_version integer default 1)
 returns jsonb
 language sql as $$
   select public.update_line_size(
@@ -77,7 +79,7 @@ language sql as $$
     p_line_size_state     => p_state,
     p_location_status     => 'denied',
     p_app_version         => '1.0',
-    p_definitions_version => 1::smallint,
+    p_definitions_version => p_version::smallint,
     p_line_size           => p_line::smallint)
 $$;
 
@@ -212,7 +214,9 @@ select is(pg_temp.r('p2_end') ->> 'measured_wait_seconds', null::text, 'a gave-u
 select is((pg_temp.session(1021)).ended_by, 'gave_up', 'ended_by is gave_up');
 select is((pg_temp.session(1021)).measured_wait_seconds, null::integer, 'measured_wait_seconds is null when gave up');
 
--- Person 3: busyness after I'm in is rate-limit exempt (FR-13) ----------------------------
+-- Person 3: the answer after I'm in is rate-limit exempt (FR-13) --------------------------
+-- Busyness is never stored (2026-10-07), so a busyness-only answer after I'm
+-- in saves nothing; one with a recalled wait is still the exempt report.
 
 insert into res values ('p3_start', pg_temp.start(3, 1031, 2031, pg_temp.bar(2), pg_temp.ago(300)));
 insert into res values ('p3_end', pg_temp.end_line(3, 1031, 'entered', pg_temp.ago(295)));
@@ -222,14 +226,31 @@ select is(pg_temp.r('p3_end') ->> 'measured_wait_seconds', '300', 'a 5-minute wa
 insert into res values ('p3_busy', pg_temp.inside(3, 2032, pg_temp.bar(2), pg_temp.ago(294),
                                                   p_busy => 3, p_busy_state => 'answered', p_session => 1031));
 
-select is(pg_temp.r('p3_busy') ->> 'ok', 'true', 'the busyness answer after I''m in is accepted 6 minutes after the line start');
-select is(pg_temp.r('p3_busy') ->> 'kind', 'inside_after_entry', 'it is an inside_after_entry report');
+select is(pg_temp.r('p3_busy') ->> 'ok', 'true', 'a crowd-only answer after I''m in is accepted');
+select is(pg_temp.r('p3_busy') ->> 'kind', 'inside_after_entry', 'it gets the usual inside_after_entry reply');
 select is(pg_temp.r('p3_busy') ->> 'session_ended', 'false', 'it does not end anything');
-select is((pg_temp.report(2032)).wait_session_id, (pg_temp.session(1031)).id, 'it is linked to the session');
-select is((pg_temp.report(2032)).busyness, 3::smallint, 'the busyness is saved');
+select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(2032)), 0::bigint,
+  'a crowd-only answer after I''m in stores no row');
+
+insert into res values ('p3_busy_retry', pg_temp.inside(3, 2032, pg_temp.bar(2), pg_temp.ago(294),
+                                                        p_busy => 3, p_busy_state => 'answered', p_session => 1031));
+
+select is(pg_temp.r('p3_busy_retry'), pg_temp.r('p3_busy'), 'its retry gets the same reply');
+select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(2032)), 0::bigint,
+  'its retry stores nothing either');
+
+insert into res values ('p3_after', pg_temp.inside(3, 2038, pg_temp.bar(2), pg_temp.ago(294),
+                                                   p_busy => 2, p_busy_state => 'answered',
+                                                   p_wait => 2, p_wait_state => 'answered', p_session => 1031));
+
+select is(pg_temp.r('p3_after') ->> 'kind', 'inside_after_entry', 'an answer after I''m in with a recalled wait is exempt');
+select is((pg_temp.report(2038)).wait_session_id, (pg_temp.session(1031)).id, 'it is linked to the session');
+select is((pg_temp.report(2038)).recalled_wait, 2::smallint, 'its recalled wait is saved');
+select is((pg_temp.report(2038)).busyness, null::smallint, 'its busyness is not saved');
+select is((pg_temp.report(2038)).busyness_state, 'skipped', 'its busyness is stored as skipped');
 
 insert into res values ('p3_busy_twice', pg_temp.inside(3, 2039, pg_temp.bar(2), pg_temp.ago(293),
-                                                        p_busy => 1, p_busy_state => 'answered', p_session => 1031));
+                                                        p_wait => 3, p_wait_state => 'answered', p_session => 1031));
 
 -- Not exempt, but the line start is on the timed clock, so the manual clock is free.
 select is(pg_temp.r('p3_busy_twice') ->> 'kind', 'inside',
@@ -238,13 +259,22 @@ select is((pg_temp.report(2039)).wait_session_id, null::bigint,
   'the second report after I''m in is not linked to the session');
 
 insert into res values ('p3_early', pg_temp.inside(3, 2033, pg_temp.bar(2), pg_temp.ago(290),
-                                                   p_busy => 2, p_busy_state => 'answered'));
+                                                   p_busy => 2, p_busy_state => 'answered',
+                                                   p_wait => 2, p_wait_state => 'answered'));
 
 select is(pg_temp.r('p3_early') ->> 'ok', 'false', 'a new I''m inside 3 minutes after the counted one is refused');
 select is(pg_temp.r('p3_early') ->> 'error', 'rate_limited', 'the refusal is rate_limited');
 select is(pg_temp.r('p3_early') ->> 'retry_after_seconds', '420', 'retry_after_seconds is the time left');
 select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(2033)), 0::bigint,
   'a rate-limited report is not saved');
+
+insert into res values ('p3_crowd', pg_temp.inside(3, 2037, pg_temp.bar(2), pg_temp.ago(291),
+                                                   p_busy => 4, p_busy_state => 'answered'));
+
+select is(pg_temp.r('p3_crowd'), '{"ok": true, "kind": "inside", "session_ended": false, "measured_wait_seconds": null}'::jsonb,
+  'a crowd-only I''m inside inside the rate limit still gets the usual success reply: it uses no rate limit');
+select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(2037)), 0::bigint,
+  'a crowd-only I''m inside stores no row');
 
 insert into res values ('p3_later', pg_temp.inside(3, 2034, pg_temp.bar(2), pg_temp.ago(282)));
 
@@ -344,6 +374,8 @@ select is((pg_temp.session(1061)).status, 'entered', 'the session is entered');
 select is((pg_temp.session(1061)).ended_by, 'im_inside', 'ended_by is im_inside');
 select is((pg_temp.report(2062)).wait_session_id, (pg_temp.session(1061)).id, 'the report is linked to the session');
 select is((pg_temp.report(2062)).position, 'inside', 'the report is inside');
+select is((pg_temp.report(2062)).busyness, null::smallint, 'its crowd answer is not saved');
+select is((pg_temp.report(2062)).busyness_state, 'skipped', 'its crowd answer is stored as skipped');
 
 -- Person 7: rate limit (FR-13): I'm inside is on the manual clock -------------------------------
 
@@ -394,8 +426,8 @@ insert into res values ('p9_a', pg_temp.inside(9, 2091, pg_temp.bar(2), pg_temp.
                                                p_busy_state => 'cant_tell', p_wait_state => 'skipped'));
 
 select is(pg_temp.r('p9_a') ->> 'ok', 'true', 'a report with cant_tell and skipped is accepted');
-select is((pg_temp.report(2091)).busyness_state, 'cant_tell', 'cant_tell is stored');
-select is((pg_temp.report(2091)).busyness, null::smallint, 'cant_tell has no value');
+select is((pg_temp.report(2091)).busyness_state, 'skipped', 'any busyness state is stored as skipped (busyness is not kept)');
+select is((pg_temp.report(2091)).busyness, null::smallint, 'no busyness value is stored');
 select is((pg_temp.report(2091)).recalled_wait_state, 'skipped', 'skipped is stored separately from cant_tell');
 
 insert into res values ('p9_b', pg_temp.inside(9, 2091, pg_temp.bar(2), pg_temp.ago(300),
@@ -404,7 +436,12 @@ insert into res values ('p9_b', pg_temp.inside(9, 2091, pg_temp.bar(2), pg_temp.
 select is(pg_temp.r('p9_b') ->> 'ok', 'true', 'a later answer for the same report is accepted');
 select is((pg_temp.report(2091)).recalled_wait, 3::smallint, 'the later answer is saved');
 select is((pg_temp.report(2091)).recalled_wait_state, 'answered', 'the later answer state is answered');
-select is((pg_temp.report(2091)).busyness_state, 'cant_tell', 'answers not re-sent are kept');
+select is((pg_temp.report(2091)).busyness_state, 'skipped', 'answers not re-sent are kept');
+
+insert into res values ('p9_e', pg_temp.inside(9, 2091, pg_temp.bar(2), pg_temp.ago(300),
+                                               p_busy => 4, p_busy_state => 'answered'));
+
+select is((pg_temp.report(2091)).busyness, null::smallint, 'a later busyness answer is not saved either');
 
 insert into res values ('p9_c', pg_temp.inside(9, 2091, pg_temp.bar(2), pg_temp.ago(300),
                                                p_wait => 3, p_wait_state => 'answered'));
@@ -436,7 +473,7 @@ select throws_ok($$select pg_temp.inside(11, 2116, pg_temp.bar(1), pg_temp.ago(1
 select throws_ok($$select pg_temp.inside(11, 2117, pg_temp.bar(1), pg_temp.ago(100), p_busy_state => 'maybe')$$,
   '22023', null, 'an unknown answer state is rejected');
 select throws_ok($$select pg_temp.start(11, 1111, 2118, pg_temp.bar(1), pg_temp.ago(100), p_line => 6, p_line_state => 'answered')$$,
-  '22023', null, 'line size code 6 is out of range');
+  '22023', null, 'line size code 6 is not in definitions version 1');
 select throws_ok($$select pg_temp.start(11, 1112, 2119, pg_temp.bar(1), pg_temp.ago(100), p_offset => 91)$$,
   '22023', null, 'a start offset over 90 minutes is rejected');
 select throws_ok($$select pg_temp.inside(11, 2120, 999999, pg_temp.ago(100))$$,
@@ -445,7 +482,7 @@ select throws_ok(
   $$select public.submit_report(
       p_client_report_id => pg_temp.uid(2121), p_anon_id => pg_temp.uid(11), p_install_id => pg_temp.uid(511),
       p_bar_id => pg_temp.bar(1), p_phone_time => pg_temp.ago(100), p_location_status => 'denied',
-      p_app_version => '1.0', p_definitions_version => 2::smallint)$$,
+      p_app_version => '1.0', p_definitions_version => 3::smallint)$$,
   '22023', null, 'an unsupported definitions version is rejected');
 select throws_ok(
   $$select public.submit_report(
@@ -483,6 +520,38 @@ select is(
   (select count(*) from app.reports r where r.anon_id in (pg_temp.uid(10), pg_temp.uid(11), pg_temp.uid(12)))
   + (select count(*) from app.wait_sessions s where s.anon_id in (pg_temp.uid(10), pg_temp.uid(11), pg_temp.uid(12))),
   0::bigint, 'rejected calls save nothing');
+
+-- Definitions versions (NFR-10) -------------------------------------------------------------------
+-- Version 1 offers line sizes 0-5; version 2 offers 0, 1, 2, 3, 6 (50-100), and 7 (100+).
+
+select is(app.supported_definitions_version(), 2::smallint, 'the newest definitions version is 2');
+
+insert into res values ('v2_start', pg_temp.start(18, 1181, 2181, pg_temp.bar(1), pg_temp.ago(100),
+                                                  p_line => 7, p_line_state => 'answered', p_version => 2));
+
+select is(pg_temp.r('v2_start') ->> 'ok', 'true', 'a version 2 line timer with 100+ (7) is accepted');
+select is((pg_temp.report(2181)).line_size, 7::smallint, 'line size 7 is saved');
+select is((pg_temp.report(2181)).definitions_version, 2::smallint, 'the report keeps definitions version 2');
+
+insert into res values ('v2_line', pg_temp.line(18, 2182, 1181, pg_temp.ago(99), 'answered', 6, p_version => 2));
+
+select is(pg_temp.r('v2_line') ->> 'ok', 'true', 'a version 2 line update with 50-100 (6) is accepted');
+select is((pg_temp.report(2182)).line_size, 6::smallint, 'line size 6 is saved');
+
+select throws_ok($$select pg_temp.line(18, 2183, 1181, pg_temp.ago(98), 'answered', 4, p_version => 2)$$,
+  '22023', 'line_size: answered needs a valid code', 'version 2 no longer offers 50+ (4)');
+select throws_ok($$select pg_temp.line(18, 2184, 1181, pg_temp.ago(98), 'answered', 5, p_version => 2)$$,
+  '22023', 'line_size: answered needs a valid code', 'version 2 does not offer can''t see the end (5)');
+select throws_ok($$select pg_temp.line(18, 2185, 1181, pg_temp.ago(98), 'answered', 7)$$,
+  '22023', 'line_size: answered needs a valid code', 'version 1 does not offer 100+ (7)');
+select throws_ok($$select pg_temp.start(18, 1181, 2181, pg_temp.bar(1), pg_temp.ago(100),
+                                         p_line => 4, p_line_state => 'answered', p_version => 2)$$,
+  '22023', 'line_size: answered needs a valid code', 'a retry is checked against its definitions version too');
+select is((pg_temp.report(2181)).line_size, 7::smallint, 'the refused retry changes nothing');
+select throws_ok($$select pg_temp.line(18, 2187, 1181, pg_temp.ago(97), 'answered', 1, p_version => 3)$$,
+  '22023', 'unsupported definitions_version', 'definitions version 3 is rejected');
+select throws_ok($$select pg_temp.line(18, 2188, 1181, pg_temp.ago(97), 'skipped', p_version => 0)$$,
+  '22023', 'unsupported definitions_version', 'definitions version 0 is rejected');
 
 -- Location (FR-26, FR-27) ------------------------------------------------------------------------
 
@@ -578,13 +647,13 @@ select is((pg_temp.session(1001)).is_test, false, 'other people''s sessions are 
 insert into app.bars (name, address, door_lat, door_lon, is_test)
 values ('Max test bar', 'Test address', 40.7940, -77.8610, true);
 
-select is(jsonb_array_length(public.get_bars()), 3, 'get_bars hides test bars');
-select is(jsonb_array_length(public.get_bars(pg_temp.uid(1))), 3, 'get_bars hides test bars from real IDs');
-select is(jsonb_array_length(public.get_bars('abcdef00-0000-4000-8000-0000000000aa')), 4, 'get_bars shows test bars to test IDs');
-select is(jsonb_array_length(public.get_estimates() -> 'bars'), 3, 'get_estimates hides test bars');
-select is(jsonb_array_length(public.get_estimates('abcdef00-0000-4000-8000-0000000000aa') -> 'bars'), 4,
+select is(jsonb_array_length(public.get_bars()), 6, 'get_bars hides test bars');
+select is(jsonb_array_length(public.get_bars(pg_temp.uid(1))), 6, 'get_bars hides test bars from real IDs');
+select is(jsonb_array_length(public.get_bars('abcdef00-0000-4000-8000-0000000000aa')), 7, 'get_bars shows test bars to test IDs');
+select is(jsonb_array_length(public.get_estimates() -> 'bars'), 6, 'get_estimates hides test bars');
+select is(jsonb_array_length(public.get_estimates('abcdef00-0000-4000-8000-0000000000aa') -> 'bars'), 7,
   'get_estimates shows test bars to test IDs');
-select is((public.get_estimates() ->> 'logic_version')::integer, 3, 'get_estimates carries the logic version');
+select is((public.get_estimates() ->> 'logic_version')::integer, 4, 'get_estimates carries the logic version');
 
 -- Installs, views, feedback (FR-30, FR-34, FR-35) ------------------------------------------------------
 

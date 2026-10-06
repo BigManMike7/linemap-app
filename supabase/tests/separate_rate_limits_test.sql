@@ -7,7 +7,7 @@
 -- transaction, each step passes an explicit phone time in the past
 -- (pg_temp.ago(minutes)), and each person is a separate anonymous ID.
 -- Person n's session and report IDs are 1000 * n + k, so every ID is unique.
--- Seed bars: 1 = Doggie's Pub, 2 = The Phyrst, 3 = Cafe 210 West.
+-- Seed bars (by display_order): 1 = Pmans, 2 = Doggie's Pub, 3 = Brothers Bar & Grill.
 
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -119,9 +119,10 @@ language sql as $$
     p_client_session_id   => pg_temp.uid(p_session))
 $$;
 
--- Report conditions (busyness 2 unless told otherwise).
+-- Report conditions (line size 2 unless told otherwise). A crowd-only report
+-- stores nothing since 2026-10-07, so these send a line size.
 create function pg_temp.cond(p_person integer, p_report integer, p_bar bigint, p_at timestamptz,
-                             p_busy integer default 2)
+                             p_line integer default 2)
 returns jsonb
 language sql as $$
   select public.report_conditions(
@@ -133,8 +134,8 @@ language sql as $$
     p_location_status     => 'denied',
     p_app_version         => '1.0',
     p_definitions_version => 1::smallint,
-    p_busyness            => p_busy::smallint,
-    p_busyness_state      => 'answered')
+    p_line_size           => p_line::smallint,
+    p_line_size_state     => 'answered')
 $$;
 
 -- Delete one report, or one wait.
@@ -345,13 +346,14 @@ select is(app.rate_limit_wait(pg_temp.uid(8), pg_temp.bar(1), pg_temp.ago(19), '
 select is(app.rate_limit_wait(pg_temp.uid(8), pg_temp.bar(1), pg_temp.ago(19), 'manual'), 0,
   'line-size updates do not count on the manual clock');
 
--- Person 9: the busyness answer after I'm in does not count on the manual clock --------------------------
+-- Person 9: the answer after I'm in does not count on the manual clock --------------------------------------
+-- (A busyness-only answer stores nothing at all since 2026-10-07.)
 
 insert into res values ('p9_start', pg_temp.start(9, 9001, 9002, pg_temp.bar(2), pg_temp.ago(40)));
 insert into res values ('p9_end', pg_temp.end_line(9, 9001, 'entered', pg_temp.ago(35)));
 insert into res values ('p9_busy', pg_temp.inside(9, 9003, pg_temp.bar(2), pg_temp.ago(34),
                                                   p_busy => 3, p_busy_state => 'answered', p_session => 9001));
-insert into res values ('p9_cond', pg_temp.cond(9, 9004, pg_temp.bar(2), pg_temp.ago(32), p_busy => 4));
+insert into res values ('p9_cond', pg_temp.cond(9, 9004, pg_temp.bar(2), pg_temp.ago(32), p_line => 3));
 
 select is(pg_temp.r('p9_busy') ->> 'kind', 'inside_after_entry', 'the busyness answer after I''m in is exempt');
 select is(pg_temp.r('p9_cond') ->> 'ok', 'true',

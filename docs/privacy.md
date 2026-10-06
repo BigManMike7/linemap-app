@@ -6,7 +6,7 @@ title: LineMap Privacy Policy
 
 **Effective October 5, 2026**
 
-LineMap is an iPhone beta that shows live, community-reported lines and crowds at State College bars. It's a student learning project, not a business. This policy explains exactly what LineMap collects, why, and how you can delete it.
+LineMap is an iPhone beta that shows live, community-reported lines and waits at State College bars. It's a student learning project, not a business. This policy explains exactly what LineMap collects, why, and how you can delete it.
 
 **The short version:** LineMap has no accounts and never asks for your name, email, phone number, or age. It uses a random anonymous ID. It checks your location only when you send a report, works out how far you were from the bar, and then throws your exact location away. You can delete everything from Settings at any time.
 
@@ -18,10 +18,10 @@ When you first open LineMap, the app creates a random ID and keeps it in your iP
 
 ### Reports and timers
 
-When you tap **Start line timer**, **I'm in**, **Report conditions**, or save a **Line size** or **Adjust time** answer, LineMap stores:
+When you tap **Start line timer**, **I'm in**, **Report line size**, or save a **Line size** or **Adjust time** answer, LineMap stores:
 
 - the bar, the time on your phone and on the server, and the night it belongs to;
-- your answers (line size, how busy it is) and, for a timer, when it started, any Adjust time, when it ended, and whether you got in or gave up;
+- your answers (line size) and, for a timer, when it started, any Adjust time, when it ended, and whether you got in or gave up;
 - the app version and the version of the answer definitions.
 
 ### Location, only when you report
@@ -44,7 +44,7 @@ No name, email, phone number, age, contacts, photos, or exact stored location. N
 
 ## What other people see
 
-Other people see only **combined estimates** for each bar: the current line size, wait, and how busy it is, how many people reported, and how recently. A bar's **History** shows the same combined estimates, quarter hour by quarter hour, for tonight and past nights. Nobody else ever sees your anonymous ID, your individual reports, or who reported what.
+Other people see only **combined estimates** for each bar: the current line size and wait, how many people reported, and how recently. A bar's **History** shows the same combined estimates, quarter hour by quarter hour, for tonight and past nights. Nobody else ever sees your anonymous ID, your individual reports, or who reported what.
 
 ## How your data is used
 
@@ -58,7 +58,7 @@ LineMap never sells your data or uses it for advertising.
 ## Fixing or deleting your data
 
 - **Made a wrong report?** In **Settings**, you can see your own reports and finished timers from the last 24 hours and delete any of them for good. Deleted reports stop counting right away and never appear in History. So that deleting can't be used to get around the 10-minute limit, the server keeps only your anonymous ID, the bar, and the time of a deleted report until those 10 minutes are up, then removes them. It records that a deletion happened as a count, with no ID.
-- **Undo and redo.** **Undo** after I'm in or Gave up brings your timer back. If you redo a timer or a Report conditions at the same bar within a few minutes, your earlier attempt is deleted and only the new one counts.
+- **Undo and redo.** **Undo** after I'm in or Gave up brings your timer back. If you redo a timer or a Report line size at the same bar within a few minutes, your earlier attempt is deleted and only the new one counts.
 - **Delete my data.** In **Settings**, this permanently deletes your reports, timers, app activity, install records, feedback, and fair-use records, then gives your phone a new anonymous ID. It records only a count of what was removed, with no ID.
 
 ## How long data is kept

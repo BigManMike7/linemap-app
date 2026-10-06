@@ -205,13 +205,34 @@ struct AnswerTests {
 /// These codes are stored on the server and must never change meaning (NFR-10).
 struct AnswerCodeTests {
     @Test func lineSize() {
-        #expect(LineSize.allCases.map(\.rawValue) == [0, 1, 2, 3, 4, 5])
+        #expect(LineSize.allCases.map(\.rawValue) == [0, 1, 2, 3, 6, 7, 4, 5])
         #expect(LineSize.nobody.rawValue == 0)
         #expect(LineSize.oneToTen.rawValue == 1)
         #expect(LineSize.tenTo25.rawValue == 2)
         #expect(LineSize.twentyFiveTo50.rawValue == 3)
         #expect(LineSize.fiftyPlus.rawValue == 4)
         #expect(LineSize.cantSeeEnd.rawValue == 5)
+        #expect(LineSize.fiftyTo100.rawValue == 6)
+        #expect(LineSize.hundredPlus.rawValue == 7)
+    }
+
+    @Test func offeredLineSizes() {
+        #expect(LineSize.offered.map(\.rawValue) == [0, 1, 2, 3, 6, 7])
+        #expect(LineSize.offered == [.nobody, .oneToTen, .tenTo25, .twentyFiveTo50, .fiftyTo100, .hundredPlus])
+    }
+
+    @Test(arguments: [
+        (LineSize.nobody, 0), (.oneToTen, 1), (.tenTo25, 2), (.twentyFiveTo50, 3),
+        (.fiftyPlus, 4), (.fiftyTo100, 4), (.cantSeeEnd, 4), (.hundredPlus, 5),
+    ])
+    func lineSizeRank(size: LineSize, rank: Int) {
+        #expect(size.rank == rank)
+        #expect(LineSize.rank(code: size.rawValue) == rank)
+    }
+
+    @Test(arguments: [8, 9, -1, 100])
+    func unknownLineSizeCodeRanksBelowEverything(code: Int) {
+        #expect(LineSize.rank(code: code) == -1)
     }
 
     @Test func busyness() {
@@ -244,6 +265,6 @@ struct AnswerCodeTests {
     }
 
     @Test func definitionsVersion() {
-        #expect(Definitions.version == 1)
+        #expect(Definitions.version == 2)
     }
 }

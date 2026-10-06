@@ -62,7 +62,7 @@ public enum LineLevel: Int, Sendable, Hashable, CaseIterable {
         switch size {
         case .nobody, .oneToTen: self = .short
         case .tenTo25: self = .some
-        case .twentyFiveTo50, .fiftyPlus, .cantSeeEnd: self = .long
+        case .twentyFiveTo50, .fiftyTo100, .hundredPlus, .fiftyPlus, .cantSeeEnd: self = .long
         }
     }
 

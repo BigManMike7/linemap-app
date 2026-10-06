@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 
 /// The optional questions. Start line timer and I'm in ask nothing; Line size and
-/// Adjust time open from the wait card, and Report conditions from the bar
+/// Adjust time open from the wait card, and Report line size from the bar
 /// sheet. Every answer can be left out or swiped away (FR-12).
 ///
 /// Not offered (Max's call, 2026-10-01): "Can't see the end" (line size code 5)
@@ -21,13 +21,6 @@ struct QuestionSheet: View {
         case .conditions(let barId):
             ConditionsForm(barId: barId)
         }
-    }
-}
-
-extension LineSize {
-    /// The line sizes the app offers. `.cantSeeEnd` stays a valid stored code.
-    static var offered: [LineSize] {
-        allCases.filter { $0 != .cantSeeEnd }
     }
 }
 
@@ -98,41 +91,34 @@ struct AdjustTimeView: View {
     }
 }
 
-/// Report conditions (FR-11): line size and crowd on one screen, sent once.
-/// Either answer can be left out; Send stays off until one is picked (FR-12).
+/// Report line size (FR-11): one line-size answer, sent once. Send stays off
+/// until a size is picked. (Until 2026-10-06 this was Report conditions, which
+/// also asked how busy it was inside.)
 struct ConditionsForm: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dynamicTypeSize) private var typeSize
     let barId: Int64
     @State private var lineSize: LineSize?
-    @State private var busyness: Busyness?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            QuestionHeader(title: "Report conditions",
-                           subtitle: "\(model.bar(barId)?.name ?? "This bar"). Answer one or both.")
+            QuestionHeader(title: "Report line size",
+                           subtitle: model.bar(barId)?.name ?? "This bar")
 
             Text("How many people are in line?")
                 .font(.headline)
-            ChoiceGrid(options: LineSize.offered, columns: typeSize.isAccessibilitySize ? 2 : 5,
+            ChoiceGrid(options: LineSize.offered, columns: typeSize.isAccessibilitySize ? 2 : 3,
                        selection: $lineSize, idPrefix: "line",
                        title: { Labels.shortOption($0) }, accessibilityTitle: { Labels.option($0) })
 
-            Text("How busy is it inside?")
-                .font(.headline)
-                .padding(.top, 8)
-            ChoiceGrid(options: Busyness.allCases, columns: typeSize.isAccessibilitySize ? 1 : 2,
-                       selection: $busyness, idPrefix: "crowd",
-                       title: { Labels.option($0) }, accessibilityTitle: { Labels.option($0) })
-
             Button {
-                model.sendConditions(at: barId, lineSize: lineSize, busyness: busyness)
+                model.sendConditions(at: barId, lineSize: lineSize)
             } label: {
                 Text("Send report").frame(maxWidth: .infinity, minHeight: 34)
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.large)
-            .disabled(lineSize == nil && busyness == nil)
+            .disabled(lineSize == nil)
             .padding(.top, 8)
             .accessibilityIdentifier("conditions-send")
 

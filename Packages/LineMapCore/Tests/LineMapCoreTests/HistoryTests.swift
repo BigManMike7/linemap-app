@@ -56,6 +56,14 @@ struct BarHistoryTests {
         #expect(empty.busiestRow == nil)
     }
 
+    @Test func aCrowdOnlyPointHasNoData() {
+        let crowdOnly = HistoryPoint(at: Self.nine, people: 1, busyness: HistorySignal(code: 3))
+        #expect(!crowdOnly.hasData)
+        let history = day { $0 == 4 ? HistoryPoint(at: Self.quarter(4), people: 1,
+                                                    busyness: HistorySignal(code: 4)) : nil }
+        #expect(history.busiestRow == nil)
+    }
+
     /// 9 p.m. on the test night; the night day starts 17 hours earlier, at 4 a.m.
     private static let nine = Date(timeIntervalSince1970: 1_800_000_000)
 
@@ -152,6 +160,40 @@ struct BarHistoryTests {
         }
         #expect(history.busiestRow?.at == Self.quarter(6))
     }
+
+    @Test func aHundredPlusLineBeatsFiftyPlusAndFiftyTo100() {
+        let history = day { index in
+            switch index {
+            case 2: Self.reported(2, line: 4, wait: 5)      // 50+, long wait
+            case 4: Self.reported(4, line: 6)               // 50–100
+            case 6: Self.reported(6, line: 7)               // 100+
+            default: nil
+            }
+        }
+        #expect(history.busiestRow?.at == Self.quarter(6))
+    }
+
+    @Test func fiftyPlusTiesWithFiftyTo100ByRankAndTheEarliestWins() {
+        let history = day { index in
+            switch index {
+            case 2: Self.reported(2, line: 4)               // 50+
+            case 4: Self.reported(4, line: 6)               // 50–100: same rank, same wait
+            default: nil
+            }
+        }
+        #expect(history.busiestRow?.at == Self.quarter(2))
+    }
+
+    @Test func sameRankFallsBackToTheLongestWait() {
+        let history = day { index in
+            switch index {
+            case 2: Self.reported(2, line: 4, wait: 2)
+            case 4: Self.reported(4, line: 6, wait: 4)
+            default: nil
+            }
+        }
+        #expect(history.busiestRow?.at == Self.quarter(4))
+    }
 }
 
 struct NightDateTests {
@@ -217,12 +259,17 @@ struct HistoryLabelTests {
         #expect(Labels.historyLineSize(HistorySignal(code: 3)) == "25–50 in line")
         #expect(Labels.historyWait(HistorySignal(code: 3, minutes: 25)) == "25 min wait")
         #expect(Labels.historyWait(HistorySignal(code: 2)) == "5–15 min wait")
-        #expect(Labels.historyBusyness(HistorySignal(code: 4)) == "Packed")
+        #expect(Labels.historyLineSize(HistorySignal(code: 6)) == "50–100 in line")
+        #expect(Labels.historyLineSize(HistorySignal(code: 7)) == "100+ in line")
         let row = HistoryPoint(at: Date(timeIntervalSince1970: 0), people: 2,
                                lineSize: HistorySignal(code: 2), wait: HistorySignal(code: 3),
                                busyness: HistorySignal(code: 3))
-        #expect(Labels.historyRow(row) == "10–25 in line · 15–30 min wait · Busy")
+        #expect(Labels.historyRow(row) == "10–25 in line · 15–30 min wait")
         #expect(Labels.historyRow(HistoryPoint(at: Date(timeIntervalSince1970: 0), people: 0)) == "No reports")
+        // A crowd answer alone has nothing to show.
+        let crowdOnly = HistoryPoint(at: Date(timeIntervalSince1970: 0), people: 1,
+                                     busyness: HistorySignal(code: 3))
+        #expect(Labels.historyRow(crowdOnly) == "No reports")
         #expect(Labels.people(1) == "1 person")
         #expect(Labels.people(3) == "3 people")
     }

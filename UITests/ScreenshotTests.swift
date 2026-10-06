@@ -120,11 +120,11 @@ final class ScreenshotTests: XCTestCase {
         // Bars list (FR-45): fresh wait first, then grayed out, then no data.
         app.tabBars.buttons["Bars"].tap()
         let doggies = app.buttons["bar-card-1"]
-        let phyrst = app.buttons["bar-card-2"]
+        let champs = app.buttons["bar-card-2"]
         let cafe = app.buttons["bar-card-3"]
         XCTAssertTrue(doggies.waitForExistence(timeout: 5))
-        XCTAssertTrue(doggies.frame.minY < phyrst.frame.minY, "a fresh wait comes before older reports")
-        XCTAssertTrue(phyrst.frame.minY < cafe.frame.minY, "bars without data come last")
+        XCTAssertTrue(doggies.frame.minY < champs.frame.minY, "a fresh wait comes before older reports")
+        XCTAssertTrue(champs.frame.minY < cafe.frame.minY, "bars without data come last")
         saveScreenshot(named: "08-Bars", app: app)
 
         // History from a card (FR-43): a calendar, then tonight's quarter
@@ -152,23 +152,22 @@ final class ScreenshotTests: XCTestCase {
         sleep(1)
         saveScreenshot(named: "11-BarSheetFromList", app: app)
 
-        // Report conditions: line size and crowd on one screen (FR-11).
+        // Report line size: one question, six sizes, sent once (FR-11).
         conditions.tap()
         let send = app.buttons["conditions-send"]
         XCTAssertTrue(send.waitForExistence(timeout: 5))
         XCTAssertFalse(send.isEnabled, "Send waits for at least one answer")
         saveScreenshot(named: "12-ConditionsEmpty", app: app)
         app.buttons["line-2"].tap()
-        app.buttons["crowd-2"].tap()
         XCTAssertTrue(send.isEnabled)
         saveScreenshot(named: "13-ConditionsAnswered", app: app)
         send.tap()
 
         // A timer shows on Map and Bars, but not on Settings (FR-4).
         app.tabBars.buttons["Bars"].tap()
-        XCTAssertTrue(phyrst.waitForExistence(timeout: 5))
-        scrollUntilHittable(phyrst, in: app)
-        phyrst.tap()
+        XCTAssertTrue(champs.waitForExistence(timeout: 5))
+        scrollUntilHittable(champs, in: app)
+        champs.tap()
         XCTAssertTrue(app.buttons["in-line-button"].waitForExistence(timeout: 5))
         app.buttons["in-line-button"].tap()
         XCTAssertTrue(imIn.waitForExistence(timeout: 5))

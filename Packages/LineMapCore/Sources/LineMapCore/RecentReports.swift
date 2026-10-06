@@ -78,9 +78,6 @@ public struct MyReport: Decodable, Sendable, Hashable, Identifiable {
         if let size = lineSize.flatMap(LineSize.init(rawValue:)) {
             parts.append(size == .nobody ? Labels.option(size) : "\(Labels.option(size)) in line")
         }
-        if let level = busyness.flatMap(Busyness.init(rawValue:)) {
-            parts.append(Labels.option(level))
-        }
         if let wait = recalledWait.flatMap(RecalledWait.init(rawValue:)) {
             parts.append("Got in: \(Labels.option(wait))")
         }
