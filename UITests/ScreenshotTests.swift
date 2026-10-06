@@ -8,6 +8,20 @@ final class ScreenshotTests: XCTestCase {
         continueAfterFailure = false
     }
 
+    override func tearDown() {
+        // On a failure, save the screen as it was then, so the CI artifact
+        // shows what went wrong.
+        if let run = testRun, run.failureCount + run.unexpectedExceptionCount > 0 {
+            MainActor.assumeIsolated {
+                let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+                attachment.name = "FAILED"
+                attachment.lifetime = .keepAlways
+                add(attachment)
+            }
+        }
+        super.tearDown()
+    }
+
     @MainActor
     func testScreenshots() {
         let app = XCUIApplication()
@@ -35,9 +49,9 @@ final class ScreenshotTests: XCTestCase {
         // Does this look wrong? asks before sending (FR-35).
         app.buttons["looks-wrong-button"].tap()
         let yesWrong = app.buttons["Yes, it looks wrong"]
-        XCTAssertTrue(yesWrong.waitForExistence(timeout: 5))
+        XCTAssertTrue(yesWrong.waitForExistence(timeout: 5), "Does this look wrong? asks first")
         saveScreenshot(named: "03-LooksWrongConfirm", app: app)
-        yesWrong.tap()
+        tapDialogButton(yesWrong, "Yes, it looks wrong")
         let thanksOK = app.alerts.buttons["OK"]
         XCTAssertTrue(thanksOK.waitForExistence(timeout: 5))
         thanksOK.tap()
@@ -74,7 +88,18 @@ final class ScreenshotTests: XCTestCase {
         wheel.adjust(toPickerWheelValue: "15 min")
         saveScreenshot(named: "06-AdjustTimeWheel", app: app)
         app.buttons["adjust-save"].tap()
-        XCTAssertTrue(message(containing: "timer now includes", in: app).waitForExistence(timeout: 20))
+        // Save confirms with a haptic only, no message (FR-42).
+        XCTAssertTrue(app.descendants(matching: .any)["question-adjustTime"].waitForNonExistence(timeout: 5),
+                      "Save closes Adjust time")
+        // (Line size's thank-you can still be showing, so look for Adjust time's old one.)
+        XCTAssertFalse(message(containing: "Saved", in: app).exists, "Save on Adjust time shows no message")
+
+        // Saving the same time again says nothing changed (FR-42).
+        adjust.tap()
+        XCTAssertTrue(app.buttons["adjust-save"].waitForExistence(timeout: 5))
+        app.buttons["adjust-save"].tap()
+        XCTAssertTrue(message(containing: "No change", in: app).waitForExistence(timeout: 5),
+                      "an unchanged time says No change")
 
         // I'm in ends the timer and asks nothing, then says thanks with Undo (FR-8, FR-42, FR-47).
         XCTAssertTrue(imIn.waitForExistence(timeout: 5))
@@ -160,11 +185,13 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(cancel.waitForExistence(timeout: 5))
         cancel.tap()
         let gaveUp = app.buttons["I gave up on the line"]
-        XCTAssertTrue(gaveUp.waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Started it by mistake"].exists)
+        XCTAssertTrue(gaveUp.waitForExistence(timeout: 5), "the ✕ asks how the timer ended")
+        XCTAssertTrue(app.buttons["Started it by mistake"].exists, "the ✕ offers Started it by mistake")
         saveScreenshot(named: "15-StopTimer", app: app)
-        gaveUp.tap()
-        XCTAssertTrue(message(containing: "Timer stopped", in: app).waitForExistence(timeout: 5))
+        tapDialogButton(gaveUp, "I gave up on the line")
+        XCTAssertTrue(imIn.waitForNonExistence(timeout: 5), "Gave up closes the wait card")
+        XCTAssertTrue(message(containing: "Timer stopped", in: app).waitForExistence(timeout: 10),
+                      "Gave up says Timer stopped")
         saveScreenshot(named: "16-TimerStopped", app: app)
         app.buttons["thanks-undo"].tap()
 
@@ -172,8 +199,8 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(cancel.waitForExistence(timeout: 5), "Undo brings the timer back")
         cancel.tap()
         let discard = app.buttons["Started it by mistake"]
-        XCTAssertTrue(discard.waitForExistence(timeout: 5))
-        discard.tap()
+        XCTAssertTrue(discard.waitForExistence(timeout: 5), "the ✕ asks again after Undo")
+        tapDialogButton(discard, "Started it by mistake")
         sleep(1)
         XCTAssertFalse(imIn.exists, "a cancelled line leaves no wait card")
 
@@ -190,9 +217,9 @@ final class ScreenshotTests: XCTestCase {
         saveScreenshot(named: "18-RecentReports", app: app)
         deleteButtons.firstMatch.tap()
         let confirm = app.buttons["Delete"]
-        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5), "Delete asks first")
         saveScreenshot(named: "19-DeleteReport", app: app)
-        confirm.tap()
+        tapDialogButton(confirm, "Delete")
         let oneLeft = NSPredicate(format: "count == 1")
         expectation(for: oneLeft, evaluatedWith: deleteButtons)
         waitForExpectations(timeout: 5)
@@ -268,6 +295,20 @@ final class ScreenshotTests: XCTestCase {
         app.descendants(matching: .any)
             .matching(NSPredicate(format: "identifier == 'thanks-message' AND label CONTAINS %@", text))
             .firstMatch
+    }
+
+    /// Taps a button in a confirmation dialog. On iOS 26 these animate in as
+    /// popovers, and a tap that lands mid-animation can be dropped, so this
+    /// waits until the button can be tapped and taps again if the dialog stays.
+    @MainActor
+    private func tapDialogButton(_ button: XCUIElement, _ step: String) {
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate(format: "isHittable == true"), object: button)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 5), .completed, "\(step): the button can be tapped")
+        button.tap()
+        if !button.waitForNonExistence(timeout: 2), button.isHittable {
+            button.tap() // the first tap was dropped
+        }
+        XCTAssertTrue(button.waitForNonExistence(timeout: 5), "\(step): the dialog closes")
     }
 
     @MainActor
