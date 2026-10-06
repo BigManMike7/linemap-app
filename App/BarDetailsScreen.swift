@@ -2,8 +2,8 @@ import LineMapCore
 import SwiftUI
 
 /// History (FR-43), opened from a Bars-list card: a calendar of nights in a
-/// card. The chosen night shows as one row per quarter hour, 9:00 p.m. to
-/// 1:45 a.m. and any earlier or later quarter hour with reports, each with a
+/// card. The chosen night shows as one row per quarter hour of its day, 4 a.m.
+/// to 4 a.m., each covering only the reports in that quarter hour, with a
 /// dot colored by its line level. Only combined estimates, never individual
 /// reports. (Right now was removed on 2026-10-05: the bar sheet and Bars card
 /// already show it.)

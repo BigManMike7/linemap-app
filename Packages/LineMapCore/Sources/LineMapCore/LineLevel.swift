@@ -88,7 +88,7 @@ public struct LineStatus: Sendable, Hashable {
     }
 
     /// A bar's level now (FR-2): the wait, else the line size, or uncertain
-    /// when they contradict. Nil for no data, closed, and outside hours.
+    /// when they contradict. Nil for No live reports.
     public init?(estimate: BarEstimate?) {
         guard let estimate, estimate.display == .estimate else { return nil }
         let wait = estimate.wait.flatMap { signal in

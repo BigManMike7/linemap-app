@@ -44,7 +44,8 @@ public struct Estimates: Codable, Sendable, Hashable {
     }
 }
 
-/// Where the night is: in the active window, closed (2-4 a.m.), or outside it (PRD 5.4).
+/// Where the night was in the old active window. Always `live` since logic
+/// version 3 (2026-10-06), which removed the window; kept for decoding.
 public enum WindowState: String, Codable, Sendable, Hashable {
     case live
     case closed
@@ -57,7 +58,7 @@ public enum Display: String, Codable, Sendable, Hashable {
     case estimate
     /// Nothing within 60 minutes, at any time of day ("No live reports").
     case notEnoughData = "not_enough_data"
-    /// 2-4 a.m. after an active night.
+    /// 2-4 a.m. after an active night. Not sent since logic version 3.
     case closed
     /// Sent only by servers before logic version 2 (2026-10-06); shown like
     /// `notEnoughData`. The server now shows recent reports at any hour.

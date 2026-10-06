@@ -14,13 +14,16 @@ public struct BarHistory: Codable, Sendable, Hashable {
     public let night: NightDate
     /// Tonight on the server, which runs until 4 a.m. Eastern (FR-22).
     public let tonight: NightDate
-    /// The night's usual window, 9 p.m. to 2 a.m. Eastern: rows always cover it.
+    /// The span rows always cover. Since logic version 3 (2026-10-06) it is the
+    /// whole night day, 4 a.m. to 4 a.m. Eastern; before, 9 p.m. to 2 a.m.
     public let start: Date
     public let end: Date
     /// Earlier nights with reports at this bar, newest first.
     public let nights: [NightDate]
-    /// Every 15 minutes through the night day, never later than now. (Before
-    /// 2026-10-05 the server sent every 5 minutes from `start` to `end`.)
+    /// Every 15 minutes through the night day, never later than now. Since logic
+    /// version 3 each point covers only its own quarter hour, so a report counts
+    /// in exactly one. (Before 2026-10-05 the server sent every 5 minutes from
+    /// `start` to `end`.)
     public let points: [HistoryPoint]
 
     public init(logicVersion: Int, barId: Int64, night: NightDate, tonight: NightDate,
@@ -40,10 +43,9 @@ public struct BarHistory: Codable, Sendable, Hashable {
         points.contains(where: \.hasData)
     }
 
-    /// The night's list (FR-43): one row per quarter hour from 9:00 p.m. to
-    /// 1:45 a.m., stretched earlier or later to cover every quarter hour with
-    /// reports, so an early game-day crowd shows. Two or more quarter hours in
-    /// a row with nothing become one "No reports" stretch. Tonight has only the
+    /// The night's list (FR-43): one row per quarter hour from `start` to `end`
+    /// (the whole day), stretched to cover every quarter hour with reports. Two
+    /// or more quarter hours in a row with nothing become one "No reports" stretch. Tonight has only the
     /// quarter hours so far.
     public var rows: [HistoryRow] {
         let quarters = quarterHours

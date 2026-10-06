@@ -122,7 +122,7 @@ struct BarPin: View {
     private var label: PinLabel { PinLabel(estimate: estimate) }
 
     /// Green, orange, or red by the line or wait the label shows, outlined for
-    /// older reports; a gray pin for no data, closed, and outside hours.
+    /// older reports; a gray pin for No live reports.
     private var status: LineStatus? { LineStatus(estimate: estimate) }
 
     /// Filled for fresh reports; an outlined ring on white for older ones.
