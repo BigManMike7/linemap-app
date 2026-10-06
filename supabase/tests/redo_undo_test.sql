@@ -163,13 +163,14 @@ language sql as $$
     p_location_status     => 'denied',
     p_app_version         => '1.0',
     p_definitions_version => 1::smallint,
-    p_busyness            => 2::smallint,
-    p_busyness_state      => 'answered')
+    p_recalled_wait       => 2::smallint,
+    p_recalled_wait_state => 'answered')
 $$;
 
--- Report conditions (busyness 2 unless told otherwise).
+-- Report conditions (line size 2 unless told otherwise). A crowd-only report
+-- stores nothing since 2026-10-07, so these send a line size.
 create function pg_temp.cond(p_person integer, p_report integer, p_bar bigint, p_at timestamptz,
-                             p_busy integer default 2)
+                             p_line integer default 2)
 returns jsonb
 language sql as $$
   select public.report_conditions(
@@ -181,8 +182,8 @@ language sql as $$
     p_location_status     => 'denied',
     p_app_version         => '1.0',
     p_definitions_version => 1::smallint,
-    p_busyness            => p_busy::smallint,
-    p_busyness_state      => 'answered')
+    p_line_size           => p_line::smallint,
+    p_line_size_state     => 'answered')
 $$;
 
 -- Delete one report, or one wait (FR-41).
@@ -406,17 +407,17 @@ select is(pg_temp.r('p10_again') ->> 'retry_after_seconds', '240', 'the limit st
 -- Report conditions: redo replaces at once (person 20, bar 1) ---------------------------------------
 
 insert into marks values ('p20', pg_temp.deletions());
-insert into res values ('p20_a', pg_temp.cond(20, 20001, pg_temp.bar(1), pg_temp.ago(30), p_busy => 2));
-insert into res values ('p20_b', pg_temp.cond(20, 20002, pg_temp.bar(1), pg_temp.ago(27), p_busy => 4));
+insert into res values ('p20_a', pg_temp.cond(20, 20001, pg_temp.bar(1), pg_temp.ago(30), p_line => 2));
+insert into res values ('p20_b', pg_temp.cond(20, 20002, pg_temp.bar(1), pg_temp.ago(27), p_line => 4));
 
 select is(pg_temp.r('p20_b'), '{"ok": true, "kind": "conditions"}'::jsonb,
   'Report conditions 3 minutes after the last one is allowed (FR-46)');
 select is(pg_temp.has_report(20001), false, 'the earlier report is deleted at once');
-select is((pg_temp.report(20002)).busyness, 4::smallint, 'the new report is saved');
+select is((pg_temp.report(20002)).line_size, 4::smallint, 'the new report is saved');
 select is(pg_temp.holds(20), 0::bigint, 'a replaced report leaves no hold');
 select is(pg_temp.deletions(), pg_temp.mark('p20'), 'a replaced report logs no deletion count');
 
-insert into res values ('p20_c', pg_temp.cond(20, 20003, pg_temp.bar(1), pg_temp.ago(24), p_busy => 3));
+insert into res values ('p20_c', pg_temp.cond(20, 20003, pg_temp.bar(1), pg_temp.ago(24), p_line => 3));
 
 select is(pg_temp.r('p20_c') ->> 'ok', 'true', 'a further redo 3 minutes later is allowed');
 select is(pg_temp.has_report(20002), false, 'it replaces the last one');
@@ -454,9 +455,9 @@ select is(pg_temp.r('p23_b') ->> 'retry_after_seconds', '240', 'the limit still 
 
 -- Report conditions: re-sending (person 24, bar 3) ---------------------------------------------------------
 
-insert into res values ('p24_a', pg_temp.cond(24, 24001, pg_temp.bar(3), pg_temp.ago(30), p_busy => 2));
-insert into res values ('p24_b', pg_temp.cond(24, 24002, pg_temp.bar(3), pg_temp.ago(28), p_busy => 3));
-insert into res values ('p24_b_again', pg_temp.cond(24, 24002, pg_temp.bar(3), pg_temp.ago(28), p_busy => 3));
+insert into res values ('p24_a', pg_temp.cond(24, 24001, pg_temp.bar(3), pg_temp.ago(30), p_line => 2));
+insert into res values ('p24_b', pg_temp.cond(24, 24002, pg_temp.bar(3), pg_temp.ago(28), p_line => 3));
+insert into res values ('p24_b_again', pg_temp.cond(24, 24002, pg_temp.bar(3), pg_temp.ago(28), p_line => 3));
 
 select is(pg_temp.r('p24_b') ->> 'ok', 'true', 'the redo is allowed');
 select is(pg_temp.r('p24_b_again'), '{"ok": true, "kind": "conditions"}'::jsonb,
@@ -464,7 +465,7 @@ select is(pg_temp.r('p24_b_again'), '{"ok": true, "kind": "conditions"}'::jsonb,
 select is(pg_temp.has_report(24002), true, 'a re-sent report never replaces itself');
 select is((select count(*) from app.reports r where r.anon_id = pg_temp.uid(24)), 1::bigint, 'one report is left');
 
-insert into res values ('p24_a_again', pg_temp.cond(24, 24001, pg_temp.bar(3), pg_temp.ago(30), p_busy => 2));
+insert into res values ('p24_a_again', pg_temp.cond(24, 24001, pg_temp.bar(3), pg_temp.ago(30), p_line => 2));
 
 select is(pg_temp.r('p24_a_again') ->> 'error', 'rate_limited',
   'a late retry of the replaced report never replaces the newer one');

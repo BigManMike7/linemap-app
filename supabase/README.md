@@ -8,8 +8,8 @@ Postgres on Supabase. The server is the source of truth for estimates and the ni
 | --- | --- |
 | `migrations/*_schema.sql` | Tables, indexes, row-level security, settings log |
 | `migrations/*_helpers.sql` | Settings lookups, night boundary, location math (its active-window functions were dropped in `*_remove_active_window.sql`) |
-| `migrations/*_estimates.sql` | Estimate rules and snapshots; the newest definitions are in `*_remove_active_window.sql` |
-| `migrations/*_api.sql`, `*_cancel_session.sql`, `*_report_conditions.sql`, `*_delete_report.sql`, `*_separate_rate_limits.sql`, `*_redo_undo_history.sql` | The 16 API functions: 15 the app calls, plus `submit_report` for older builds |
+| `migrations/*_estimates.sql` | Estimate rules and snapshots; the newest definitions are in `*_remove_active_window.sql` and `*_line_sizes_no_crowd.sql` |
+| `migrations/*_api.sql`, `*_cancel_session.sql`, `*_report_conditions.sql`, `*_delete_report.sql`, `*_separate_rate_limits.sql`, `*_redo_undo_history.sql`, `*_line_sizes_no_crowd.sql` | The 16 API functions: 15 the app calls, plus `submit_report` for older builds |
 | `migrations/*_jobs.sql` | Scheduled jobs (`pg_cron`); `*_delete_report.sql` adds `expire-rate-limit-holds` |
 | `migrations/*_starting_data.sql` | Default settings and the three starting bars |
 | `tests/` | pgTAP tests, run in CI on every push |
@@ -23,21 +23,32 @@ CI runs the tests on a local database, then applies new migrations to the live p
 - Identity is the anonymous ID the app sends. No Supabase Auth.
 - Coordinates go into the functions but are never stored. Only distance, direction, accuracy, and fix age are kept (FR-26).
 
-## Answer codes (definitions version 1, never change meaning)
+## Answer codes (never change meaning)
 
 | Question | Codes |
 | --- | --- |
-| Line size | 0 nobody, 1 = 1–10, 2 = 10–25, 3 = 25–50, 4 = 50+, 5 = can't see the end |
-| Busyness | 1 quiet, 2 comfortable, 3 busy, 4 packed |
-| Recalled wait | 1 under 5, 2 = 5–15, 3 = 15–30, 4 = 30–60, 5 = 60+ min |
+| Line size | 0 nobody, 1 = 1–10, 2 = 10–25, 3 = 25–50, 4 = 50+ (version 1 only), 5 = can't see the end (reserved), 6 = 50–100 (version 2), 7 = 100+ (version 2) |
+| Busyness | Reserved, never stored since 2026-10-07: 1 quiet, 2 comfortable, 3 busy, 4 packed |
+| Recalled wait | Reserved (older builds only): 1 under 5, 2 = 5–15, 3 = 15–30, 4 = 30–60, 5 = 60+ min |
 | Adjust time (start offset) | Any whole number of minutes, 0 to 90 (0, 5, 10, or 20 before 2026-10-04) |
 | Answer state | `answered`, `cant_tell`, `skipped`; empty if not asked |
 
 Since 2026-10-01 the app no longer offers line size 5 ("can't see the end") or `cant_tell`. Both stay valid on the server and keep their meaning, so older rows read the same.
 
+### Definitions versions (NFR-10)
+
+Every report records the definitions version the app used. The server accepts versions 1 and 2 (`app.supported_definitions_version()` is 2, the newest; it is internal and not returned to the app). Any other version is bad input (`unsupported definitions_version`).
+
+| Version | Line sizes it may send | Since |
+| --- | --- | --- |
+| 1 | 0, 1, 2, 3, 4 (50+), 5 (can't see the end) | first release; builds up to 19 |
+| 2 | 0, 1, 2, 3, 6 (50–100), 7 (100+) | 2026-10-07 |
+
+A line size outside its version's list is bad input (`line_size: answered needs a valid code`), checked by `start_session`, `update_line_size`, and `report_conditions`, retries included. Code 4 keeps meaning "50+" forever; version 2 just doesn't offer it. The `reports.line_size` check allows 0–7.
+
 Line size wording (2026-10-04, from build 8): Line size on the wait card now asks for the whole line ("How many people are in line?"). Builds 7 and earlier asked "Roughly how many people are ahead of you?" for in-line updates; Report conditions in build 7 asked "How long is the line?". The codes keep the same ranges; only those older in-line answers counted people ahead rather than the whole line. All such answers so far are Max's test data. Definitions version stays 1.
 
-Two answers agree when their codes are at most one apart (FR-19).
+Two answers agree when they are at most one apart (FR-19): waits by code, line sizes by size rank (since logic version 4). `app.line_size_rank` gives 0 nobody 0, 1–10 1, 10–25 2, 25–50 3, 50+ (4), 50–100 (6), and can't see the end (5) 4, and 100+ (7) 5. So 50+, 50–100, and 100+ all agree with each other, and 25–50 disagrees with 100+. The majority rule also counts votes by rank, so 50+ and 50–100 vote together; the shown value is the newest report of the winning rank, with its own code.
 
 ### Report kinds and positions
 
@@ -46,8 +57,8 @@ Two answers agree when their codes are at most one apart (FR-19).
 | `line_start` | `line` | Start line timer | Timed clock |
 | `line_update` | `line` | Line-size update in an open session | Exempt |
 | `inside` | `inside` | I'm inside (older builds only) | Manual clock |
-| `inside_after_entry` | `inside` | Busyness after I'm in, or I'm inside that ended a session (older builds only) | Exempt |
-| `conditions` | `unspecified` | Report conditions (since 2026-10-04): line size and/or busyness from someone in line, inside, or walking by | Manual clock |
+| `inside_after_entry` | `inside` | The answer after I'm in, or I'm inside that ended a session (older builds only) | Exempt |
+| `conditions` | `unspecified` | Report conditions (since 2026-10-04): a line size from someone in line, inside, or walking by (busyness, accepted from older builds, is never stored since 2026-10-07) | Manual clock |
 
 Since 2026-10-04 there are two separate clocks per person per bar, each `rate_limit_minutes` (10) long, by phone time:
 
@@ -83,6 +94,17 @@ LineMap has no active window. Logic version 3 (migration `*_remove_active_window
 - `app.event_nights` (FR-23) is kept, empty, for later. Nothing reads it.
 - The night boundary (4 a.m. Eastern, FR-22) is unchanged.
 
+### Line sizes and no crowd (logic version 4, since 2026-10-07)
+
+Migration `*_line_sizes_no_crowd.sql`, approved by Max on 2026-10-06:
+
+- **Wipe.** It first deleted every row in `rate_limit_holds`, `deletions`, `spot_checks`, `estimate_snapshots`, `feedback`, `views`, `reports`, `wait_sessions`, and `installs`: everything so far was Max's own testing. `bars`, `config`, `config_history`, and `event_nights` were kept. Nothing was logged in `app.deletions` (that table was wiped too).
+- **No crowd.** The `busyness` and `busyness_state` columns and codes 1–4 stay, reserved. Estimates, snapshots, History, and `my_recent_reports` keep their `busyness` keys (older builds decode them), always `null`. `display` is `estimate` only when there is a line size or a wait.
+- **Busyness answers are accepted but never stored.** `report_conditions` and `submit_report` keep their signatures. A row they save has `busyness` null; `busyness_state` is `skipped` when a busyness state was sent (Report conditions always stores `skipped`, as before). A **crowd-only** call stores no row and uses no rate limit, but gets its usual success reply, so an older build's offline queue drops it; a retry with the same ID does the same:
+  - `report_conditions` without an answered line size (busyness answered) returns `{"ok": true, "kind": "conditions"}`. A call with neither answered is still bad input.
+  - `submit_report` with busyness answered and no answered recalled wait returns `{"ok": true, "kind": "inside", "session_ended": false, "measured_wait_seconds": null}` (or `"kind": "inside_after_entry"` for the answer after I'm in). The exception is I'm inside with an open session at that bar (FR-15): it still ends the session as I'm in and keeps its row. An I'm inside with no answers at all is not crowd-only and is stored as before.
+- **New line sizes.** 6 = 50–100 and 7 = 100+, in definitions version 2 (above).
+
 ### History (FR-43, since 2026-10-05)
 
 `bar_history` computes one bar's history straight from `app.reports` and `app.wait_sessions`. Deleted, replaced, and hidden reports aren't there, so they never appear; snapshots are not used. Points cover the whole night day (since 2026-10-05, approved by Max: bars get busy early, especially on football Saturdays): from `night_boundary_hour` (4 a.m.) Eastern on the night's date up to, but not including, 4 a.m. the next day, the same boundary as `app.night_date`, so every point belongs to the night. They are 15 real minutes apart, so a normal night has 96 points, the spring-forward night (2026-03-07) 92, and the fall-back night (2026-10-31) 100.
@@ -111,8 +133,8 @@ Call with `POST /rest/v1/rpc/<name>` and named JSON parameters. Writes return `{
 | `end_session(p_outcome)` | `entered` (I'm in) or `gave_up`. When it ends the timer, it deletes any earlier timer at that bar that this one redid (FR-46) |
 | `reopen_session(p_client_session_id, p_anon_id)` | Undo (FR-47). Returns `{"ok": true, "status": "open", "reopened": true}`; `{"ok": true, "status": "open", "reopened": false}` if already open (a retry); `{"ok": true, "reopened": false, "removed": true}` if the timer doesn't exist for this ID (never arrived, deleted, or someone else's), so the queue can drop it; `{"ok": false, "error": "too_late"}` 5 minutes or more after it stopped; `{"ok": false, "error": "other_session_open"}`; or `{"ok": false, "error": "session_not_reopenable", "status": "..."}` for a timer that timed out or wasn't ended by I'm in or Gave up |
 | `cancel_session(...)` | Cancel line (FR-39): deletes an open session and its reports, so nothing counts. A finished wait returns `session_not_open` |
-| `report_conditions(...)` | Report conditions. Line size (0–5) and busyness (1–4), each optional, but at least one must be `answered`; a state not sent is stored as `skipped`. Rate-limited on the manual clock, except for a redo (FR-46), which deletes the report it replaces at once. Never starts, ends, or joins a wait session. Re-sending the same report ID returns `{"ok": true, "kind": "conditions"}` and changes nothing |
-| `submit_report(...)` | Older builds only (the app stopped calling it on 2026-10-04). I'm inside. With an open session at that bar it counts as I'm in. A plain I'm inside is rate-limited on the manual clock. Pass `p_client_session_id` for the busyness answer after I'm in. Re-send the same report ID to add answers |
+| `report_conditions(...)` | Report conditions. Line size (by definitions version: 0–5 in version 1, 0–3, 6, 7 in version 2) and busyness (1–4, older builds; never stored), each optional, but at least one must be `answered`; a line size not sent is stored as `skipped`. Without an answered line size (crowd-only) it returns `{"ok": true, "kind": "conditions"}` and stores nothing. Rate-limited on the manual clock, except for a redo (FR-46), which deletes the report it replaces at once. Never starts, ends, or joins a wait session. Re-sending the same report ID returns `{"ok": true, "kind": "conditions"}` and changes nothing |
+| `submit_report(...)` | Older builds only (the app stopped calling it on 2026-10-04). I'm inside. With an open session at that bar it counts as I'm in. A plain I'm inside is rate-limited on the manual clock. Pass `p_client_session_id` for the answer after I'm in. Re-send the same report ID to add answers. Busyness is never stored; a crowd-only call stores nothing (see Line sizes and no crowd) |
 | `send_feedback(...)` | This looks wrong |
 | `log_view(...)` | A map or bar-sheet view |
 | `my_recent_reports(p_anon_id)` | Made a wrong report? (FR-41): the person's own reports and finished waits from the last 24 hours, newest first, at most 100 (shape below) |
@@ -126,7 +148,7 @@ Every report and session carries a client-generated ID, so the offline queue can
 
 ```json
 {
-  "logic_version": 3,
+  "logic_version": 4,
   "generated_at": "2026-10-02T02:15:00Z",
   "window_state": "live",
   "bars": [{
@@ -142,9 +164,11 @@ Every report and session carries a client-generated ID, so the offline queue can
 }
 ```
 
-- `logic_version`: 3 since 2026-10-06. Version 1 hid a 30-to-60-minute-old report outside the active window; version 2 used the live rule at every hour but still showed `closed` from 2 to 4 a.m. after an active night; version 3 has no active window at all, and History points cover only their own quarter hour.
+- `logic_version`: 4 since 2026-10-07. Version 1 hid a 30-to-60-minute-old report outside the active window; version 2 used the live rule at every hour but still showed `closed` from 2 to 4 a.m. after an active night; version 3 has no active window at all, and History points cover only their own quarter hour; version 4 ignores busyness, needs a line size or a wait for `display: estimate`, and compares line sizes by size rank.
 - `window_state`: always `live` since version 3. It used to be `live`, `closed`, or `outside_hours`; the key stays because older builds decode it.
-- `display`: `estimate` when any signal is within 60 minutes (stale ones grayed out), else `not_enough_data` ("No live reports"), at every hour. `closed` (since version 3) and `outside_hours` (since version 2) are no longer returned, but older builds still accept them.
+- `display`: `estimate` when a line size or a wait is within 60 minutes (stale ones grayed out), else `not_enough_data` ("No live reports"), at every hour. `closed` (since version 3) and `outside_hours` (since version 2) are no longer returned, but older builds still accept them.
+- `busyness`: always `null` since version 4; the key stays because older builds decode it.
+- `line_size.code` can be 6 (50–100) or 7 (100+) since 2026-10-07, besides 0–5.
 - `freshness` (bar and signal): `fresh` (30 minutes or less), `stale` (30 to 60, shown grayed out), or `none`.
 - A wait with `source: measured` has `minutes`, and its `at` is when the person got in. A `reported` wait has only a range `code`.
 - `rule`: `newest`, or `majority` when 2 or more other people's fresh reports disagreed with the newest one.
@@ -155,7 +179,7 @@ Dates are `YYYY-MM-DD`; times are Postgres ISO 8601 with an offset, as in the ot
 
 ```json
 {
-  "logic_version": 3,
+  "logic_version": 4,
   "bar_id": 1,
   "night": "2026-10-02",
   "tonight": "2026-10-05",
@@ -167,7 +191,7 @@ Dates are `YYYY-MM-DD`; times are Postgres ISO 8601 with an offset, as in the ot
     {"at": "2026-10-02T08:15:00+00:00", "people": 2,
      "line_size": {"code": 2, "freshness": "fresh"},
      "wait": {"code": 3, "minutes": 25, "freshness": "fresh"},
-     "busyness": {"code": 3, "freshness": "fresh"}}
+     "busyness": null}
   ]
 }
 ```
@@ -176,6 +200,7 @@ Dates are `YYYY-MM-DD`; times are Postgres ISO 8601 with an offset, as in the ot
 - `start` and `end` are the night day's bounds: 4 a.m. Eastern on the night's date, and 4 a.m. Eastern the next day (since logic version 3; before, the usual 9 p.m.–2 a.m. window). The app lists every quarter hour from `start` up to `end` and folds empty stretches.
 - `points` run every 15 minutes from `start` up to (not including) `end`, but only up to now: 96 points on a normal night, 92 or 100 on a daylight-saving night. Each point covers only its own quarter hour, `at` to `at` + 15 minutes (since logic version 3).
 - `people` is how many distinct people reported in that quarter hour; 0 when nobody did.
+- `busyness` is always `null` since logic version 4; the key stays for older builds.
 - `wait.minutes` is a measured wait in minutes, or `null` for a reported range. `freshness` is always `fresh` since logic version 3 (each value is from its own quarter hour); the key stays for older builds.
 - `nights`: nights with visible data at this bar, newest first.
 
@@ -189,12 +214,13 @@ A JSON array (empty `[]` when there is nothing). Times are Postgres ISO 8601 wit
    "at": "…", "line_size": 2, "busyness": null, "recalled_wait": null},
   {"type": "wait", "client_session_id": "…", "bar_id": 1, "at": "…", "ended_at": "…",
    "status": "entered", "measured_wait_seconds": 1200, "start_offset_minutes": 0,
-   "line_size": 3, "busyness": 4}
+   "line_size": 3, "busyness": null}
 ]
 ```
 
 - `report`: a standalone Report conditions (`kind: conditions`) or I'm inside from older builds (`kind: inside`). `at` is its phone time.
-- `wait`: a finished wait, `status` `entered`, `gave_up`, or `unfinished`. `at` is when Start line timer was tapped. `line_size` is the newest answered line size in the wait, `busyness` the answer after I'm in. Open waits are not listed.
+- `wait`: a finished wait, `status` `entered`, `gave_up`, or `unfinished`. `at` is when Start line timer was tapped. `line_size` is the newest answered line size in the wait. Open waits are not listed.
+- `busyness` is always `null` in both kinds since 2026-10-07; the key stays for older builds.
 - Hidden reports are still listed: they are the person's own.
 
 ## Admin in the dashboard (FR-37)

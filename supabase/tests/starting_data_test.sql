@@ -1,10 +1,11 @@
--- Starting data: the three bars (PRD 7.3) and the default settings (FR-37).
+-- Starting data: the three bars (PRD 7.3) and the default settings (FR-37),
+-- and what the 2026-10-07 data wipe leaves.
 
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(17);
+select plan(20);
 
 -- Bars --------------------------------------------------------------------------------
 
@@ -54,6 +55,34 @@ select is(
   (select count(*) from app.config c
    where not exists (select 1 from app.config_history h where h.config_key = c.key and h.old_value is null)),
   0::bigint, 'every starting setting was logged in config_history');
+
+-- The 2026-10-07 wipe (*_line_sizes_no_crowd.sql) ------------------------------------------
+-- The migration deletes every report, wait, install, view, feedback row,
+-- snapshot, spot check, deletion count, and rate-limit hold, and keeps bars,
+-- settings, the settings log, and event nights. This database is fresh, so
+-- these check the state it leaves.
+
+select is(
+  (select array_agg(t.name order by t.name)
+   from (values
+     ('rate_limit_holds',   (select count(*) from app.rate_limit_holds)),
+     ('deletions',          (select count(*) from app.deletions)),
+     ('spot_checks',        (select count(*) from app.spot_checks)),
+     ('estimate_snapshots', (select count(*) from app.estimate_snapshots)),
+     ('feedback',           (select count(*) from app.feedback)),
+     ('views',              (select count(*) from app.views)),
+     ('reports',            (select count(*) from app.reports)),
+     ('wait_sessions',      (select count(*) from app.wait_sessions)),
+     ('installs',           (select count(*) from app.installs))
+   ) as t (name, n)
+   where t.n > 0),
+  null::text[],
+  'after the wipe every data table is empty');
+select is((select count(*) from app.config c where c.key = 'redo_minutes'), 1::bigint,
+  'the wipe keeps the settings');
+select ok(
+  exists (select 1 from app.config_history h where h.config_key = 'active_nights' and h.new_value is null),
+  'the wipe keeps the settings log (it still has the 2026-10-06 removal of active_nights)');
 
 select * from finish();
 rollback;

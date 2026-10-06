@@ -1,5 +1,7 @@
 -- Report conditions and Adjust time in whole minutes (approved 2026-10-04).
--- FR-7, FR-11 to FR-13, FR-16, FR-26, FR-27, FR-32, FR-38.
+-- FR-7, FR-11 to FR-13, FR-16, FR-26, FR-27, FR-32, FR-38, NFR-10.
+-- Since 2026-10-07 busyness is never stored: a crowd-only report stores
+-- nothing, and line sizes follow definitions versions 1 and 2.
 --
 -- Same conventions as reporting_api_test.sql: now() is fixed for the whole
 -- transaction, each step passes an explicit phone time in the past
@@ -10,7 +12,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(115);
+select plan(130);
 
 -- Helpers ----------------------------------------------------------------------------
 
@@ -74,7 +76,8 @@ $$;
 -- Report conditions.
 create function pg_temp.cond(p_person integer, p_report integer, p_bar bigint, p_at timestamptz,
                              p_line integer default null, p_line_state text default null,
-                             p_busy integer default null, p_busy_state text default null)
+                             p_busy integer default null, p_busy_state text default null,
+                             p_version integer default 1)
 returns jsonb
 language sql as $$
   select public.report_conditions(
@@ -85,7 +88,7 @@ language sql as $$
     p_phone_time          => p_at,
     p_location_status     => 'denied',
     p_app_version         => '1.0',
-    p_definitions_version => 1::smallint,
+    p_definitions_version => p_version::smallint,
     p_line_size           => p_line::smallint,
     p_line_size_state     => p_line_state,
     p_busyness            => p_busy::smallint,
@@ -146,7 +149,7 @@ select is((pg_temp.session(1301)).start_offset_minutes, 45::smallint, 'a new ses
 select is(pg_temp.r('p3_end') ->> 'measured_wait_seconds', '3900', 'measured wait with offset 45 = 20 + 45 minutes');
 select is((pg_temp.session(1301)).measured_wait_seconds, 3900, 'the stored measured wait includes the offset');
 
--- Report conditions: both answers --------------------------------------------------------
+-- Report conditions: both answers (busyness is not kept) ------------------------------------
 
 insert into res values ('p10', pg_temp.cond(10, 1001, pg_temp.bar(1), pg_temp.ago(200),
                                             p_line => 3, p_line_state => 'answered',
@@ -158,8 +161,8 @@ select is((pg_temp.report(1001)).kind, 'conditions', 'the kind is conditions');
 select is((pg_temp.report(1001)).wait_session_id, null::bigint, 'a conditions report has no session');
 select is((pg_temp.report(1001)).line_size, 3::smallint, 'the line size is saved');
 select is((pg_temp.report(1001)).line_size_state, 'answered', 'the line size state is answered');
-select is((pg_temp.report(1001)).busyness, 4::smallint, 'the busyness is saved');
-select is((pg_temp.report(1001)).busyness_state, 'answered', 'the busyness state is answered');
+select is((pg_temp.report(1001)).busyness, null::smallint, 'the busyness is not saved');
+select is((pg_temp.report(1001)).busyness_state, 'skipped', 'the busyness is stored as skipped');
 select is((pg_temp.report(1001)).recalled_wait_state, null::text, 'no recalled wait is asked');
 select is((pg_temp.report(1001)).phone_time, pg_temp.ago(200), 'the report keeps the phone time');
 select is((pg_temp.report(1001)).night_date, app.night_date(pg_temp.ago(200)), 'the night date is set on the server (FR-22)');
@@ -189,21 +192,37 @@ select is((pg_temp.report(1011)).line_size, 0::smallint, 'line size 0 (nobody) i
 select is((pg_temp.report(1011)).busyness_state, 'skipped', 'busyness not sent is stored as skipped');
 select is((pg_temp.report(1011)).busyness, null::smallint, 'skipped busyness has no value');
 
+-- Crowd-only (older builds): accepted, but nothing is stored and no rate limit is used.
 insert into res values ('p12', pg_temp.cond(12, 1021, pg_temp.bar(1), pg_temp.ago(200),
                                             p_line_state => 'skipped',
                                             p_busy => 1, p_busy_state => 'answered'));
 
-select is(pg_temp.r('p12') ->> 'ok', 'true', 'busyness alone is accepted');
-select is((pg_temp.report(1021)).busyness, 1::smallint, 'busyness 1 (quiet) is saved');
-select is((pg_temp.report(1021)).line_size_state, 'skipped', 'an explicit skip is stored as skipped');
-select is((pg_temp.report(1021)).line_size, null::smallint, 'skipped line size has no value');
+select is(pg_temp.r('p12'), '{"ok": true, "kind": "conditions"}'::jsonb, 'busyness alone gets the usual reply');
+select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(1021)), 0::bigint,
+  'busyness alone stores no row');
+
+insert into res values ('p12_retry', pg_temp.cond(12, 1021, pg_temp.bar(1), pg_temp.ago(200),
+                                                  p_line_state => 'skipped',
+                                                  p_busy => 1, p_busy_state => 'answered'));
+
+select is(pg_temp.r('p12_retry'), '{"ok": true, "kind": "conditions"}'::jsonb, 'its retry gets the same reply');
+select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(1021)), 0::bigint,
+  'its retry stores nothing either');
+
+-- 6 minutes later (past the 5-minute redo, inside the 10-minute limit).
+insert into res values ('p12_line', pg_temp.cond(12, 1022, pg_temp.bar(1), pg_temp.ago(194),
+                                                 p_line => 2, p_line_state => 'answered'));
+
+select is(pg_temp.r('p12_line') ->> 'ok', 'true', 'a crowd-only report uses no rate limit');
+select is((select count(*) from app.reports r where r.anon_id = pg_temp.uid(12)), 1::bigint,
+  'only the line size report is stored');
 
 insert into res values ('p13', pg_temp.cond(13, 1031, pg_temp.bar(1), pg_temp.ago(200),
                                             p_line => 5, p_line_state => 'answered',
                                             p_busy_state => 'cant_tell'));
 
 select is((pg_temp.report(1031)).line_size, 5::smallint, 'reserved line size 5 is still valid');
-select is((pg_temp.report(1031)).busyness_state, 'cant_tell', 'reserved cant_tell is still stored');
+select is((pg_temp.report(1031)).busyness_state, 'skipped', 'a busyness cant_tell is stored as skipped');
 
 -- Bad input raises 22023 and saves nothing --------------------------------------------------
 
@@ -216,7 +235,7 @@ select throws_ok($$select pg_temp.cond(14, 1043, pg_temp.bar(1), pg_temp.ago(100
                                        p_line_state => 'cant_tell')$$,
   '22023', 'report at least one answer', 'cant_tell alone is not an answer');
 select throws_ok($$select pg_temp.cond(14, 1044, pg_temp.bar(1), pg_temp.ago(100), p_line => 6, p_line_state => 'answered')$$,
-  '22023', null, 'line size code 6 is out of range');
+  '22023', 'line_size: answered needs a valid code', 'line size code 6 is not in definitions version 1');
 select throws_ok($$select pg_temp.cond(14, 1045, pg_temp.bar(1), pg_temp.ago(100), p_line => -1, p_line_state => 'answered')$$,
   '22023', null, 'line size code -1 is out of range');
 select throws_ok($$select pg_temp.cond(14, 1046, pg_temp.bar(1), pg_temp.ago(100), p_busy => 0, p_busy_state => 'answered')$$,
@@ -256,11 +275,54 @@ select throws_ok(
   $$select public.report_conditions(
       p_client_report_id => pg_temp.uid(1054), p_anon_id => pg_temp.uid(14), p_install_id => pg_temp.uid(514),
       p_bar_id => pg_temp.bar(1), p_phone_time => pg_temp.ago(100), p_location_status => 'denied',
-      p_app_version => '1.0', p_definitions_version => 2::smallint,
+      p_app_version => '1.0', p_definitions_version => 3::smallint,
       p_busyness => 2::smallint, p_busyness_state => 'answered')$$,
   '22023', 'unsupported definitions_version', 'an unsupported definitions version is rejected');
 select is((select count(*) from app.reports r where r.anon_id = pg_temp.uid(14)), 0::bigint,
   'rejected reports save nothing');
+
+-- Definitions versions (NFR-10) ---------------------------------------------------------------
+-- Version 1 offers line sizes 0-5; version 2 offers 0, 1, 2, 3, 6 (50-100), and
+-- 7 (100+). 4 (50+) and 5 (can't see the end) keep their meaning but are not
+-- in version 2. One person per code, so no report replaces another.
+
+select is(
+  (select count(*) from generate_series(0, 5) as c
+   where pg_temp.cond(60 + c, 6000 + c, pg_temp.bar(3), pg_temp.ago(50),
+                      p_line => c, p_line_state => 'answered') ->> 'ok' = 'true'),
+  6::bigint, 'definitions version 1 accepts line sizes 0-5');
+select is(
+  array(select r.line_size from app.reports r
+        where r.client_report_id in (select pg_temp.uid(6000 + c) from generate_series(0, 5) as c)
+        order by r.line_size),
+  array[0, 1, 2, 3, 4, 5]::smallint[], 'version 1 line sizes 0-5 are stored');
+
+select is(
+  (select count(*) from unnest(array[0, 1, 2, 3, 6, 7]) as c
+   where pg_temp.cond(70 + c, 7000 + c, pg_temp.bar(3), pg_temp.ago(50),
+                      p_line => c, p_line_state => 'answered', p_version => 2) ->> 'ok' = 'true'),
+  6::bigint, 'definitions version 2 accepts line sizes 0, 1, 2, 3, 6, and 7');
+select is(
+  array(select r.line_size from app.reports r
+        where r.client_report_id in (select pg_temp.uid(7000 + c) from generate_series(0, 7) as c)
+        order by r.line_size),
+  array[0, 1, 2, 3, 6, 7]::smallint[], 'version 2 line sizes are stored');
+select is(
+  (select array_agg(distinct r.definitions_version) from app.reports r
+   where r.client_report_id in (select pg_temp.uid(7000 + c) from generate_series(0, 7) as c)),
+  array[2]::smallint[], 'version 2 reports keep definitions version 2');
+
+select throws_ok($$select pg_temp.cond(80, 8001, pg_temp.bar(3), pg_temp.ago(50), p_line => 7, p_line_state => 'answered')$$,
+  '22023', 'line_size: answered needs a valid code', 'version 1 does not offer 100+ (7)');
+select throws_ok($$select pg_temp.cond(80, 8002, pg_temp.bar(3), pg_temp.ago(50), p_line => 4, p_line_state => 'answered',
+                                       p_version => 2)$$,
+  '22023', 'line_size: answered needs a valid code', 'version 2 no longer offers 50+ (4)');
+select throws_ok($$select pg_temp.cond(80, 8003, pg_temp.bar(3), pg_temp.ago(50), p_line => 5, p_line_state => 'answered',
+                                       p_version => 2)$$,
+  '22023', 'line_size: answered needs a valid code', 'version 2 does not offer can''t see the end (5)');
+select throws_ok($$select pg_temp.cond(80, 8004, pg_temp.bar(3), pg_temp.ago(50), p_line => 1, p_line_state => 'answered',
+                                       p_version => 0)$$,
+  '22023', 'unsupported definitions_version', 'definitions version 0 is rejected');
 
 -- A report ID that belongs to another report --------------------------------------------------
 
@@ -280,7 +342,7 @@ select is((pg_temp.report(1001)).anon_id, pg_temp.uid(10), 'the conditions repor
 -- Person 17: I'm in line, then Report conditions at the same bar 5 minutes later.
 insert into res values ('p17_start', pg_temp.start(17, 1701, 2701, pg_temp.bar(1), pg_temp.ago(100)));
 insert into res values ('p17_cond', pg_temp.cond(17, 1702, pg_temp.bar(1), pg_temp.ago(95),
-                                                 p_busy => 2, p_busy_state => 'answered'));
+                                                 p_line => 2, p_line_state => 'answered'));
 
 select is(pg_temp.r('p17_cond') ->> 'ok', 'true', 'Report conditions 5 minutes after I''m in line is allowed: separate clocks');
 select is((select count(*) from app.reports r where r.client_report_id = pg_temp.uid(1702)), 1::bigint,
@@ -289,7 +351,7 @@ select is((pg_temp.session(1701)).status, 'open', 'the line stays open');
 select is((pg_temp.report(1702)).wait_session_id, null::bigint, 'the conditions report is not linked to the line');
 
 insert into res values ('p17_other', pg_temp.cond(17, 1703, pg_temp.bar(2), pg_temp.ago(95),
-                                                  p_busy => 2, p_busy_state => 'answered'));
+                                                  p_line => 2, p_line_state => 'answered'));
 
 select is(pg_temp.r('p17_other') ->> 'ok', 'true', 'Report conditions at a different bar is fine');
 
@@ -335,7 +397,7 @@ select is((pg_temp.session(1901)).ended_by, null::text, 'the session has not end
 select is((pg_temp.report(1902)).wait_session_id, null::bigint, 'the conditions report is not linked to the session');
 
 insert into res values ('p19_cond_b', pg_temp.cond(19, 1903, pg_temp.bar(2), pg_temp.ago(44),
-                                                   p_busy => 2, p_busy_state => 'answered'));
+                                                   p_line => 2, p_line_state => 'answered'));
 
 select is(pg_temp.r('p19_cond_b') ->> 'ok', 'true', 'Report conditions at another bar succeeds');
 select is((pg_temp.session(1901)).status, 'open', 'a report at another bar does not end the session (no FR-14)');
@@ -360,8 +422,8 @@ insert into res values ('p20', public.report_conditions(
   p_lon                 => (select b.door_lon from app.bars b where b.id = pg_temp.bar(1)),
   p_accuracy_m          => 12,
   p_fix_age_s           => 3,
-  p_busyness            => 2::smallint,
-  p_busyness_state      => 'answered'));
+  p_line_size           => 2::smallint,
+  p_line_size_state     => 'answered'));
 
 select is((pg_temp.report(2001)).uncertain, false, 'a precise report at the door is not uncertain');
 select ok((pg_temp.report(2001)).distance_m < 1, 'distance at the door is about 0 m');
@@ -377,15 +439,15 @@ insert into res values ('p21', public.report_conditions(
   p_location_status     => 'no_fix',
   p_app_version         => '1.0',
   p_definitions_version => 1::smallint,
-  p_busyness            => 2::smallint,
-  p_busyness_state      => 'answered'));
+  p_line_size           => 2::smallint,
+  p_line_size_state     => 'answered'));
 
 select is(pg_temp.r('p21') ->> 'ok', 'true', 'a report with no fix is accepted, not rejected (FR-27)');
 select is((pg_temp.report(2111)).uncertain, true, 'a report with no fix is uncertain');
 select is((pg_temp.report(2111)).distance_m, null::real, 'a report with no fix has no distance');
 
 insert into res values ('p22', pg_temp.cond(22, 2201, pg_temp.bar(1), now() + interval '2 hours',
-                                            p_busy => 2, p_busy_state => 'answered'));
+                                            p_line => 2, p_line_state => 'answered'));
 
 select is((pg_temp.report(2201)).phone_time, now(), 'a phone time in the future is capped at server time');
 
@@ -419,7 +481,7 @@ insert into res values ('p30', pg_temp.cond(30, 3001, (select b.id from app.bars
 
 select is(pg_temp.est() -> 'line_size' ->> 'code', '2', 'get_estimates shows the line size from a conditions report');
 select is(pg_temp.est() -> 'line_size' ->> 'freshness', 'fresh', 'the conditions line size is fresh');
-select is(pg_temp.est() -> 'busyness' ->> 'code', '3', 'get_estimates shows the busyness from a conditions report');
+select is(pg_temp.est() -> 'busyness', 'null'::jsonb, 'get_estimates never shows busyness, even when a report sent one');
 select is(pg_temp.est() -> 'wait', 'null'::jsonb, 'a conditions report gives no wait');
 select is(pg_temp.est() ->> 'people', '1', 'the reporter counts as one person');
 
@@ -428,8 +490,14 @@ insert into res values ('p31', pg_temp.cond(31, 3101, (select b.id from app.bars
                                             pg_temp.ago(4), p_line => 1, p_line_state => 'answered'));
 
 select is(pg_temp.est() -> 'line_size' ->> 'code', '1', 'the newest line size wins (FR-19)');
-select is(pg_temp.est() -> 'busyness' ->> 'code', '3', 'a skipped busyness does not replace the last one');
+select is((pg_temp.report(3001)).busyness, null::smallint, 'the crowd answer sent with the first report was not stored');
 select is(pg_temp.est() ->> 'people', '2', 'both reporters count');
+
+-- Person 32 answers only busyness: nothing is stored, so nobody new counts.
+insert into res values ('p32', pg_temp.cond(32, 3201, (select b.id from app.bars b where b.name = 'Conditions bar'),
+                                            pg_temp.ago(3), p_busy => 4, p_busy_state => 'answered'));
+
+select is(pg_temp.est() ->> 'people', '2', 'a crowd-only report does not count as a person');
 
 -- Table checks --------------------------------------------------------------------------------------
 
@@ -446,6 +514,19 @@ select is(
   (select count(*) from pg_constraint c where c.conrelid = 'app.reports'::regclass and c.contype = 'c'),
   16::bigint,
   'app.reports has 16 checks: the 3 replaced ones are gone');
+select is(
+  (select count(*) from pg_constraint c
+   where c.conrelid = 'app.reports'::regclass and c.contype = 'c'
+     and c.conname = 'reports_line_size_check'
+     and pg_get_constraintdef(c.oid) like '%7%'),
+  1::bigint,
+  'reports has one line size check, up to 7');
+select lives_ok(
+  $$update app.reports set line_size = 7 where client_report_id = pg_temp.uid(1011)$$,
+  'the table check accepts line size 7');
+select throws_ok(
+  $$update app.reports set line_size = 8 where client_report_id = pg_temp.uid(1011)$$,
+  '23514', null, 'the table check rejects line size 8');
 select is(
   (select count(*) from pg_constraint c
    where c.conrelid = 'app.wait_sessions'::regclass and c.contype = 'c'

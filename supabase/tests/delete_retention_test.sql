@@ -54,7 +54,8 @@ begin
     p_client_report_id => pg_temp.uid(p_person * 100 + 4), p_anon_id => a, p_install_id => i,
     p_bar_id => pg_temp.bar(2), p_phone_time => pg_temp.ago(20), p_location_status => 'denied',
     p_app_version => '1.0', p_definitions_version => 1::smallint,
-    p_busyness => 3::smallint, p_busyness_state => 'answered');
+    p_busyness => 3::smallint, p_busyness_state => 'answered',
+    p_recalled_wait => 2::smallint, p_recalled_wait_state => 'answered');
   perform public.log_view(
     p_anon_id => a, p_install_id => i, p_view_kind => 'map', p_app_open_id => pg_temp.uid(p_person * 100 + 5),
     p_viewed_at => pg_temp.ago(10), p_showed_no_data => false);

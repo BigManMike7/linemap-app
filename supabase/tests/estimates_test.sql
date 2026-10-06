@@ -4,13 +4,14 @@
 -- tables, so the rules are tested through app.pick_signal, app.bar_estimate,
 -- and app.estimates at fixed times. T is Friday Oct 2, 2026, 11 p.m. Eastern.
 -- Since logic version 3 there is no active window: the same rules apply at
--- every hour.
+-- every hour. Since logic version 4 busyness is ignored (always null) and line
+-- sizes are compared by size rank (app.line_size_rank).
 
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(86);
+select plan(98);
 
 -- Helpers ----------------------------------------------------------------------------
 
@@ -88,7 +89,8 @@ select pg_temp.new_bar(n) from unnest(array[
   'Fresh', 'People', 'Newest', 'One other', 'One far', 'Same person', 'Majority', 'Within one',
   'Two apart', 'Stale others', 'Busyness', 'Wait mix', 'Wait aging', 'Wait expired',
   'Rounding', 'Tie same person', 'Tie two people', 'Hidden', 'Test rows', 'Empty',
-  'After 2 am', 'Weekday empty', 'Weekday stale', 'Weekday fresh']) as n;
+  'After 2 am', 'Weekday empty', 'Weekday stale', 'Weekday fresh', 'Crowd only',
+  'Rank agree', 'Rank disagree', 'Rank votes', 'Rank cant see']) as n;
 select pg_temp.new_bar('Test bar', true);
 
 -- Freshness boundaries (FR-17) -----------------------------------------------------------
@@ -199,16 +201,61 @@ select is(pg_temp.sig(pg_temp.bar('Stale others'), 'line_size', pg_temp.ago(0)) 
 select is(pg_temp.sig(pg_temp.bar('Stale others'), 'line_size', pg_temp.ago(0)) ->> 'freshness', 'fresh',
   'stale others: the newest is fresh');
 
--- Each signal is picked separately.
+-- Each signal is picked separately. Busyness (older rows only) is ignored
+-- since logic version 4: the key stays for older builds, always null.
 select pg_temp.rep(1, pg_temp.bar('Busyness'), pg_temp.ago(20), p_busy => 4);
 select pg_temp.rep(2, pg_temp.bar('Busyness'), pg_temp.ago(15), p_busy => 4);
 select pg_temp.rep(3, pg_temp.bar('Busyness'), pg_temp.ago(5), p_busy => 1, p_line => 1);
-select is(pg_temp.sig(pg_temp.bar('Busyness'), 'busyness', pg_temp.ago(0)) ->> 'code', '4',
-  'busyness: the majority wins');
+select is(pg_temp.est(pg_temp.bar('Busyness'), pg_temp.ago(0)) -> 'busyness', 'null'::jsonb,
+  'busyness is never shown: the estimate''s busyness is null');
+select ok(pg_temp.est(pg_temp.bar('Busyness'), pg_temp.ago(0)) ? 'busyness',
+  'the busyness key is still there for older builds');
 select is(pg_temp.sig(pg_temp.bar('Busyness'), 'line_size', pg_temp.ago(0)) ->> 'code', '1',
   'line size is picked separately from busyness');
 select is(pg_temp.est(pg_temp.bar('Busyness'), pg_temp.ago(0)) ->> 'wait', null::text,
   'a signal nobody answered is null');
+
+-- Line sizes compare by size rank (logic version 4) -------------------------------------------
+-- Ranks: 0 nobody 0, 1-10 1, 10-25 2, 25-50 3, 50+ (4) / 50-100 (6) / can't
+-- see the end (5) 4, 100+ (7) 5.
+
+select is(array(select app.line_size_rank(c::smallint) from generate_series(0, 7) as c order by c),
+  array[0, 1, 2, 3, 4, 4, 4, 5]::smallint[],
+  'line_size_rank: 0-3 keep their code, 4, 5, and 6 are rank 4, 7 is rank 5');
+
+-- 50+ and 50-100 are one rank from 100+: they agree, so the newest wins.
+select pg_temp.rep(1, pg_temp.bar('Rank agree'), pg_temp.ago(20), p_line => 4);
+select pg_temp.rep(2, pg_temp.bar('Rank agree'), pg_temp.ago(15), p_line => 6);
+select pg_temp.rep(3, pg_temp.bar('Rank agree'), pg_temp.ago(5), p_line => 7);
+select is(pg_temp.sig(pg_temp.bar('Rank agree'), 'line_size', pg_temp.ago(0)) ->> 'code', '7',
+  '50+ and 50-100 agree with 100+ (one rank apart): the newest wins');
+select is(pg_temp.sig(pg_temp.bar('Rank agree'), 'line_size', pg_temp.ago(0)) ->> 'rule', 'newest',
+  'rank agree: rule is newest');
+
+-- 25-50 is two ranks from 100+: they disagree, so the majority wins.
+select pg_temp.rep(1, pg_temp.bar('Rank disagree'), pg_temp.ago(20), p_line => 3);
+select pg_temp.rep(2, pg_temp.bar('Rank disagree'), pg_temp.ago(15), p_line => 3);
+select pg_temp.rep(3, pg_temp.bar('Rank disagree'), pg_temp.ago(5), p_line => 7);
+select is(pg_temp.sig(pg_temp.bar('Rank disagree'), 'line_size', pg_temp.ago(0)) ->> 'code', '3',
+  '25-50 and 100+ disagree (two ranks apart): the majority wins');
+select is(pg_temp.sig(pg_temp.bar('Rank disagree'), 'line_size', pg_temp.ago(0)) ->> 'rule', 'majority',
+  'rank disagree: rule is majority');
+
+-- 50+ and 50-100 are the same rank, so they vote together.
+select pg_temp.rep(1, pg_temp.bar('Rank votes'), pg_temp.ago(20), p_line => 4);
+select pg_temp.rep(2, pg_temp.bar('Rank votes'), pg_temp.ago(15), p_line => 6);
+select pg_temp.rep(3, pg_temp.bar('Rank votes'), pg_temp.ago(5), p_line => 1);
+select is(pg_temp.sig(pg_temp.bar('Rank votes'), 'line_size', pg_temp.ago(0)) ->> 'code', '6',
+  '50+ and 50-100 vote as one size; the newest of them is shown');
+select is(pg_temp.sig(pg_temp.bar('Rank votes'), 'line_size', pg_temp.ago(0)) ->> 'rule', 'majority',
+  'rank votes: rule is majority');
+
+-- Can't see the end (5, reserved) ranks with 50+, one from 25-50.
+select pg_temp.rep(1, pg_temp.bar('Rank cant see'), pg_temp.ago(20), p_line => 5);
+select pg_temp.rep(2, pg_temp.bar('Rank cant see'), pg_temp.ago(15), p_line => 5);
+select pg_temp.rep(3, pg_temp.bar('Rank cant see'), pg_temp.ago(5), p_line => 3);
+select is(pg_temp.sig(pg_temp.bar('Rank cant see'), 'line_size', pg_temp.ago(0)) ->> 'code', '3',
+  'can''t see the end agrees with 25-50 (one rank apart): the newest wins');
 
 -- Waits: measured and recalled in one signal ------------------------------------------------
 
@@ -241,6 +288,8 @@ select is(pg_temp.sig(pg_temp.bar('Wait aging'), 'wait', pg_temp.ago(0)) ->> 'fr
   'a measured wait ages from its end, not its start');
 select is(pg_temp.sig(pg_temp.bar('Wait aging'), 'wait', pg_temp.ago(0)) ->> 'code', '5', '110 minutes is range code 5 (60+)');
 select is(pg_temp.est(pg_temp.bar('Wait aging'), pg_temp.ago(0)) ->> 'people', '1', 'a finished wait counts as a person');
+select is(pg_temp.est(pg_temp.bar('Wait aging'), pg_temp.ago(0)) ->> 'display', 'estimate',
+  'a wait alone is enough for an estimate');
 
 select pg_temp.measured(1, pg_temp.bar('Wait expired'), pg_temp.ago(80), pg_temp.ago(61));
 select is(pg_temp.sig(pg_temp.bar('Wait expired'), 'wait', pg_temp.ago(0)), null::jsonb,
@@ -291,6 +340,14 @@ select isnt(pg_temp.est(pg_temp.bar('Test bar'), pg_temp.ago(0), true), null::js
 select is(pg_temp.est(pg_temp.bar('Empty'), pg_temp.ago(0)) ->> 'display', 'not_enough_data',
   'no reports: not enough data');
 
+-- A crowd answer alone (older rows) is not an estimate: display needs a line
+-- size or a wait (logic version 4).
+select pg_temp.rep(1, pg_temp.bar('Crowd only'), pg_temp.ago(5), p_busy => 3);
+select is(pg_temp.est(pg_temp.bar('Crowd only'), pg_temp.ago(0)) ->> 'display', 'not_enough_data',
+  'only a crowd answer: not enough data');
+select is(pg_temp.est(pg_temp.bar('Crowd only'), pg_temp.ago(0)) -> 'busyness', 'null'::jsonb,
+  'only a crowd answer: busyness is still null');
+
 -- Saturday 2:30 a.m., after Friday night: was "Closed" before logic version 3.
 -- Now a fresh report shows like at any other hour.
 select pg_temp.rep(1, pg_temp.bar('After 2 am'), '2026-10-03 02:25 America/New_York', p_line => 2);
@@ -328,13 +385,13 @@ select is(
 
 select is((app.estimates(pg_temp.ago(0), false) ->> 'logic_version')::integer, app.logic_version(),
   'estimates carry the logic version');
-select is((app.estimates('2026-10-05 20:00 America/New_York', false) ->> 'logic_version')::integer, 3,
-  'the estimates response says logic version 3');
-select is(app.logic_version(), 3, 'logic version is 3');
+select is((app.estimates('2026-10-05 20:00 America/New_York', false) ->> 'logic_version')::integer, 4,
+  'the estimates response says logic version 4');
+select is(app.logic_version(), 4, 'logic version is 4');
 select is(app.estimates(pg_temp.ago(0), false) ->> 'window_state', 'live', 'Friday 11 p.m. is live');
 select is((app.estimates(pg_temp.ago(0), false) ->> 'generated_at')::timestamptz, pg_temp.ago(0), 'generated_at is the time asked for');
-select is(jsonb_array_length(app.estimates(pg_temp.ago(0), false) -> 'bars'), 27,
-  'every active non-test bar is listed (3 starting bars + 24 test scenarios)');
+select is(jsonb_array_length(app.estimates(pg_temp.ago(0), false) -> 'bars'), 32,
+  'every active non-test bar is listed (3 starting bars + 29 test scenarios)');
 select is(app.estimates(pg_temp.ago(0), false) -> 'bars' -> 0 ->> 'bar_id',
   (select b.id::text from app.bars b where b.name = 'Doggie''s Pub'),
   'bars are listed in display order');

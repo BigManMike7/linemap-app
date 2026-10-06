@@ -9,13 +9,15 @@
 -- after the night (Oct 6, 16:00 UTC). public.bar_history uses now(), so its
 -- checks are relative to tonight. Each scenario has its own bar; rows are
 -- inserted straight into the app tables, as in estimates_test.sql, or through
--- the API with past phone times.
+-- the API with past phone times. Since logic version 4 busyness is never
+-- shown (always null), though an older row that has one still counts as a
+-- person.
 
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(115);
+select plan(116);
 
 -- Helpers ----------------------------------------------------------------------------
 
@@ -116,7 +118,7 @@ select pg_temp.new_bar('History closed bar', p_active => false);
 --   23:05-23:30 EDT  person 2: a 25-minute measured wait (code 3)
 --                                                           -> the 23:30 point (03:30 UTC)
 --   00:25 EDT  person 3: a reported wait range, code 2      -> the 00:15 point (04:15 UTC)
---   00:40 EDT  person 4: busyness 4                         -> the 00:30 point (04:30 UTC)
+--   00:40 EDT  person 4: busyness 4 (an older row)          -> the 00:30 point (04:30 UTC)
 --   01:00 EDT  person 5: line size 4, a test row            -> the 01:00 point (05:00 UTC)
 
 select pg_temp.rep(1, pg_temp.bar('History bar'), '2026-10-03 02:02:00+00', p_line => 2);
@@ -147,7 +149,7 @@ select is(
   (select array_agg(k order by k) from hist, jsonb_object_keys(hist.j) as k),
   array['bar_id', 'end', 'logic_version', 'night', 'nights', 'points', 'start', 'tonight'],
   'the history has exactly the contract''s keys');
-select is((select (j ->> 'logic_version')::integer from hist), 3, 'it carries the logic version');
+select is((select (j ->> 'logic_version')::integer from hist), 4, 'it carries the logic version');
 select is((select (j ->> 'bar_id')::bigint from hist), pg_temp.bar('History bar'), 'it names the bar');
 select is((select j ->> 'night' from hist), '2026-10-02', 'night is the date asked for, as YYYY-MM-DD');
 select is((select j ->> 'tonight' from hist), '2026-10-06', 'tonight is the night of the moment asked about');
@@ -210,16 +212,20 @@ select is((select pg_temp.pt(j, '2026-10-03 04:15:00+00') -> 'wait' from hist),
   'a reported wait range at 12:25 a.m. is in the 12:15 a.m. point, with null minutes');
 select is((select pg_temp.pt(j, '2026-10-03 04:15:00+00') ->> 'people' from hist), '1',
   'with its person');
-select is((select pg_temp.pt(j, '2026-10-03 04:30:00+00') -> 'busyness' from hist),
-  '{"code": 4, "freshness": "fresh"}'::jsonb, 'busyness shows its code and freshness');
+select is((select pg_temp.pt(j, '2026-10-03 04:30:00+00') -> 'busyness' from hist), 'null'::jsonb,
+  'busyness is never shown, even from an older row that has one (logic version 4)');
+select is(
+  (select count(*) from hist, jsonb_array_elements(hist.j -> 'points') as p
+   where p -> 'busyness' <> 'null'::jsonb),
+  0::bigint, 'every point''s busyness is null');
 select is((select pg_temp.pt(j, '2026-10-03 04:30:00+00') ->> 'people' from hist), '1',
   'people counts only the people in that quarter hour, not the one 15 minutes earlier');
 
 -- Edges of a quarter hour: 10:37 p.m., 10:44:59 p.m., and exactly 10:45:00 p.m. EDT.
 
 select pg_temp.rep(11, pg_temp.bar('History edges bar'), '2026-10-03 02:37:00+00', p_line => 1);
-select pg_temp.rep(12, pg_temp.bar('History edges bar'), '2026-10-03 02:45:00+00', p_busy => 2);
-select pg_temp.rep(13, pg_temp.bar('History edges bar'), '2026-10-03 02:44:59+00', p_busy => 3);
+select pg_temp.rep(12, pg_temp.bar('History edges bar'), '2026-10-03 02:45:00+00', p_wait => 2);
+select pg_temp.rep(13, pg_temp.bar('History edges bar'), '2026-10-03 02:44:59+00', p_wait => 3);
 
 create temp table ehist as
 select pg_temp.h(pg_temp.bar('History edges bar'), '2026-10-02') as j;
@@ -230,9 +236,9 @@ select is(
   (select count(*) from ehist, jsonb_array_elements(ehist.j -> 'points') as p
    where jsonb_typeof(p -> 'line_size') = 'object'),
   1::bigint, 'and in no other point');
-select is((select pg_temp.pt(j, '2026-10-03 02:45:00+00') -> 'busyness' ->> 'code' from ehist), '2',
+select is((select pg_temp.pt(j, '2026-10-03 02:45:00+00') -> 'wait' ->> 'code' from ehist), '2',
   'a report at exactly 10:45:00 p.m. is in the 10:45 p.m. point');
-select is((select pg_temp.pt(j, '2026-10-03 02:30:00+00') -> 'busyness' ->> 'code' from ehist), '3',
+select is((select pg_temp.pt(j, '2026-10-03 02:30:00+00') -> 'wait' ->> 'code' from ehist), '3',
   'not in the 10:30 p.m. point, which shows the 10:44:59 p.m. report instead');
 select is((select pg_temp.pt(j, '2026-10-03 02:30:00+00') ->> 'people' from ehist), '2',
   'two people in one quarter hour: people is 2');
@@ -326,7 +332,7 @@ select public.report_conditions(
          p_client_report_id => pg_temp.uid(3001), p_anon_id => pg_temp.uid(30), p_install_id => pg_temp.uid(530),
          p_bar_id => pg_temp.bar('History replaced bar'), p_phone_time => '2026-10-03 02:00:00+00',
          p_location_status => 'denied', p_app_version => '1.0', p_definitions_version => 1::smallint,
-         p_busyness => 4::smallint, p_busyness_state => 'answered') as a,
+         p_line_size => 3::smallint, p_line_size_state => 'answered') as a,
        null::jsonb as b, null::jsonb as c, null::jsonb as d, null::jsonb as e, null::jsonb as f,
        null::jsonb as g, null::jsonb as h, null::jsonb as i;
 
@@ -334,7 +340,7 @@ update api_calls set b = public.report_conditions(
   p_client_report_id => pg_temp.uid(3002), p_anon_id => pg_temp.uid(30), p_install_id => pg_temp.uid(530),
   p_bar_id => pg_temp.bar('History replaced bar'), p_phone_time => '2026-10-03 02:03:00+00',
   p_location_status => 'denied', p_app_version => '1.0', p_definitions_version => 1::smallint,
-  p_busyness => 1::smallint, p_busyness_state => 'answered');
+  p_line_size => 1::smallint, p_line_size_state => 'answered');
 update api_calls set c = public.start_session(
   p_client_session_id => pg_temp.uid(3101), p_client_report_id => pg_temp.uid(3102),
   p_anon_id => pg_temp.uid(31), p_install_id => pg_temp.uid(531),
@@ -365,13 +371,13 @@ select pg_temp.h(pg_temp.bar('History replaced bar'), '2026-10-02') as j;
 select is((select b ->> 'ok' from api_calls), 'true', 'the second Report conditions redoes the first');
 select is((select f ->> 'measured_wait_seconds' from api_calls), '1680', 'the redone timer measures 28 minutes');
 select is((select h ->> 'removed' from api_calls), 'true', 'the mistaken line is cancelled');
-select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') -> 'busyness' ->> 'code' from rhist), '1',
+select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') -> 'line_size' ->> 'code' from rhist), '1',
   'in their quarter hour, only the Report conditions that replaced the first one shows');
 select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') ->> 'people' from rhist), '1',
   'and the person counts once');
 select is(
-  (select count(*) from rhist, jsonb_array_elements(rhist.j -> 'points') p where p -> 'busyness' ->> 'code' = '4'),
-  0::bigint, 'no point shows the replaced busyness');
+  (select count(*) from rhist, jsonb_array_elements(rhist.j -> 'points') p where p -> 'line_size' ->> 'code' = '3'),
+  0::bigint, 'no point shows the replaced line size');
 select is((select pg_temp.pt(j, '2026-10-03 01:15:00+00') -> 'wait' from rhist), 'null'::jsonb,
   'a replaced timer''s wait is gone from the quarter hour it ended in');
 select is((select pg_temp.pt(j, '2026-10-03 01:45:00+00') -> 'wait' from rhist),
