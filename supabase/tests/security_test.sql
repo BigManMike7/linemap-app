@@ -200,7 +200,7 @@ select throws_ok('select app.expire_rate_limit_holds()', '42501', null, 'anon ca
 select lives_ok('select public.get_bars()', 'anon can call get_bars');
 select is(jsonb_array_length(public.get_bars()), 3, 'anon sees the 3 starting bars');
 select lives_ok('select public.get_estimates()', 'anon can call get_estimates');
-select is((public.get_estimates() ->> 'logic_version')::integer, 2, 'get_estimates carries the logic version (FR-21)');
+select is((public.get_estimates() ->> 'logic_version')::integer, 3, 'get_estimates carries the logic version (FR-21)');
 select lives_ok(
   $$select public.register_install('5ec00000-0000-4000-8000-000000000001',
                                    '5ec00000-0000-4000-8000-000000000002',
@@ -232,7 +232,7 @@ select is(
   '{"ok": true, "reopened": false, "removed": true}'::jsonb,
   'anon can call reopen_session');
 select is(
-  (public.bar_history(p_bar_id => (public.get_bars() -> 0 ->> 'id')::bigint) ->> 'logic_version')::integer, 2,
+  (public.bar_history(p_bar_id => (public.get_bars() -> 0 ->> 'id')::bigint) ->> 'logic_version')::integer, 3,
   'anon can call bar_history');
 
 reset role;

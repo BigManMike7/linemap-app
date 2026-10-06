@@ -2,8 +2,9 @@
 --
 -- Each scenario gets its own bar, and rows are inserted straight into the app
 -- tables, so the rules are tested through app.pick_signal, app.bar_estimate,
--- and app.estimates at fixed times. T is Friday Oct 2, 2026, 11 p.m. Eastern
--- (inside the active window).
+-- and app.estimates at fixed times. T is Friday Oct 2, 2026, 11 p.m. Eastern.
+-- Since logic version 3 there is no active window: the same rules apply at
+-- every hour.
 
 begin;
 create extension if not exists pgtap with schema extensions;
@@ -87,7 +88,7 @@ select pg_temp.new_bar(n) from unnest(array[
   'Fresh', 'People', 'Newest', 'One other', 'One far', 'Same person', 'Majority', 'Within one',
   'Two apart', 'Stale others', 'Busyness', 'Wait mix', 'Wait aging', 'Wait expired',
   'Rounding', 'Tie same person', 'Tie two people', 'Hidden', 'Test rows', 'Empty',
-  'Closed', 'Outside empty', 'Outside stale', 'Outside fresh']) as n;
+  'After 2 am', 'Weekday empty', 'Weekday stale', 'Weekday fresh']) as n;
 select pg_temp.new_bar('Test bar', true);
 
 -- Freshness boundaries (FR-17) -----------------------------------------------------------
@@ -113,10 +114,10 @@ select is(pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(30)) ->> 'freshness', 'f
 select is(pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(30)) ->> 'people', '1', 'fresh: one person');
 select is((pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(30)) ->> 'latest_at')::timestamptz, pg_temp.ago(60),
   'latest_at is the newest report time');
-select is(pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(15)) ->> 'display', 'estimate', 'stale during the window: display is still estimate');
+select is(pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(15)) ->> 'display', 'estimate', 'stale: display is still estimate');
 select is(pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(15)) ->> 'freshness', 'stale', 'stale: bar freshness is stale');
 select is(pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(15)) -> 'line_size' ->> 'freshness', 'stale', 'stale: the line size is grayed out');
-select is(pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(-1)) ->> 'display', 'not_enough_data', 'over 60 minutes during the window: not enough data');
+select is(pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(-1)) ->> 'display', 'not_enough_data', 'over 60 minutes: not enough data');
 select is(pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(-1)) ->> 'freshness', 'none', 'over 60 minutes: freshness none');
 select is(pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(-1)) ->> 'people', '0', 'over 60 minutes: zero people');
 select is(pg_temp.est(pg_temp.bar('Fresh'), pg_temp.ago(-1)) ->> 'line_size', null::text, 'over 60 minutes: no line size');
@@ -288,46 +289,48 @@ select isnt(pg_temp.est(pg_temp.bar('Test bar'), pg_temp.ago(0), true), null::js
 -- Display states -------------------------------------------------------------------------
 
 select is(pg_temp.est(pg_temp.bar('Empty'), pg_temp.ago(0)) ->> 'display', 'not_enough_data',
-  'live with no reports: not enough data');
+  'no reports: not enough data');
 
--- Saturday 2:30 a.m., after Friday night: closed even with a fresh report.
-select pg_temp.rep(1, pg_temp.bar('Closed'), '2026-10-03 02:25 America/New_York', p_line => 2);
-select is(app.estimates('2026-10-03 02:30 America/New_York', false) ->> 'window_state', 'closed', 'Saturday 2:30 a.m. is closed');
-select is(pg_temp.est(pg_temp.bar('Closed'), '2026-10-03 02:30 America/New_York') ->> 'freshness', 'fresh',
-  'the closed bar''s report is fresh');
-select is(pg_temp.est(pg_temp.bar('Closed'), '2026-10-03 02:30 America/New_York') ->> 'display', 'closed',
-  'closed hours show closed, even with a fresh report');
+-- Saturday 2:30 a.m., after Friday night: was "Closed" before logic version 3.
+-- Now a fresh report shows like at any other hour.
+select pg_temp.rep(1, pg_temp.bar('After 2 am'), '2026-10-03 02:25 America/New_York', p_line => 2);
+select is(app.estimates('2026-10-03 02:30 America/New_York', false) ->> 'window_state', 'live',
+  'Saturday 2:30 a.m. is live (window_state is always live)');
+select is(pg_temp.est(pg_temp.bar('After 2 am'), '2026-10-03 02:30 America/New_York') ->> 'freshness', 'fresh',
+  'the 2:25 a.m. report is fresh at 2:30 a.m.');
+select is(pg_temp.est(pg_temp.bar('After 2 am'), '2026-10-03 02:30 America/New_York') ->> 'display', 'estimate',
+  'no more closed: a fresh report at 2:30 a.m. after a Friday night shows');
 
--- Monday 8 p.m. is outside hours. Since logic version 2, display follows the
--- live rule at every hour: anything within 60 minutes shows, stale grayed out.
-select pg_temp.rep(1, pg_temp.bar('Outside stale'), '2026-10-05 19:15 America/New_York', p_line => 2);
-select pg_temp.rep(1, pg_temp.bar('Outside fresh'), '2026-10-05 19:50 America/New_York', p_line => 2);
-select is(app.estimates('2026-10-05 20:00 America/New_York', false) ->> 'window_state', 'outside_hours',
-  'Monday 8 p.m. is outside hours (window_state is unchanged for older builds)');
-select is(pg_temp.est(pg_temp.bar('Outside empty'), '2026-10-05 20:00 America/New_York') ->> 'display', 'not_enough_data',
-  'outside hours with no reports: not enough data');
-select is(pg_temp.est(pg_temp.bar('Outside stale'), '2026-10-05 20:00 America/New_York') ->> 'display', 'estimate',
-  'outside hours with a 45-minute-old report: estimate');
-select is(pg_temp.est(pg_temp.bar('Outside stale'), '2026-10-05 20:00 America/New_York') ->> 'freshness', 'stale',
-  'outside hours with a 45-minute-old report: bar freshness is stale');
-select is(pg_temp.est(pg_temp.bar('Outside stale'), '2026-10-05 20:00 America/New_York') -> 'line_size' ->> 'freshness', 'stale',
-  'outside hours with a 45-minute-old report: the line size is grayed out');
-select is(pg_temp.est(pg_temp.bar('Outside stale'), '2026-10-05 20:16 America/New_York') ->> 'display', 'not_enough_data',
-  'outside hours with only a 61-minute-old report: not enough data');
-select is(pg_temp.est(pg_temp.bar('Outside fresh'), '2026-10-05 20:00 America/New_York') ->> 'display', 'estimate',
-  'outside hours with a fresh report: estimate');
+-- Monday 8 p.m. used to be outside hours. The live rule applies at every hour:
+-- anything within 60 minutes shows, stale grayed out.
+select pg_temp.rep(1, pg_temp.bar('Weekday stale'), '2026-10-05 19:15 America/New_York', p_line => 2);
+select pg_temp.rep(1, pg_temp.bar('Weekday fresh'), '2026-10-05 19:50 America/New_York', p_line => 2);
+select is(app.estimates('2026-10-05 20:00 America/New_York', false) ->> 'window_state', 'live',
+  'Monday 8 p.m. is live (window_state is always live)');
+select is(pg_temp.est(pg_temp.bar('Weekday empty'), '2026-10-05 20:00 America/New_York') ->> 'display', 'not_enough_data',
+  'Monday 8 p.m. with no reports: not enough data');
+select is(pg_temp.est(pg_temp.bar('Weekday stale'), '2026-10-05 20:00 America/New_York') ->> 'display', 'estimate',
+  'Monday 8 p.m. with a 45-minute-old report: estimate');
+select is(pg_temp.est(pg_temp.bar('Weekday stale'), '2026-10-05 20:00 America/New_York') ->> 'freshness', 'stale',
+  'Monday 8 p.m. with a 45-minute-old report: bar freshness is stale');
+select is(pg_temp.est(pg_temp.bar('Weekday stale'), '2026-10-05 20:00 America/New_York') -> 'line_size' ->> 'freshness', 'stale',
+  'Monday 8 p.m. with a 45-minute-old report: the line size is grayed out');
+select is(pg_temp.est(pg_temp.bar('Weekday stale'), '2026-10-05 20:16 America/New_York') ->> 'display', 'not_enough_data',
+  'Monday 8:16 p.m. with only a 61-minute-old report: not enough data');
+select is(pg_temp.est(pg_temp.bar('Weekday fresh'), '2026-10-05 20:00 America/New_York') ->> 'display', 'estimate',
+  'Monday 8 p.m. with a fresh report: estimate');
 select is(
   (select count(*) from jsonb_array_elements(app.estimates('2026-10-05 20:00 America/New_York', false) -> 'bars') as e
-   where e ->> 'display' = 'outside_hours'),
-  0::bigint, 'outside_hours is no longer a display value');
+   where e ->> 'display' not in ('estimate', 'not_enough_data')),
+  0::bigint, 'display is only ever estimate or not_enough_data (no closed, no outside_hours)');
 
 -- Response shape (FR-21) ----------------------------------------------------------------
 
 select is((app.estimates(pg_temp.ago(0), false) ->> 'logic_version')::integer, app.logic_version(),
   'estimates carry the logic version');
-select is((app.estimates('2026-10-05 20:00 America/New_York', false) ->> 'logic_version')::integer, 2,
-  'the estimates response says logic version 2');
-select is(app.logic_version(), 2, 'logic version is 2');
+select is((app.estimates('2026-10-05 20:00 America/New_York', false) ->> 'logic_version')::integer, 3,
+  'the estimates response says logic version 3');
+select is(app.logic_version(), 3, 'logic version is 3');
 select is(app.estimates(pg_temp.ago(0), false) ->> 'window_state', 'live', 'Friday 11 p.m. is live');
 select is((app.estimates(pg_temp.ago(0), false) ->> 'generated_at')::timestamptz, pg_temp.ago(0), 'generated_at is the time asked for');
 select is(jsonb_array_length(app.estimates(pg_temp.ago(0), false) -> 'bars'), 27,

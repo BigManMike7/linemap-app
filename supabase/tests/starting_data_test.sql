@@ -29,10 +29,10 @@ select is(
 
 select is(
   (select array_agg(k order by k) from unnest(array[
-     'active_nights', 'active_window_end', 'active_window_start', 'agree_within',
-     'fresh_minutes', 'majority_min_others', 'night_boundary_hour', 'rate_limit_minutes',
-     'retention_days', 'session_timeout_minutes', 'stale_minutes', 'test_anon_ids',
-     'uncertain_accuracy_m', 'uncertain_distance_m', 'uncertain_fix_age_s']) as k
+     'agree_within', 'fresh_minutes', 'majority_min_others', 'night_boundary_hour',
+     'rate_limit_minutes', 'redo_minutes', 'retention_days', 'session_timeout_minutes',
+     'stale_minutes', 'test_anon_ids', 'uncertain_accuracy_m', 'uncertain_distance_m',
+     'uncertain_fix_age_s']) as k
    where not exists (select 1 from app.config c where c.key = k)),
   null::text[],
   'every setting the functions read exists');
@@ -45,7 +45,9 @@ select is(app.setting_int('rate_limit_minutes'), 10, 'one report per bar per 10 
 select is(app.setting_int('session_timeout_minutes'), 90, 'sessions time out after 90 minutes (FR-10)');
 select is(app.setting_int('night_boundary_hour'), 4, 'nights end at 4 a.m. (FR-22)');
 select is(app.setting_int('retention_days'), 365, 'ID-linked data is kept for 1 year (FR-33)');
-select is(app.setting('active_nights'), '[4, 5, 6]'::jsonb, 'active nights are Thursday to Saturday');
+select is(
+  (select count(*) from app.config c where c.key in ('active_nights', 'active_window_start', 'active_window_end')),
+  0::bigint, 'the active-window settings are gone (PRD 5.4, since 2026-10-06)');
 select is(app.setting('test_anon_ids'), '[]'::jsonb, 'no test IDs at launch');
 
 select is(

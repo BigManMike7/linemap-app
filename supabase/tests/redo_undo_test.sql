@@ -85,7 +85,7 @@ $$ select m.n from pg_temp.marks m where m.name = p_name $$;
 -- The Undo test bar's live estimate now.
 create function pg_temp.est() returns jsonb
 language sql stable as
-$$ select app.bar_estimate(pg_temp.ubar(), now(), false, 'live') $$;
+$$ select app.bar_estimate(pg_temp.ubar(), now(), false) $$;
 
 -- Person n uses anon ID uid(n) and install ID uid(n + 500).
 

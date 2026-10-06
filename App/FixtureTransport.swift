@@ -65,15 +65,14 @@ nonisolated struct FixtureTransport: RPCTransport {
     /// Every night is a football Saturday: a few reports in the afternoon,
     /// nothing until after 9 p.m., then a line and wait that build to a peak
     /// near midnight and ease off, with one contradiction at 1:15 a.m.; the
-    /// crowd drops out for a stretch. Points
-    /// every 15 minutes from 4 a.m., like the server.
+    /// crowd drops out for a stretch. Points every 15 minutes from 4 a.m., each
+    /// covering its own quarter hour, like the server (logic version 3).
     private static func history(night: String?) -> String {
         let eastern = TimeZone(identifier: "America/New_York") ?? .current
         let tonight = NightDate(nightOf: Date(), timeZone: eastern)
         let shown = night.flatMap { NightDate($0) } ?? tonight
-        // 4 a.m. Eastern daylight time is 08:00 UTC; 9 p.m. is 17 hours later.
+        // 4 a.m. Eastern daylight time is 08:00 UTC.
         let dayStart = ServerDate.parse("\(shown)T08:00:00Z") ?? Date()
-        let start = dayStart.addingTimeInterval(17 * 3600)
         var points: [String] = []
         for index in 0..<96 {
             let at = ServerDate.format(dayStart.addingTimeInterval(Double(index) * 900))
@@ -88,20 +87,19 @@ nonisolated struct FixtureTransport: RPCTransport {
             let line = contradiction ? 4 : min(4, max(0, Int((peak * 4).rounded())))
             let minutes = contradiction ? 2 : max(2, Int(peak * 40))
             let wait = minutes < 5 ? 1 : minutes < 15 ? 2 : minutes < 30 ? 3 : 4
-            let stale = index % 4 == 3 ? "stale" : "fresh"
             let crowd = (82...83).contains(index) ? "null"
-                : #"{"code": \#(min(4, line + 1)), "freshness": "\#(stale)"}"#
+                : #"{"code": \#(min(4, line + 1)), "freshness": "fresh"}"#
             points.append(#"""
                 {"at": "\#(at)", "people": \#(1 + line), \#
-                "line_size": {"code": \#(line), "freshness": "\#(stale)"}, \#
-                "wait": {"code": \#(wait), "minutes": \#(minutes), "freshness": "\#(stale)"}, \#
+                "line_size": {"code": \#(line), "freshness": "fresh"}, \#
+                "wait": {"code": \#(wait), "minutes": \#(minutes), "freshness": "fresh"}, \#
                 "busyness": \#(crowd)}
                 """#)
         }
         return """
-            {"logic_version": 1, "bar_id": 1, "night": "\(shown)", "tonight": "\(tonight)",
-             "start": "\(ServerDate.format(start))",
-             "end": "\(ServerDate.format(start.addingTimeInterval(5 * 3600)))",
+            {"logic_version": 3, "bar_id": 1, "night": "\(shown)", "tonight": "\(tonight)",
+             "start": "\(ServerDate.format(dayStart))",
+             "end": "\(ServerDate.format(dayStart.addingTimeInterval(24 * 3600)))",
              "nights": ["2026-10-02", "2026-09-26", "2026-09-25"],
              "points": [\(points.joined(separator: ","))]}
             """

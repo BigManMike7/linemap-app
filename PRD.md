@@ -30,7 +30,6 @@ This file is the full product spec. `CLAUDE.md` holds the working rules and poin
 
 | Metric | Target |
 | --- | --- |
-| Coverage: share of bar × half-hour slots in the active window with a fresh report | 40% |
 | Unique reporters per week | 15 |
 | Users who come back the following week | 30% |
 | Line size and wait within one range of a spot check | 70% |
@@ -64,7 +63,7 @@ This file is the full product spec. `CLAUDE.md` holds the working rules and poin
 | In v1 | Later (Phase 2) | Out of scope for the beta |
 | --- | --- | --- |
 | Map with bar pins, and bar sheet | Live Activity lock-screen timer | Averages and predictions |
-| Report flow with timed waits | Event nights in the active window | Machine learning |
+| Report flow with timed waits | Event nights | Machine learning |
 | Live estimates with freshness | More bars (up to 5–8) | Geofencing and passive detection |
 | Location check on reports | Threshold tuning from data | Notifications and alerts |
 | Anonymous ID, Delete my data | App Attest, if spam appears | Cover charge, specials, partnerships |
@@ -85,13 +84,13 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 | ID | Requirement |
 | --- | --- |
 | FR-1 | **Map home screen.** The app opens straight to an Apple Map (MapKit, no API key needed), centered on downtown State College and framing every active bar. Each bar is a pin labeled with its name and line time, e.g. "The Phyrst · 25 min". The Map is one of three tabs (FR-44); the Bars tab lists the same bars (FR-45). The map shows the user's location dot only if location permission was already granted. It never asks for permission on launch. |
-| FR-2 | **Pin labels.** Line time is the bar's current wait estimate (FR-17 to FR-19): either the last measured wait ("25 min") or a reported range ("15–30 min"). If there's no wait estimate but there is a fresh line size, the label shows the line size ("~10–25 in line"). Otherwise it shows "No live reports" or "Closed". Labels based on reports 30–60 minutes old are grayed out. **Pin colors** (2026-10-05) show how hard the bar is to get into, from the same wait or line size the label shows: green with a check for a short line (a wait under 10 minutes, or 0 or 1–10 in line), orange with a clock for some line (10–25 minutes, or 10–25 in line), red with an exclamation mark for a long line (25 minutes or more, or 25 or more in line). A reported wait range counts by its midpoint (under 5 is short, 5–15 and 15–30 are some, 30–60 and 60+ are long). The crowd never changes the color. **Uncertain** (2026-10-05): when the wait and the line size contradict, one short and the other long (such as a 0-minute timer next to 50+ in line), the pin reads "Uncertain" with a gray question mark, and the app doesn't pick one; the bar sheet shows both so people can decide. One level apart (such as a 5–15 min wait and 50+ in line) is not a contradiction, and the wait shows. An Uncertain pin counts as older only when both the wait and the line size are. Uncertain bars sort after bars with only a line size (FR-45), and an Uncertain quarter hour in History gets a gray dot (FR-43). Pins from reports 30–60 minutes old are outlined instead of filled; no live reports and closed are gray. The cutoffs live in the app, since they only color what's shown. |
+| FR-2 | **Pin labels.** Line time is the bar's current wait estimate (FR-17 to FR-19): either the last measured wait ("25 min") or a reported range ("15–30 min"). If there's no wait estimate but there is a fresh line size, the label shows the line size ("~10–25 in line"). Otherwise it shows "No live reports". Labels based on reports 30–60 minutes old are grayed out. **Pin colors** (2026-10-05) show how hard the bar is to get into, from the same wait or line size the label shows: green with a check for a short line (a wait under 10 minutes, or 0 or 1–10 in line), orange with a clock for some line (10–25 minutes, or 10–25 in line), red with an exclamation mark for a long line (25 minutes or more, or 25 or more in line). A reported wait range counts by its midpoint (under 5 is short, 5–15 and 15–30 are some, 30–60 and 60+ are long). The crowd never changes the color. **Uncertain** (2026-10-05): when the wait and the line size contradict, one short and the other long (such as a 0-minute timer next to 50+ in line), the pin reads "Uncertain" with a gray question mark, and the app doesn't pick one; the bar sheet shows both so people can decide. One level apart (such as a 5–15 min wait and 50+ in line) is not a contradiction, and the wait shows. An Uncertain pin counts as older only when both the wait and the line size are. Uncertain bars sort after bars with only a line size (FR-45), and an Uncertain quarter hour in History gets a gray dot (FR-43). Pins from reports 30–60 minutes old are outlined instead of filled; no live reports is gray. The cutoffs live in the app, since they only color what's shown. |
 | FR-3 | **Bar sheet.** Tapping a pin opens a bottom sheet over the map. It shows: the bar's name (no address); line size now; the wait (a measured wait like "25 min, got in 10 min ago", or a reported range), which matches the pin unless the pin reads Uncertain; busyness; freshness as "N people · latest X min ago"; a pill with the line level from FR-2 ("Short line", "Some line", or "Long line" in its color, or a gray "Uncertain" when the wait and line size contradict, so both rows above it are there to compare); a **Does this look wrong?** link that asks to confirm before sending (FR-35); and **Start line timer** and **Report conditions** buttons. While the person is in line at that bar, Report conditions is replaced by **I'm in**. It also has **Directions** (FR-40). History opens from the Bars list instead (FR-43, FR-45; moved 2026-10-05). No trend arrows in v1. |
 | FR-4 | **Wait card.** While a wait session is open, a card floats over the map every time the app opens. It shows the running timer, a large **I'm in**, then **Line size** and **Adjust time**, plus a large ✕ that stops the timer: it asks whether the person gave up (FR-9) or started the line by mistake (FR-39). No Directions: the person is already there. Tapping the timer opens that bar's sheet. The card shows on the Map and Bars tabs, just above the tab bar, and is hidden on the Settings tab; the timer keeps running there. |
 | FR-5 | **Settings.** The third tab (FR-44); there is no gear button on the map (2026-10-05; it was a gear button and sheet before). Contains **Made a wrong report?** (FR-41), Delete my data, links to the privacy policy and support page, and the contact email. |
 | FR-40 | **Directions.** A Directions button on the bar sheet (not the wait card) opens Apple Maps with walking directions to the bar's door pin. It needs no location permission. |
 | FR-44 | **Tab bar.** Three tabs along the bottom, each an icon with a short label: **Map**, **Bars**, and **Settings**. After a full close (or when iOS ends the app in the background) the app opens on Map. Going to the home screen and back returns to the tab and screen the person left, which is the iOS default. |
-| FR-45 | **Bars list.** One simple card per active bar, showing what the pins and bar sheet show: name, line size, wait, busyness, and "N people · latest X min ago", grayed out when stale. Each card with a line level (FR-2) shows it as a colored pill by the name and a colored strip down its left edge, faded when stale. Order: fresh estimates first, then grayed-out ones; within each, bars with a wait (shortest first), then bars with only a line size (smallest first), then Uncertain bars (FR-2), then bars with only a crowd answer. Bars showing No live reports or Closed come last, in dashboard order (`display_order`). The list re-sorts when new data arrives. Tapping a card switches to the Map tab, centers on that bar, and opens its bar sheet (FR-3). Each card also has its own **History** button (FR-43; named History & details until it lost Right now on 2026-10-05). Cards have no report buttons. |
+| FR-45 | **Bars list.** One simple card per active bar, showing what the pins and bar sheet show: name, line size, wait, busyness, and "N people · latest X min ago", grayed out when stale. Each card with a line level (FR-2) shows it as a colored pill by the name and a colored strip down its left edge, faded when stale. Order: fresh estimates first, then grayed-out ones; within each, bars with a wait (shortest first), then bars with only a line size (smallest first), then Uncertain bars (FR-2), then bars with only a crowd answer. Bars showing No live reports come last, in dashboard order (`display_order`). The list re-sorts when new data arrives. Tapping a card switches to the Map tab, centers on that bar, and opens its bar sheet (FR-3). Each card also has its own **History** button (FR-43; named History & details until it lost Right now on 2026-10-05). Cards have no report buttons. |
 
 ### 5.2 Reporting
 
@@ -122,21 +121,16 @@ All v1 requirements must be done before launch. Every threshold named here is a 
 | FR-19 | **Shown value.** For each signal separately (line size, wait, busyness), the newest report wins. The exception: if it disagrees with 2 or more fresh reports from other people, the majority wins. "Agree" means within one range. |
 | FR-20 | **Uncertain reports** count like any other in v1. |
 | FR-21 | **Server logic.** Estimates are computed by SQL functions on the server. Each response carries a logic version. |
-| FR-43 | **History (M4).** Each card in the Bars list (FR-45) has a **History** button that opens a full-screen page for the bar, with the history in one card: Apple's standard calendar, opening on tonight and going back one year (the retention limit). A date means that night's whole day, from 4 a.m. to 4 a.m. Eastern (the night boundary, FR-22), so Saturday, Oct 3 runs from 4 a.m. Saturday to 4 a.m. Sunday and includes a football afternoon; after midnight the calendar still opens on the night in progress. The server computes the bar's estimate every 15 minutes through that day. Under the calendar, the night shows as a "Busiest around 11:30 PM" line, and one row per quarter hour from 9:00 p.m. to 1:45 a.m., stretched earlier or later to cover every quarter hour with reports. Each row has a dot in its line-level color (FR-2), the line size, wait, busyness, and how many people reported. Rows built from reports 30–60 minutes old look like any other row, since everything in History is in the past. A single quarter hour with nothing reads "No reports" with an empty ring; two or more in a row become one row such as "No reports, 3:15 PM – 8:45 PM". A night with no reports says so. Tonight shows rows only up to now. (2026-10-06: the night heading such as "Saturday night, Oct 3" was removed, since the calendar shows the date, and older rows are no longer grayed. 2026-10-05: Right now was removed, since the bar sheet and Bars card already show it; History covered only 9 p.m. to 2 a.m. in half hours before then.) History is computed from the reports with the same estimate rules as of each moment, so deleted (FR-41), replaced (FR-46), and hidden reports never appear. It shows only combined estimates, never individual reports. (Decided 2026-10-05: the first build had a night menu, a Same night last week shortcut, and charts, opened from the bar sheet.) |
+| FR-43 | **History (M4).** Each card in the Bars list (FR-45) has a **History** button that opens a full-screen page for the bar, with the history in one card: Apple's standard calendar, opening on tonight and going back one year (the retention limit). A date means that night's whole day, from 4 a.m. to 4 a.m. Eastern (the night boundary, FR-22), so Saturday, Oct 3 runs from 4 a.m. Saturday to 4 a.m. Sunday and includes a football afternoon; after midnight the calendar still opens on the night in progress. Under the calendar, the night shows as a "Busiest around 11:30 PM" line and one row for every quarter hour of that day, 4:00 AM to 3:45 AM. Each row covers only its own quarter hour: the 10:30 PM row combines the reports made from 10:30:00 to 10:44:59, so a single report appears in exactly one row and a one-time report looks like one. Within a quarter hour the live rules apply (each person's newest report counts once, the newest wins unless 2 or more others disagree and the majority wins, a timer counts in the quarter hour the person got in). Each row has a dot in its line-level color (FR-2), the line size, wait, busyness, and how many people reported in that quarter hour. A single quarter hour with nothing reads "No reports" with an empty ring; two or more in a row become one row such as "No reports, 4:00 AM – 8:45 PM". A night with no reports says so. Tonight shows rows only up to now, and the current quarter hour fills in as reports arrive. (2026-10-06: rows used to show what the map showed at each mark, so one report filled about four rows for up to an hour; rows ran from 9:00 p.m. to 1:45 a.m. stretched to cover reports; the night heading such as "Saturday night, Oct 3" was removed, since the calendar shows the date, and older rows are no longer grayed. 2026-10-05: Right now was removed, since the bar sheet and Bars card already show it; History covered only 9 p.m. to 2 a.m. in half hours before then.) History is computed from the reports each time it is opened, so deleted (FR-41), replaced (FR-46), and hidden reports never appear. It shows only combined estimates, never individual reports. (Decided 2026-10-05: the first build had a night menu, a Same night last week shortcut, and charts, opened from the bar sheet.) |
 
-### 5.4 Active window
+### 5.4 Any hour
 
-People can report at any time, and any report from the last 60 minutes shows at any time of day (FR-17). The active window, Thu–Sat 9 p.m.–2 a.m., only decides when snapshots are taken (FR-36), History's default rows (FR-43), the coverage metric, and "Closed". (2026-10-06: it used to hide reports older than 30 minutes outside the window. Whether to drop the window entirely is still open.)
-
-| Time (Eastern) | What bars show |
-| --- | --- |
-| 2–4 a.m. after an active night | "Closed" |
-| Any other time | Live estimates, or "No live reports" |
+Bars are open most of the day, so LineMap has no hours. People can report at any time, and every bar shows its live estimate, or "No live reports" with nothing in the last hour (FR-17), at every hour. (2026-10-06: there used to be an active window, Thu–Sat 9 p.m.–2 a.m. Outside it, reports older than 30 minutes were hidden behind "Outside usual hours", bars showed "Closed" from 2 to 4 a.m. after an active night, and snapshots were taken only inside it. Logic version 3 removed it.)
 
 | ID | Requirement |
 | --- | --- |
 | FR-22 | **Night boundary.** A night runs until 4 a.m. Eastern, so 1 a.m. Sunday belongs to Saturday night. Each report stores its night date, set on the server. Daylight-saving changes are handled. |
-| FR-23 | **Event nights.** A server table can extend or override the window for specific dates. It starts empty. |
+| FR-23 | **Event nights.** Unused since 2026-10-06. The empty `event_nights` table is kept for later, but nothing reads it now that there is no active window. |
 
 ### 5.5 Location
 
@@ -165,8 +159,8 @@ People can report at any time, and any report from the last 60 minutes shows at 
 | --- | --- |
 | FR-34 | **Views.** Every view of the map or a bar sheet is logged with the anonymous ID, the estimate shown, the logic version, whether it showed "no data", and an app-open ID. No location. |
 | FR-35 | **Feedback.** "Does this look wrong?" on the bar sheet asks to confirm ("Yes, it looks wrong" or Cancel), so a stray tap sends nothing; only Yes saves the bar, the estimate shown, and the time. (It was a one-tap "This looks wrong" button before 2026-10-05.) |
-| FR-36 | **Snapshots.** Every 5 minutes during the active window, the server saves what each bar would show. |
-| FR-37 | **Admin via the Supabase dashboard.** Add or edit bars; change settings, with every change logged in `config_history`; hide a report with a reason; log spot checks; add event nights. |
+| FR-36 | **Snapshots.** Every 5 minutes, at any hour, the server saves what each bar showed, for bars with a report in the last hour. A bar with no snapshot at a moment was showing "No live reports". (Before 2026-10-06: every bar, during the active window only.) |
+| FR-37 | **Admin via the Supabase dashboard.** Add or edit bars; change settings, with every change logged in `config_history`; hide a report with a reason; log spot checks. |
 | FR-38 | **Test data.** Every row has an `is_test` flag, so the admin's own testing never mixes with real data. |
 
 ## 6. Non-functional requirements
@@ -206,7 +200,7 @@ People can report at any time, and any report from the last 60 minutes shows at 
 **Scheduled jobs**
 
 - **Every 5 minutes:** mark sessions older than 90 minutes as unfinished, and clear rate-limit holds older than 10 minutes.
-- **Every 5 minutes during the active window:** save estimate snapshots.
+- **Every 5 minutes:** save estimate snapshots for bars with a report in the last hour.
 - **Daily:** delete ID-linked data older than 1 year.
 - **Daily (GitHub Action):** call the database so the project doesn't pause.
 
@@ -222,8 +216,8 @@ Every table also has `id`, `created_at`, and `is_test`. Weather and football dat
 | `wait_sessions` | One timed wait | client ID, anon ID, bar, night date, start time, Adjust time offset (0–90 min), end time, status (open, entered, gave up, unfinished), what ended it, distance at start and at end |
 | `views` | Every view of the map or a bar sheet | anon ID, install ID, map or bar, time, estimate shown, logic version, whether it showed "no data", app-open ID |
 | `feedback` | "This looks wrong" taps | anon ID, bar, estimate shown, time |
-| `config`, `config_history` | Current settings, and every change to them | key, value, changed at. M4 adds the setting `redo_minutes` (5) for Redo and Undo (FR-46, FR-47) |
-| `event_nights` | Special nights (empty at launch) | date, label, type, window override |
+| `config`, `config_history` | Current settings, and every change to them | key, value, changed at. M4 adds the setting `redo_minutes` (5) for Redo and Undo (FR-46, FR-47), and removes `active_nights`, `active_window_start`, and `active_window_end` with the active window (2026-10-06) |
+| `event_nights` | Special nights (empty; unused since 2026-10-06, kept for later) | date, label, type, window override |
 | `estimate_snapshots` | What each bar showed, every 5 minutes | bar, time, full estimate, logic version |
 | `spot_checks` | Admin ground truth | bar, time, line count seen, wait timed, notes |
 | `deletions` | A count of data deletions | time, rows removed, scope (all for Delete my data, one for a single report) (no ID) |
@@ -256,10 +250,10 @@ Build in order, and test each milestone before starting the next.
 
 - Each active night, watch reports, finished timers, views, and "no data" views. Hide bad reports.
 - Do spot checks: count a line, time a wait, and compare with the snapshot from that moment.
-- Review weekly: coverage, unique reporters, return visits, timer completion, deletions, and reinstalls.
-- Tune freshness, agreement rules, and the active window from the server. Add event nights once dates are known.
+- Review weekly: unique reporters, return visits, timer completion, deletions, and reinstalls.
+- Tune freshness and agreement rules from the server.
 - Ship the Live Activity, a lock-screen version of the same wait session. It needs no push server.
-- Add bars only when the current ones stay fresh for most of the active window.
+- Add bars only when the current ones get regular reports on busy nights.
 - At the checkpoint, compare against the success metrics and decide whether to continue, change direction, or stop.
 
 ### Phase 3: Only if the beta earns it
@@ -300,7 +294,7 @@ In order: averages across nights, then throughput-based wait predictions, then o
 | Risk | Mitigation |
 | --- | --- |
 | People view but don't report | Friends report on opening nights; watch the first weekends closely |
-| Real data only appears on busy weekends | Launch on a busy weekend; add event nights later |
+| Real data only appears on busy weekends | Launch on a busy weekend |
 | TestFlight install friction for strangers | Clear install steps on the support page |
 | Apple review and real-world GPS | Review notes; field test before launch |
 | A wrong or joke report hurts trust | Distinct-people counts, majority rule, admin hide, "This looks wrong" |

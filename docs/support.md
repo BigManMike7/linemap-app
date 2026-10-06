@@ -24,7 +24,7 @@ LineMap needs an iPhone with iOS 17 or later. TestFlight updates the app for you
 - **Bars** lists every bar, shortest wait first. Tap one to see it on the map.
 - **Start line timer** when you join a line, and tap **I'm in** when you get in. Your wait is timed, not guessed. While you wait, you can add the **Line size** or **Adjust time** if you were already in line before you started the timer.
 - **Report conditions** shares how many people are in line and how busy it is inside. Answer one or both.
-- **History** on each bar in the **Bars** tab shows a calendar. Pick a date to see that night quarter hour by quarter hour, from 9 p.m. to 1:45 a.m., plus any earlier or later times with reports (such as a football Saturday afternoon).
+- **History** on each bar in the **Bars** tab shows a calendar. Pick a date to see that day quarter hour by quarter hour, from 4 a.m. to 4 a.m. Each row shows only what people reported in that quarter hour, so a single report shows up once.
 
 ## Common questions
 
@@ -33,9 +33,6 @@ Nobody has reported there in the last hour. Reports are fresh for 30 minutes, gr
 
 **Why does a bar say "Uncertain"?**
 The latest reports disagree: for example, someone timed a 0-minute wait while someone else reported 50+ people in line. LineMap doesn't guess which is right. Tap the bar to see both and decide for yourself.
-
-**Why does it say "Closed"?**
-Bars stop serving at 2 a.m., so from 2 to 4 a.m. Eastern after a Thursday, Friday, or Saturday night, bars show "Closed".
 
 **Does LineMap track my location?**
 No. It checks your location only when you send a report, to confirm you're near the bar, and never stores your exact location. You can deny location access and still use everything. See the [privacy policy](privacy).

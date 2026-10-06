@@ -2,18 +2,20 @@
 --
 -- app.history takes the moment to compute "as of" (p_at), so most checks use
 -- fixed times. Night N is Friday Oct 2, 2026; its night day runs from 4 a.m.
--- EDT Oct 2 to 4 a.m. EDT Oct 3 (08:00 UTC Oct 2 to 08:00 UTC Oct 3), with a
--- point every 15 minutes, and its usual window is 9 p.m. to 2 a.m. EDT, which
--- is 01:00 to 06:00 UTC on Oct 3. P is a moment well after it (Oct 6, 16:00 UTC). public.bar_history uses now(), so its checks are
--- relative to tonight. Each scenario has its own bar; rows are inserted
--- straight into the app tables, as in estimates_test.sql, or through the API
--- with past phone times.
+-- EDT Oct 2 to 4 a.m. EDT Oct 3 (08:00 UTC Oct 2 to 08:00 UTC Oct 3), which
+-- are also `start` and `end`. There is a point every 15 minutes, and since
+-- logic version 3 each point covers only its own quarter hour, [at, at + 15
+-- minutes), so a single report fills exactly one point. P is a moment well
+-- after the night (Oct 6, 16:00 UTC). public.bar_history uses now(), so its
+-- checks are relative to tonight. Each scenario has its own bar; rows are
+-- inserted straight into the app tables, as in estimates_test.sql, or through
+-- the API with past phone times.
 
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(102);
+select plan(115);
 
 -- Helpers ----------------------------------------------------------------------------
 
@@ -105,16 +107,17 @@ $$;
 
 select pg_temp.new_bar(n) from unnest(array[
   'History bar', 'History other bar', 'History hidden bar', 'History replaced bar',
-  'History afternoon bar']) as n;
+  'History afternoon bar', 'History edges bar', 'History majority bar', 'History DST bar']) as n;
 select pg_temp.new_bar('History test bar', p_is_test => true);
 select pg_temp.new_bar('History closed bar', p_active => false);
 
 -- Night N at the History bar ------------------------------------------------------------
---   22:02 EDT  person 1: line size 2
+--   22:02 EDT  person 1: line size 2                        -> the 22:00 point (02:00 UTC)
 --   23:05-23:30 EDT  person 2: a 25-minute measured wait (code 3)
---   00:25 EDT  person 3: a reported wait range, code 2
---   00:40 EDT  person 4: busyness 4
---   01:00 EDT  person 5: line size 4, a test row
+--                                                           -> the 23:30 point (03:30 UTC)
+--   00:25 EDT  person 3: a reported wait range, code 2      -> the 00:15 point (04:15 UTC)
+--   00:40 EDT  person 4: busyness 4                         -> the 00:30 point (04:30 UTC)
+--   01:00 EDT  person 5: line size 4, a test row            -> the 01:00 point (05:00 UTC)
 
 select pg_temp.rep(1, pg_temp.bar('History bar'), '2026-10-03 02:02:00+00', p_line => 2);
 select pg_temp.sess(2, pg_temp.bar('History bar'), '2026-10-03 03:05:00+00', '2026-10-03 03:30:00+00');
@@ -134,10 +137,6 @@ select pg_temp.sess(8, pg_temp.bar('History bar'), '2026-09-23 02:00:00+00', '20
 select pg_temp.rep(9, pg_temp.bar('History bar'), '2025-09-01 02:00:00+00', p_busy => 2);          -- past retention
 select pg_temp.rep(9, pg_temp.bar('History other bar'), '2026-10-01 02:00:00+00', p_busy => 2);    -- another bar
 
--- An event-night override for night N must not move the chart (FR-23 is for live windows).
-insert into app.event_nights (night_date, label, type, window_start, window_end)
-values ('2026-10-02', 'History test override', 'override', '18:00', '23:00');
-
 create temp table hist as
 select pg_temp.h(pg_temp.bar('History bar'), '2026-10-02') as j,
        pg_temp.h(pg_temp.bar('History bar'), '2026-10-02', p_include_test => true) as t;
@@ -148,14 +147,14 @@ select is(
   (select array_agg(k order by k) from hist, jsonb_object_keys(hist.j) as k),
   array['bar_id', 'end', 'logic_version', 'night', 'nights', 'points', 'start', 'tonight'],
   'the history has exactly the contract''s keys');
-select is((select (j ->> 'logic_version')::integer from hist), 2, 'it carries the logic version');
+select is((select (j ->> 'logic_version')::integer from hist), 3, 'it carries the logic version');
 select is((select (j ->> 'bar_id')::bigint from hist), pg_temp.bar('History bar'), 'it names the bar');
 select is((select j ->> 'night' from hist), '2026-10-02', 'night is the date asked for, as YYYY-MM-DD');
 select is((select j ->> 'tonight' from hist), '2026-10-06', 'tonight is the night of the moment asked about');
-select is((select (j ->> 'start')::timestamptz from hist), '2026-10-03 01:00:00+00'::timestamptz,
-  'start is still the usual window''s 9 p.m. EDT');
-select is((select (j ->> 'end')::timestamptz from hist), '2026-10-03 06:00:00+00'::timestamptz,
-  'end is still the usual window''s 2 a.m. EDT, ignoring the event-night override');
+select is((select (j ->> 'start')::timestamptz from hist), '2026-10-02 08:00:00+00'::timestamptz,
+  'start is 4 a.m. EDT on the night''s date, where the night day begins');
+select is((select (j ->> 'end')::timestamptz from hist), '2026-10-03 08:00:00+00'::timestamptz,
+  'end is 4 a.m. EDT the next day, where the next night begins');
 select is((select pg_temp.npoints(j) from hist), 96, 'a past night has 96 points, every 15 minutes of 24 hours');
 select is((select (j -> 'points' -> 0 ->> 'at')::timestamptz from hist), '2026-10-02 08:00:00+00'::timestamptz,
   'the first point is 4:00 a.m. EDT on the night''s date');
@@ -172,10 +171,10 @@ select is(
    where app.night_date((p ->> 'at')::timestamptz) <> '2026-10-02'),
   0::bigint, 'every point belongs to the night (FR-22)');
 select ok(
-  (select bool_or((p ->> 'at')::timestamptz = (j ->> 'start')::timestamptz)
-      and bool_or((p ->> 'at')::timestamptz = (j ->> 'end')::timestamptz)
-   from hist, jsonb_array_elements(hist.j -> 'points') as p),
-  'the usual window''s start and end each have a point');
+  (select (j -> 'points' -> 0 ->> 'at')::timestamptz = (j ->> 'start')::timestamptz
+      and (j -> 'points' -> 95 ->> 'at')::timestamptz + interval '15 minutes' = (j ->> 'end')::timestamptz
+   from hist),
+  'the first point is at start, and the last point''s quarter hour ends at end');
 select is(
   (select array_agg(k order by k) from hist, jsonb_object_keys(hist.j -> 'points' -> 0) as k),
   array['at', 'busyness', 'line_size', 'people', 'wait'],
@@ -185,45 +184,89 @@ select is((select pg_temp.pt(j, '2026-10-03 01:00:00+00') from hist),
                      'line_size', null, 'wait', null, 'busyness', null),
   'an empty point has 0 people and null signals');
 
--- As of each moment ---------------------------------------------------------------------------
+-- Each point is its own quarter hour -------------------------------------------------------
 
-select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') -> 'line_size' from hist), 'null'::jsonb,
-  'a report does not show before its time');
-select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') ->> 'people' from hist), '0',
-  'nor does its reporter');
-select is((select pg_temp.pt(j, '2026-10-03 02:15:00+00') -> 'line_size' from hist),
-  '{"code": 2, "freshness": "fresh"}'::jsonb, 'it shows from the next point, fresh');
-select is((select pg_temp.pt(j, '2026-10-03 02:15:00+00') ->> 'people' from hist), '1', 'with one person');
-select is((select pg_temp.pt(j, '2026-10-03 02:30:00+00') -> 'line_size' ->> 'freshness' from hist), 'fresh',
-  '28 minutes later it is still fresh');
-select is((select pg_temp.pt(j, '2026-10-03 02:45:00+00') -> 'line_size' ->> 'freshness' from hist), 'stale',
-  '43 minutes later it is stale');
-select is((select pg_temp.pt(j, '2026-10-03 02:45:00+00') ->> 'people' from hist), '1',
-  'a stale stretch still counts its people');
-select is((select pg_temp.pt(j, '2026-10-03 03:00:00+00') -> 'line_size' ->> 'freshness' from hist), 'stale',
-  '58 minutes later it is still stale');
-select is((select pg_temp.pt(j, '2026-10-03 03:15:00+00') -> 'line_size' from hist), 'null'::jsonb,
-  '73 minutes later it is gone');
-select is((select pg_temp.pt(j, '2026-10-03 03:15:00+00') ->> 'people' from hist), '0',
-  'and nobody is counted');
+select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') -> 'line_size' from hist),
+  '{"code": 2, "freshness": "fresh"}'::jsonb, 'a 10:02 p.m. report shows in the 10:00 p.m. point, fresh');
+select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') ->> 'people' from hist), '1', 'with one person');
+select is((select pg_temp.pt(j, '2026-10-03 01:45:00+00') -> 'line_size' from hist), 'null'::jsonb,
+  'it is not in the quarter hour before');
+select is((select pg_temp.pt(j, '2026-10-03 02:15:00+00') -> 'line_size' from hist), 'null'::jsonb,
+  'nor in the quarter hour after, though it would still be fresh on the map');
+select is((select pg_temp.pt(j, '2026-10-03 02:15:00+00') ->> 'people' from hist), '0',
+  'and its person is not counted there');
+select is((select pg_temp.nonempty(j) from hist), 4::bigint,
+  'the four real reports fill exactly four points');
 
-select is((select pg_temp.pt(j, '2026-10-03 03:15:00+00') -> 'wait' from hist), 'null'::jsonb,
-  'a measured wait does not show before the person got in');
+select is((select pg_temp.pt(j, '2026-10-03 03:00:00+00') -> 'wait' from hist), 'null'::jsonb,
+  'a measured wait does not show in the quarter hour its timer started');
 select is((select pg_temp.pt(j, '2026-10-03 03:30:00+00') -> 'wait' from hist),
   '{"code": 3, "minutes": 25, "freshness": "fresh"}'::jsonb,
-  'a measured wait shows its minutes and range from when the person got in');
-select is((select pg_temp.pt(j, '2026-10-03 04:15:00+00') -> 'wait' ->> 'freshness' from hist), 'stale',
-  'and ages like any report');
-select is((select pg_temp.pt(j, '2026-10-03 04:30:00+00') -> 'wait' from hist),
+  'it shows its minutes and range in the quarter hour the person got in');
+select is((select pg_temp.pt(j, '2026-10-03 03:45:00+00') -> 'wait' from hist), 'null'::jsonb,
+  'and only there');
+select is((select pg_temp.pt(j, '2026-10-03 04:15:00+00') -> 'wait' from hist),
   '{"code": 2, "minutes": null, "freshness": "fresh"}'::jsonb,
-  'a reported wait range has null minutes');
-select is((select pg_temp.pt(j, '2026-10-03 04:30:00+00') ->> 'people' from hist), '1',
-  'people counts only the fresh reporters when the bar is fresh');
-select is((select pg_temp.pt(j, '2026-10-03 04:45:00+00') -> 'busyness' from hist),
+  'a reported wait range at 12:25 a.m. is in the 12:15 a.m. point, with null minutes');
+select is((select pg_temp.pt(j, '2026-10-03 04:15:00+00') ->> 'people' from hist), '1',
+  'with its person');
+select is((select pg_temp.pt(j, '2026-10-03 04:30:00+00') -> 'busyness' from hist),
   '{"code": 4, "freshness": "fresh"}'::jsonb, 'busyness shows its code and freshness');
+select is((select pg_temp.pt(j, '2026-10-03 04:30:00+00') ->> 'people' from hist), '1',
+  'people counts only the people in that quarter hour, not the one 15 minutes earlier');
 
--- Outside the usual window: a report at 2 p.m. EDT (18:00 UTC) on the night's
--- date shows in the points around 2 p.m.
+-- Edges of a quarter hour: 10:37 p.m., 10:44:59 p.m., and exactly 10:45:00 p.m. EDT.
+
+select pg_temp.rep(11, pg_temp.bar('History edges bar'), '2026-10-03 02:37:00+00', p_line => 1);
+select pg_temp.rep(12, pg_temp.bar('History edges bar'), '2026-10-03 02:45:00+00', p_busy => 2);
+select pg_temp.rep(13, pg_temp.bar('History edges bar'), '2026-10-03 02:44:59+00', p_busy => 3);
+
+create temp table ehist as
+select pg_temp.h(pg_temp.bar('History edges bar'), '2026-10-02') as j;
+
+select is((select pg_temp.pt(j, '2026-10-03 02:30:00+00') -> 'line_size' ->> 'code' from ehist), '1',
+  'a 10:37 p.m. report is in the 10:30 p.m. point');
+select is(
+  (select count(*) from ehist, jsonb_array_elements(ehist.j -> 'points') as p
+   where jsonb_typeof(p -> 'line_size') = 'object'),
+  1::bigint, 'and in no other point');
+select is((select pg_temp.pt(j, '2026-10-03 02:45:00+00') -> 'busyness' ->> 'code' from ehist), '2',
+  'a report at exactly 10:45:00 p.m. is in the 10:45 p.m. point');
+select is((select pg_temp.pt(j, '2026-10-03 02:30:00+00') -> 'busyness' ->> 'code' from ehist), '3',
+  'not in the 10:30 p.m. point, which shows the 10:44:59 p.m. report instead');
+select is((select pg_temp.pt(j, '2026-10-03 02:30:00+00') ->> 'people' from ehist), '2',
+  'two people in one quarter hour: people is 2');
+select is((select pg_temp.pt(j, '2026-10-03 02:45:00+00') ->> 'people' from ehist), '1',
+  'the 10:45 p.m. point has its one person');
+select is((select pg_temp.nonempty(j) from ehist), 2::bigint, 'three reports in two quarter hours fill two points');
+
+-- The live rules within a quarter hour (FR-18, FR-19).
+--   10:00 p.m. quarter: persons 21 and 22 say 50+ (4), then person 23 says 1-10 (1).
+--   10:15 p.m. quarter: person 24 says 1-10 (1); the 50+ answers are in the quarter before.
+--   10:30 p.m. quarter: person 25 says 1-10 (1), then 25-50 (3).
+
+select pg_temp.rep(21, pg_temp.bar('History majority bar'), '2026-10-03 02:01:00+00', p_line => 4);
+select pg_temp.rep(22, pg_temp.bar('History majority bar'), '2026-10-03 02:03:00+00', p_line => 4);
+select pg_temp.rep(23, pg_temp.bar('History majority bar'), '2026-10-03 02:10:00+00', p_line => 1);
+select pg_temp.rep(24, pg_temp.bar('History majority bar'), '2026-10-03 02:20:00+00', p_line => 1);
+select pg_temp.rep(25, pg_temp.bar('History majority bar'), '2026-10-03 02:31:00+00', p_line => 1);
+select pg_temp.rep(25, pg_temp.bar('History majority bar'), '2026-10-03 02:40:00+00', p_line => 3);
+
+create temp table mhist as
+select pg_temp.h(pg_temp.bar('History majority bar'), '2026-10-02') as j;
+
+select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') -> 'line_size' from mhist),
+  '{"code": 4, "freshness": "fresh"}'::jsonb,
+  'within a quarter hour, two other people who disagree with the newest report make a majority');
+select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') ->> 'people' from mhist), '3', 'with three people');
+select is((select pg_temp.pt(j, '2026-10-03 02:15:00+00') -> 'line_size' ->> 'code' from mhist), '1',
+  'reports from an earlier quarter hour never vote');
+select is((select pg_temp.pt(j, '2026-10-03 02:30:00+00') -> 'line_size' ->> 'code' from mhist), '3',
+  'one person''s newest report in the quarter hour counts');
+select is((select pg_temp.pt(j, '2026-10-03 02:30:00+00') ->> 'people' from mhist), '1',
+  'and that person counts once');
+
+-- An afternoon report: 2:00 p.m. EDT (18:00 UTC) on the night's date.
 
 select pg_temp.rep(10, pg_temp.bar('History afternoon bar'), '2026-10-02 18:00:00+00', p_line => 3);
 
@@ -236,14 +279,10 @@ select is((select pg_temp.pt(j, '2026-10-02 18:00:00+00') -> 'line_size' from ah
   '{"code": 3, "freshness": "fresh"}'::jsonb, 'it shows at 2 p.m. with its line size, fresh');
 select is((select pg_temp.pt(j, '2026-10-02 18:00:00+00') ->> 'people' from ahist), '1',
   'with its person');
-select is((select pg_temp.pt(j, '2026-10-02 18:30:00+00') -> 'line_size' from ahist),
-  '{"code": 3, "freshness": "fresh"}'::jsonb, 'and at 2:30 p.m.');
-select is((select pg_temp.pt(j, '2026-10-02 18:45:00+00') -> 'line_size' from ahist),
-  '{"code": 3, "freshness": "stale"}'::jsonb, 'grayed out at 2:45 p.m.');
-select is((select pg_temp.pt(j, '2026-10-02 19:15:00+00') -> 'line_size' from ahist), 'null'::jsonb,
-  'and gone by 3:15 p.m.');
-select is((select pg_temp.nonempty(j) from ahist), 5::bigint,
-  'only the five points from 2 to 3 p.m. show anything');
+select is((select pg_temp.pt(j, '2026-10-02 18:15:00+00') -> 'line_size' from ahist), 'null'::jsonb,
+  'and not at 2:15 p.m.');
+select is((select pg_temp.nonempty(j) from ahist), 1::bigint,
+  'a single report fills exactly one point');
 select is((select j -> 'nights' from ahist), '["2026-10-02"]'::jsonb,
   'its night is the night of its date');
 
@@ -251,11 +290,11 @@ select is((select j -> 'nights' from ahist), '["2026-10-02"]'::jsonb,
 
 select is((select pg_temp.pt(j, '2026-10-03 05:00:00+00') -> 'line_size' from hist), 'null'::jsonb,
   'a test row never shows to real users');
-select is((select pg_temp.pt(j, '2026-10-03 05:00:00+00') ->> 'people' from hist), '1',
+select is((select pg_temp.pt(j, '2026-10-03 05:00:00+00') ->> 'people' from hist), '0',
   'nor counts as a person for them');
 select is((select pg_temp.pt(t, '2026-10-03 05:00:00+00') -> 'line_size' from hist),
   '{"code": 4, "freshness": "fresh"}'::jsonb, 'test IDs see test rows');
-select is((select pg_temp.pt(t, '2026-10-03 05:00:00+00') ->> 'people' from hist), '2',
+select is((select pg_temp.pt(t, '2026-10-03 05:00:00+00') ->> 'people' from hist), '1',
   'and count them as people');
 
 -- Nights list -------------------------------------------------------------------------------------
@@ -326,17 +365,18 @@ select pg_temp.h(pg_temp.bar('History replaced bar'), '2026-10-02') as j;
 select is((select b ->> 'ok' from api_calls), 'true', 'the second Report conditions redoes the first');
 select is((select f ->> 'measured_wait_seconds' from api_calls), '1680', 'the redone timer measures 28 minutes');
 select is((select h ->> 'removed' from api_calls), 'true', 'the mistaken line is cancelled');
-select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') -> 'busyness' from rhist), 'null'::jsonb,
-  'a replaced Report conditions is gone even from the moments it was the newest');
-select is((select pg_temp.pt(j, '2026-10-03 02:15:00+00') -> 'busyness' ->> 'code' from rhist), '1',
-  'the report that replaced it shows from its own time');
+select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') -> 'busyness' ->> 'code' from rhist), '1',
+  'in their quarter hour, only the Report conditions that replaced the first one shows');
+select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') ->> 'people' from rhist), '1',
+  'and the person counts once');
 select is(
   (select count(*) from rhist, jsonb_array_elements(rhist.j -> 'points') p where p -> 'busyness' ->> 'code' = '4'),
   0::bigint, 'no point shows the replaced busyness');
-select is((select pg_temp.pt(j, '2026-10-03 01:30:00+00') -> 'wait' from rhist), 'null'::jsonb,
-  'a replaced timer''s wait is gone');
-select is((select pg_temp.pt(j, '2026-10-03 02:00:00+00') -> 'wait' from rhist),
-  '{"code": 3, "minutes": 28, "freshness": "fresh"}'::jsonb, 'the timer that replaced it shows');
+select is((select pg_temp.pt(j, '2026-10-03 01:15:00+00') -> 'wait' from rhist), 'null'::jsonb,
+  'a replaced timer''s wait is gone from the quarter hour it ended in');
+select is((select pg_temp.pt(j, '2026-10-03 01:45:00+00') -> 'wait' from rhist),
+  '{"code": 3, "minutes": 28, "freshness": "fresh"}'::jsonb,
+  'the timer that replaced it shows in the quarter hour it ended in');
 select is(
   (select count(*) from rhist, jsonb_array_elements(rhist.j -> 'points') p where p -> 'wait' ->> 'minutes' = '10'),
   0::bigint, 'no point shows the replaced wait');
@@ -365,7 +405,23 @@ select is(
 select is(pg_temp.npoints(pg_temp.h(pg_temp.bar('History bar'), null, '2026-10-03 00:59:00+00')), 68,
   'at 8:59 p.m. tonight already has the 68 points since 4 a.m.');
 select is((pg_temp.h(pg_temp.bar('History bar'), null, '2026-10-03 00:59:00+00') ->> 'start')::timestamptz,
-  '2026-10-03 01:00:00+00'::timestamptz, 'and still says when the usual window starts');
+  '2026-10-02 08:00:00+00'::timestamptz, 'start is the night day''s 4 a.m. while the night is in progress');
+select is((pg_temp.h(pg_temp.bar('History bar'), null, '2026-10-03 00:59:00+00') ->> 'end')::timestamptz,
+  '2026-10-03 08:00:00+00'::timestamptz, 'and end is still the next 4 a.m., not now');
+select is(
+  pg_temp.pt(pg_temp.h(pg_temp.bar('History bar'), null, '2026-10-03 02:10:00+00'), '2026-10-03 02:00:00+00')
+    -> 'line_size',
+  '{"code": 2, "freshness": "fresh"}'::jsonb,
+  'tonight''s current quarter hour shows the reports so far (10:02 p.m., as of 10:10 p.m.)');
+select is(
+  pg_temp.pt(pg_temp.h(pg_temp.bar('History bar'), null, '2026-10-03 02:02:00+00'), '2026-10-03 02:00:00+00')
+    ->> 'people',
+  '1', 'a report at exactly now counts');
+select is(
+  pg_temp.pt(pg_temp.h(pg_temp.bar('History bar'), null, '2026-10-03 02:01:00+00'), '2026-10-03 02:00:00+00'),
+  jsonb_build_object('at', '2026-10-03 02:00:00+00'::timestamptz, 'people', 0,
+                     'line_size', null, 'wait', null, 'busyness', null),
+  'but nothing after now: as of 10:01 p.m. the 10:00 p.m. point is still empty');
 select is(pg_temp.npoints(pg_temp.h(pg_temp.bar('History bar'), null, '2026-10-02 08:00:00+00')), 1,
   'at 4:00 a.m. the new night has its first point');
 select is(pg_temp.h(pg_temp.bar('History bar'), null, '2026-10-02 08:00:00+00') ->> 'night', '2026-10-02',
@@ -378,14 +434,14 @@ select is(pg_temp.h(pg_temp.bar('History bar'), null, '2026-10-03 07:30:00+00') 
   'before 4 a.m. tonight is still the night before (FR-22)');
 select is(pg_temp.npoints(pg_temp.h(pg_temp.bar('History bar'), '2026-10-09')), 0, 'a future night has no points');
 select is((pg_temp.h(pg_temp.bar('History bar'), '2026-10-09') ->> 'start')::timestamptz,
-  '2026-10-10 01:00:00+00'::timestamptz, 'a future night still has its start');
+  '2026-10-09 08:00:00+00'::timestamptz, 'a future night still has its start');
 
 -- Daylight saving (FR-22) -----------------------------------------------------------------------------
 
 select is((pg_temp.h(pg_temp.bar('History bar'), '2026-10-31', '2026-12-01 00:00+00') ->> 'start')::timestamptz,
-  '2026-11-01 01:00:00+00'::timestamptz, 'fall back: the night of Oct 31 starts at 9 p.m. EDT');
+  '2026-10-31 08:00:00+00'::timestamptz, 'fall back: the night of Oct 31 starts at 4 a.m. EDT');
 select is((pg_temp.h(pg_temp.bar('History bar'), '2026-10-31', '2026-12-01 00:00+00') ->> 'end')::timestamptz,
-  '2026-11-01 07:00:00+00'::timestamptz, 'and ends at 2 a.m. EST');
+  '2026-11-01 09:00:00+00'::timestamptz, 'and ends at 4 a.m. EST');
 select is(pg_temp.npoints(pg_temp.h(pg_temp.bar('History bar'), '2026-10-31', '2026-12-01 00:00+00')), 100,
   'its night day is 25 hours, so it has 100 points');
 select is(
@@ -400,9 +456,9 @@ select is(
    where app.night_date((p ->> 'at')::timestamptz) <> '2026-10-31'),
   0::bigint, 'every point of the fall-back night belongs to it');
 select is((pg_temp.h(pg_temp.bar('History bar'), '2026-03-07', '2026-12-01 00:00+00') ->> 'start')::timestamptz,
-  '2026-03-08 02:00:00+00'::timestamptz, 'spring forward: the night of Mar 7 starts at 9 p.m. EST');
+  '2026-03-07 09:00:00+00'::timestamptz, 'spring forward: the night of Mar 7 starts at 4 a.m. EST');
 select is((pg_temp.h(pg_temp.bar('History bar'), '2026-03-07', '2026-12-01 00:00+00') ->> 'end')::timestamptz,
-  '2026-03-08 07:00:00+00'::timestamptz, 'and ends when 2 a.m. EST becomes 3 a.m. EDT');
+  '2026-03-08 08:00:00+00'::timestamptz, 'and ends at 4 a.m. EDT');
 select is(pg_temp.npoints(pg_temp.h(pg_temp.bar('History bar'), '2026-03-07', '2026-12-01 00:00+00')), 92,
   'its night day is 23 hours, so it has 92 points');
 select is(
@@ -417,12 +473,27 @@ select is(
    where app.night_date((p ->> 'at')::timestamptz) <> '2026-03-07'),
   0::bigint, 'every point of the spring-forward night belongs to it');
 select is((pg_temp.h(pg_temp.bar('History bar'), '2026-11-06', '2026-12-01 00:00+00') ->> 'start')::timestamptz,
-  '2026-11-07 02:00:00+00'::timestamptz, 'a winter night starts at 9 p.m. EST');
+  '2026-11-06 09:00:00+00'::timestamptz, 'a winter night starts at 4 a.m. EST');
 select is(pg_temp.npoints(pg_temp.h(pg_temp.bar('History bar'), '2026-11-06', '2026-12-01 00:00+00')), 96,
   'and has 96 points');
 select is(
   (pg_temp.h(pg_temp.bar('History bar'), '2026-11-06', '2026-12-01 00:00+00') -> 'points' -> 0 ->> 'at')::timestamptz,
   '2026-11-06 09:00:00+00'::timestamptz, 'from 4 a.m. EST');
+
+-- Fall back: 1:00-1:59 a.m. happens twice. A report at the first 1:37 a.m.
+-- (EDT, 05:37 UTC) and one at the second (EST, 06:37 UTC) each land in their
+-- own quarter hour.
+select pg_temp.rep(40, pg_temp.bar('History DST bar'), '2026-11-01 05:37:00+00', p_line => 1);
+select pg_temp.rep(41, pg_temp.bar('History DST bar'), '2026-11-01 06:37:00+00', p_line => 3);
+
+select is(
+  pg_temp.pt(pg_temp.h(pg_temp.bar('History DST bar'), '2026-10-31', '2026-12-01 00:00+00'),
+             '2026-11-01 05:30:00+00') -> 'line_size' ->> 'code',
+  '1', 'fall back: the first 1:37 a.m. is in the first 1:30 a.m. point');
+select is(
+  pg_temp.pt(pg_temp.h(pg_temp.bar('History DST bar'), '2026-10-31', '2026-12-01 00:00+00'),
+             '2026-11-01 06:30:00+00') -> 'line_size' ->> 'code',
+  '3', 'and the second 1:37 a.m. in the second');
 
 -- public.bar_history ----------------------------------------------------------------------------------
 

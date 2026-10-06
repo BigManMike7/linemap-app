@@ -7,8 +7,8 @@ Postgres on Supabase. The server is the source of truth for estimates and the ni
 | Path | What |
 | --- | --- |
 | `migrations/*_schema.sql` | Tables, indexes, row-level security, settings log |
-| `migrations/*_helpers.sql` | Settings lookups, night boundary, active window, location math |
-| `migrations/*_estimates.sql` | Estimate rules and snapshots |
+| `migrations/*_helpers.sql` | Settings lookups, night boundary, location math (its active-window functions were dropped in `*_remove_active_window.sql`) |
+| `migrations/*_estimates.sql` | Estimate rules and snapshots; the newest definitions are in `*_remove_active_window.sql` |
 | `migrations/*_api.sql`, `*_cancel_session.sql`, `*_report_conditions.sql`, `*_delete_report.sql`, `*_separate_rate_limits.sql`, `*_redo_undo_history.sql` | The 16 API functions: 15 the app calls, plus `submit_report` for older builds |
 | `migrations/*_jobs.sql` | Scheduled jobs (`pg_cron`); `*_delete_report.sql` adds `expire-rate-limit-holds` |
 | `migrations/*_starting_data.sql` | Default settings and the three starting bars |
@@ -72,9 +72,24 @@ A person can replace their own last attempt at a bar within `redo_minutes` (5, i
 
 `reopen_session` reopens the person's own timer that ended through `end_session` (I'm in or Gave up) less than `redo_minutes` ago by server time, if no other timer of theirs is open. The status goes back to `open`; `ended_at`, `ended_by`, and `distance_end_m` are cleared, and so is the generated `measured_wait_seconds`. The start time and Adjust time stay. `end_session` creates no reports, so none are removed. A timer that timed out (`unfinished`), was closed by a line at another bar, or was ended by I'm inside from an older build can't be reopened. A reopened timer older than 90 minutes is expired as usual. Earlier timers that its finish already replaced stay deleted.
 
+### No hours (PRD 5.4, since 2026-10-06)
+
+LineMap has no active window. Logic version 3 (migration `*_remove_active_window.sql`, approved by Max on 2026-10-06) removed what was left of the Thu–Sat 9 p.m.–2 a.m. window:
+
+- Every bar shows its live estimate at every hour. There is no "Closed" from 2 to 4 a.m. (see `display` below).
+- `window_state` in `get_estimates` is always `live`; the key stays because app builds up to 19 decode it.
+- Snapshots (FR-36): the `take-snapshots` job still runs every 5 minutes, at any hour, and saves a row only for active, non-test bars with a report in the last hour (`display` = `estimate`). A bar with no snapshot at a moment was showing "No live reports". Before 2026-10-06 it saved every bar, during the window only.
+- The functions `app.window_state` and `app.night_window` are gone, and so are the settings `active_nights`, `active_window_start`, and `active_window_end` (their deletion is logged in `app.config_history`). `app.bar_estimate` takes `(bar_id, at, include_test)`, with no window state.
+- `app.event_nights` (FR-23) is kept, empty, for later. Nothing reads it.
+- The night boundary (4 a.m. Eastern, FR-22) is unchanged.
+
 ### History (FR-43, since 2026-10-05)
 
-`bar_history` computes one bar's estimate as of every 15 minutes of a night with the live rules (`app.bar_estimate`), straight from `app.reports` and `app.wait_sessions`. Deleted, replaced, and hidden reports aren't there, so they never appear; snapshots are not used. Points cover the whole night day (since 2026-10-05, approved by Max: bars get busy early, especially on football Saturdays): from `night_boundary_hour` (4 a.m.) Eastern on the night's date up to, but not including, 4 a.m. the next day, the same boundary as `app.night_date`, so every point belongs to the night. They are 15 real minutes apart, so a normal night has 96 points, the spring-forward night (2026-03-07) 92, and the fall-back night (2026-10-31) 100. A fresh report at 2 p.m. shows in the 2 p.m. points like any other, since the signals don't depend on the active window. `start` and `end` are still the usual window from `active_window_start` to `active_window_end` (9 p.m. to 2 a.m. Eastern, computed per date so daylight saving is right), never an event-night window; the app uses them to pick the rows it always shows. Points stop at now, so tonight shows only what has happened and a future night shows none. The nights list holds every night with visible data at the bar (reports not hidden, or waits that ended as `entered`), within `retention_days`, newest first; the app adds Tonight, Last night, and Same night last week itself. Test rows count only for test IDs, as in `get_estimates`. The internal `app.history(bar_id, night, at, include_test)` takes the moment, so tests can fix it.
+`bar_history` computes one bar's history straight from `app.reports` and `app.wait_sessions`. Deleted, replaced, and hidden reports aren't there, so they never appear; snapshots are not used. Points cover the whole night day (since 2026-10-05, approved by Max: bars get busy early, especially on football Saturdays): from `night_boundary_hour` (4 a.m.) Eastern on the night's date up to, but not including, 4 a.m. the next day, the same boundary as `app.night_date`, so every point belongs to the night. They are 15 real minutes apart, so a normal night has 96 points, the spring-forward night (2026-03-07) 92, and the fall-back night (2026-10-31) 100.
+
+Since logic version 3 (2026-10-06), the point at `at` covers only the reports in its own quarter hour, from `at` up to, but not including, `at` + 15 minutes: a report at 10:37 counts only in the 10:30 point, and one at exactly 10:45:00 only in the 10:45 point, so a single report fills exactly one point. Within the quarter hour the live rules apply (`app.pick_signal_in`): each person's newest report per signal counts once, the newest wins unless 2 or more other people's reports in that quarter hour disagree and the majority wins, and a measured wait counts in the quarter hour the person got in. Before version 3 each point was the live estimate as of that moment, so one report filled about four points.
+
+`start` and `end` are the night day's bounds (since logic version 3): 4 a.m. Eastern on the night's date and 4 a.m. the next day, computed per date so daylight saving is right. Before, they were the usual 9 p.m.–2 a.m. window. Points stop at now, so tonight shows only what has happened (its current quarter hour counts reports up to now) and a future night shows none. The nights list holds every night with visible data at the bar (reports not hidden, or waits that ended as `entered`), within `retention_days`, newest first. Test rows count only for test IDs, as in `get_estimates`. The internal `app.history(bar_id, night, at, include_test)` takes the moment, so tests can fix it.
 
 ### Deleting a single report (FR-41)
 
@@ -103,7 +118,7 @@ Call with `POST /rest/v1/rpc/<name>` and named JSON parameters. Writes return `{
 | `my_recent_reports(p_anon_id)` | Made a wrong report? (FR-41): the person's own reports and finished waits from the last 24 hours, newest first, at most 100 (shape below) |
 | `delete_report(p_anon_id, p_client_report_id?, p_client_session_id?)` | Deletes one item from that list: exactly one ID. A report ID deletes a standalone report; a session ID deletes a finished wait and every report in it. Returns `{"ok": true, "rows_removed": n}`, `{"ok": false, "error": "session_open"}` for an open wait (cancel it instead), or `{"ok": false, "error": "not_found"}` for anything not theirs, older than 24 hours, inside a wait, or already deleted. The rate limit keeps running from what was deleted, on its own clock |
 | `delete_my_data(p_anon_id)` | Deletes everything for the ID (holds included); the app then makes a new one |
-| `bar_history(p_anon_id?, p_bar_id, p_night?)` | History (FR-43): one bar's estimate every 15 minutes of a night day, 4 a.m. to 4 a.m. Eastern (default tonight), and its nights with data (shape below). Read-only. A missing, unknown, or inactive bar, or a test bar for a real ID, is bad input |
+| `bar_history(p_anon_id?, p_bar_id, p_night?)` | History (FR-43): one bar's reports combined per quarter hour of a night day, 4 a.m. to 4 a.m. Eastern (default tonight), and its nights with data (shape below). Read-only. A missing, unknown, or inactive bar, or a test bar for a real ID, is bad input |
 
 Every report and session carries a client-generated ID, so the offline queue can retry safely (FR-16). Phone times are capped at server time.
 
@@ -111,7 +126,7 @@ Every report and session carries a client-generated ID, so the offline queue can
 
 ```json
 {
-  "logic_version": 2,
+  "logic_version": 3,
   "generated_at": "2026-10-02T02:15:00Z",
   "window_state": "live",
   "bars": [{
@@ -127,40 +142,41 @@ Every report and session carries a client-generated ID, so the offline queue can
 }
 ```
 
-- `logic_version`: 2 since 2026-10-06. Version 1 hid a 30-to-60-minute-old report outside the active window; version 2 uses the live rule at every hour.
-- `window_state`: `live`, `closed`, or `outside_hours`. Unchanged in version 2; older builds still read it.
-- `display`: `closed` while `window_state` is `closed` (2 to 4 a.m. after an active night). At every other hour, `estimate` when any signal is within 60 minutes (stale ones grayed out), else `not_enough_data`. `outside_hours` is no longer returned as a `display` value (since logic version 2), but older builds still accept it.
+- `logic_version`: 3 since 2026-10-06. Version 1 hid a 30-to-60-minute-old report outside the active window; version 2 used the live rule at every hour but still showed `closed` from 2 to 4 a.m. after an active night; version 3 has no active window at all, and History points cover only their own quarter hour.
+- `window_state`: always `live` since version 3. It used to be `live`, `closed`, or `outside_hours`; the key stays because older builds decode it.
+- `display`: `estimate` when any signal is within 60 minutes (stale ones grayed out), else `not_enough_data` ("No live reports"), at every hour. `closed` (since version 3) and `outside_hours` (since version 2) are no longer returned, but older builds still accept them.
 - `freshness` (bar and signal): `fresh` (30 minutes or less), `stale` (30 to 60, shown grayed out), or `none`.
 - A wait with `source: measured` has `minutes`, and its `at` is when the person got in. A `reported` wait has only a range `code`.
 - `rule`: `newest`, or `majority` when 2 or more other people's fresh reports disagreed with the newest one.
 
 ### History shape
 
-Dates are `YYYY-MM-DD`; times are Postgres ISO 8601 with an offset, as in the other shapes. Signals are `null` when there is nothing within 60 minutes.
+Dates are `YYYY-MM-DD`; times are Postgres ISO 8601 with an offset, as in the other shapes. Signals are `null` when nobody answered them in that quarter hour.
 
 ```json
 {
-  "logic_version": 2,
+  "logic_version": 3,
   "bar_id": 1,
   "night": "2026-10-02",
   "tonight": "2026-10-05",
-  "start": "2026-10-03T01:00:00+00:00",
-  "end": "2026-10-03T06:00:00+00:00",
+  "start": "2026-10-02T08:00:00+00:00",
+  "end": "2026-10-03T08:00:00+00:00",
   "nights": ["2026-10-04", "2026-10-02"],
   "points": [
     {"at": "2026-10-02T08:00:00+00:00", "people": 0, "line_size": null, "wait": null, "busyness": null},
     {"at": "2026-10-02T08:15:00+00:00", "people": 2,
      "line_size": {"code": 2, "freshness": "fresh"},
-     "wait": {"code": 3, "minutes": 25, "freshness": "stale"},
+     "wait": {"code": 3, "minutes": 25, "freshness": "fresh"},
      "busyness": {"code": 3, "freshness": "fresh"}}
   ]
 }
 ```
 
 - `night` is the night shown; `tonight` is tonight's night date (FR-22).
-- `start` and `end` are the night's usual window (9 p.m. to 2 a.m. Eastern). `points` run every 15 minutes over the whole night day, from 4 a.m. Eastern on the night's date up to (not including) 4 a.m. the next day, but only up to now: 96 points on a normal night, 92 or 100 on a daylight-saving night. The usual window's start and end always fall on a point.
-- `people` is how many distinct people reported within the freshness of the newest report, like the live estimate; 0 when nothing is within 60 minutes.
-- `wait.minutes` is a measured wait in minutes, or `null` for a reported range. `freshness` is `fresh` or `stale` (drawn lighter).
+- `start` and `end` are the night day's bounds: 4 a.m. Eastern on the night's date, and 4 a.m. Eastern the next day (since logic version 3; before, the usual 9 p.m.–2 a.m. window). The app lists every quarter hour from `start` up to `end` and folds empty stretches.
+- `points` run every 15 minutes from `start` up to (not including) `end`, but only up to now: 96 points on a normal night, 92 or 100 on a daylight-saving night. Each point covers only its own quarter hour, `at` to `at` + 15 minutes (since logic version 3).
+- `people` is how many distinct people reported in that quarter hour; 0 when nobody did.
+- `wait.minutes` is a measured wait in minutes, or `null` for a reported range. `freshness` is always `fresh` since logic version 3 (each value is from its own quarter hour); the key stays for older builds.
 - `nights`: nights with visible data at this bar, newest first.
 
 ### Recent reports shape
@@ -189,4 +205,5 @@ Use the Table Editor and pick the `app` schema.
 - **Settings:** edit `value` in `app.config`. Every change is logged in `app.config_history`.
 - **Mark your own testing:** add your phone's anonymous ID to `test_anon_ids` in `app.config`, for example `["0A1B..."]`. Rows from that ID get `is_test = true`. Real users never see them, but your own phone still does.
 - **Hide a report:** set `hidden = true` and fill in `hidden_reason` in `app.reports`.
-- **Spot checks and event nights:** add rows to `app.spot_checks` and `app.event_nights`.
+- **Spot checks:** add rows to `app.spot_checks`.
+- **Event nights:** `app.event_nights` is kept, empty, for later (FR-23). Nothing reads it since the active window was removed on 2026-10-06, so rows there change nothing.
