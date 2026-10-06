@@ -156,36 +156,51 @@ The data model before launch, the database tests, location on a real phone, that
 
 **Current milestone: M4** (in progress).
 
-## Where we left off (2026-10-05, late evening)
+## Where we left off (2026-10-06, afternoon)
 
-**Max is on a break.** Build 18 is on TestFlight; all CI is green and `main` is clean. Nothing is waiting on Claude. Next session starts with Max's feedback from the phone (item 1 below).
+**Build 19 is on TestFlight** (it takes a few minutes to appear). CI is green and `main` is clean. Next: Max tries build 19, then we work through the open problems below.
 
-**What to try on build 18:** make a report at any bar, then open that bar's History (it should show at the current quarter hour, even in the afternoon); check that the colors read at a glance on the map and Bars tab in light and dark mode; and send a contradiction (50+ in line, then a quick timer) to see Uncertain.
+**What to try on build 19:** History (no gray rows, no date heading under the calendar), Adjust time (Save gives only a haptic; Save without moving the wheel says "No change. Let the wheel stop, then tap Save."), Copy ID in Settings ("✓ Copied"), and a bar outside 9 p.m.–2 a.m. with a 30–60-minute-old report (it now shows, grayed; with nothing it says "No live reports").
+
+**Open problems (Max wants to work on these after build 19):**
+
+1. **Drop the 9 p.m.–2 a.m. Thu–Sat window entirely?** Since logic version 2 it hides nothing; it only decides snapshots (FR-36), History's default rows (9:00 PM–1:45 AM), the coverage metric (PRD 2), "Closed" 2–4 a.m. (Max kept Closed for now), and the `event_nights` table (FR-23). Removing it is a data model change (drops a table and config keys) and rewrites `night_window_test.sql` and `event_nights_test.sql`. Explain before building.
+2. **Long pin labels:** "Cafe 210 West · No live reports" runs off the left edge at the starting zoom (it already did with "No data").
+3. **Local database tests:** Max will install Docker Desktop after build 19 (BIOS virtualization was off on his HP desktop; steps: enable SVM in BIOS, `wsl --install --no-distribution`, `winget install -e --id Docker.DockerDesktop`). The Supabase CLI runs through `npx supabase` (Node 24 is installed). Then `npx supabase start` and `npx supabase test db`.
+
+**Decisions made 2026-10-06** (already in PRD.md):
+
+- **Reports show at any hour** (FR-17, PRD 5.4): any report from the last 60 minutes shows at any time of day, grayed after 30. Nothing in the last hour reads **"No live reports"** on pins, the bar sheet, and Bars cards, replacing "No data", "Not enough data", and "Outside usual hours, no recent reports". "Closed" stays for 2–4 a.m. Migration `20261006120000_live_reports_any_hour.sql` (deployed) changes only `bar_estimate`'s display rule and bumps `logic_version` to 2; `display` never returns `outside_hours` now, but `window_state` still can, and the app still decodes both. No table, field, or answer-code change.
+- **History** (FR-43): no graying for 30–60-minute-old rows (everything there is past), and no night heading under the calendar.
+- **Adjust time** (FR-42): Save confirms with a haptic only. If the time didn't change (usually because Save was tapped while the wheel still spun; the iOS wheel only updates when it stops), it says "No change. Let the wheel stop, then tap Save." Max chose to keep Apple's wheel over a custom one.
+- **Copy ID** in Settings shows "✓ Copied" for 2 seconds with a haptic.
+- **UI tests:** dialog buttons are tapped through `tapDialogButton`, which waits until they can be tapped and retries a dropped tap (iOS 26 popovers can drop a tap while animating in). A failed test saves a `FAILED` screenshot in the artifact.
 
 **Ideas raised but not built** (Max hasn't asked for them):
 
 - The History dots stay 10 pt at the largest text sizes; they could grow with the text.
 - Very short timers (under a minute) could count as started by mistake on the server. Deferred until field-test data shows how often they happen; for now a contradiction shows Uncertain.
+- A custom Adjust time wheel that saves whatever is under the center line even mid-spin (Max declined for now).
 
 **Things to know:**
 
-- Builds 15–17 show History as half-hour rows from 4 a.m., since the server now sends the whole day. Only Max has them.
+- Builds up to 18 call it "Not enough data" where build 19 says "No live reports". Builds 15–17 show History as half-hour rows from 4 a.m., since the server now sends the whole day. Only Max has them.
 - On the fall-back night (Nov 1), 1:00–1:45 a.m. happen twice, so History shows those rows twice, each at its real time.
 - CI often fails with "The job was not acquired by Runner" or an artifact-upload timeout. Those are GitHub capacity problems, not test failures: rerun with `gh run rerun <id> --failed`. When a UI test really fails, the "Show test failures" step prints why.
 
 **M4 is mostly built.** Done and passing CI:
 
 - Tab bar (FR-44), Bars list (FR-45), History (FR-43), Undo (FR-47), Redo on the server (FR-46), and line-level colors (FR-2).
-- Server: migration `20261005200000_redo_undo_history.sql` adds `redo_minutes`, `reopen_session`, and `bar_history`. It is deployed. Built by an Opus subagent on branch `m4-sql`, reviewed, and merged. Migration `20261005220000_history_full_day.sql` (deployed) makes `bar_history` cover 4 a.m. to 4 a.m. every 15 minutes. pgTAP: 1042 tests.
+- Server: migration `20261005200000_redo_undo_history.sql` adds `redo_minutes`, `reopen_session`, and `bar_history`. It is deployed. Built by an Opus subagent on branch `m4-sql`, reviewed, and merged. Migration `20261005220000_history_full_day.sql` (deployed) makes `bar_history` cover 4 a.m. to 4 a.m. every 15 minutes. pgTAP: 1042 tests (1048 after logic version 2).
 - The app now calls 15 functions (`submit_report` stays for older builds only).
 - Screenshots: the main walkthrough (20 screens, dark mode) and a light-mode walkthrough at a large accessibility text size (`L01`–`L08`).
 - Docs drafted in `docs/` (privacy, support, index). Pages is not enabled.
 
 Still to do in M4:
 
-1. **Max reviews:** the privacy policy draft, and the new screens on the phone (build 18, the latest: line-level colors with Uncertain for contradictions, indigo accent, and History without Right now, covering the whole day in quarter hours).
+1. **Max reviews:** the privacy policy draft, and the new screens on the phone (build 19, the latest).
 2. **After the privacy policy is approved:** enable GitHub Pages from `/docs` on main (`gh api -X POST repos/BigManMike7/linemap-app/pages -f "source[branch]=main" -f "source[path]=/docs"`), then check that the Settings links open.
-3. **Review the light-mode and large-text screenshots** for anything clipped or unreadable, and fix it. Reviewed through build 18 (Bars cards, History rows, map pins); recheck after any layout change.
+3. **Review the light-mode and large-text screenshots** for anything clipped or unreadable, and fix it. Reviewed through build 19 (Bars cards, History rows, map pins; the long "No live reports" pin label is open problem 2); recheck after any layout change.
 4. **App Store Connect:** privacy labels, age rating, beta description, and Beta App Review notes, as in PRD section 9. Max fills these in on the web.
 5. **Test ID: wait until launch (Max's call, 2026-10-05).** Each Delete my data gives a new anonymous ID, so for now `test_anon_ids` stays empty and Max's rows are stored as real. Before anyone other than Max uses the app (the M5 field test with other people, or M6 at the latest), run one cleanup in the SQL Editor: mark every row so far as test (or delete it), then add Max's then-current ID:
    ```sql
