@@ -32,20 +32,12 @@ struct OptionLabelTests {
         (LineSize.oneToTen, "1–10"),
         (LineSize.tenTo25, "10–25"),
         (LineSize.twentyFiveTo50, "25–50"),
+        (LineSize.fiftyTo100, "50–100"),
+        (LineSize.hundredPlus, "100+"),
         (LineSize.fiftyPlus, "50+"),
         (LineSize.cantSeeEnd, "Can't see the end"),
     ])
     func lineSize(value: LineSize, text: String) {
-        #expect(Labels.option(value) == text)
-    }
-
-    @Test(arguments: [
-        (Busyness.quiet, "Quiet"),
-        (Busyness.comfortable, "Comfortable"),
-        (Busyness.busy, "Busy"),
-        (Busyness.packed, "Packed"),
-    ])
-    func busyness(value: Busyness, text: String) {
         #expect(Labels.option(value) == text)
     }
 
@@ -167,13 +159,15 @@ struct PinLabelTests {
         (3, "~25–50 in line"),
         (4, "50+ in line"),
         (5, "Long line"),
+        (6, "~50–100 in line"),
+        (7, "100+ in line"),
     ])
     func lineSizeCodes(code: Int, text: String) {
         let label = PinLabel(estimate: estimate(lineSize: signal(code)))
         #expect(label == PinLabel(text: text, isGrayed: false))
     }
 
-    @Test func busynessOnlyIsNoData() {
+    @Test func aCrowdAnswerAloneIsNoData() {
         let label = PinLabel(estimate: estimate(busyness: signal(3)))
         #expect(label == PinLabel(text: "No live reports", isGrayed: false))
     }
@@ -211,17 +205,15 @@ struct BarSummaryTests {
         #expect(summary.status == "No live reports")
         #expect(summary.lineSize == nil)
         #expect(summary.wait == nil)
-        #expect(summary.busyness == nil)
         #expect(summary.freshness == nil)
     }
 
     @Test func fullEstimate() {
         let summary = BarSummary(estimate: estimate(
-            lineSize: signal(2), wait: signal(3), busyness: signal(4)), now: now)
+            lineSize: signal(2), wait: signal(3)), now: now)
         #expect(summary.status == nil)
         #expect(summary.lineSize == BarSummary.Line(text: "10–25 in line", isGrayed: false))
         #expect(summary.wait == BarSummary.Line(text: "15–30 min", isGrayed: false))
-        #expect(summary.busyness == BarSummary.Line(text: "Packed", isGrayed: false))
         #expect(summary.freshness == "3 people · latest 5 min ago")
     }
 
@@ -232,6 +224,8 @@ struct BarSummaryTests {
         (3, "25–50 in line"),
         (4, "50+ in line"),
         (5, "Can't see the end of the line"),
+        (6, "50–100 in line"),
+        (7, "100+ in line"),
     ])
     func lineSizeCodes(code: Int, text: String) {
         let summary = BarSummary(estimate: estimate(lineSize: signal(code)), now: now)
@@ -258,11 +252,9 @@ struct BarSummaryTests {
     @Test func staleSignalsAreGrayed() {
         let summary = BarSummary(estimate: estimate(
             lineSize: signal(1, freshness: .stale),
-            wait: signal(2, freshness: .fresh),
-            busyness: signal(1, freshness: .stale)), now: now)
+            wait: signal(2, freshness: .fresh)), now: now)
         #expect(summary.lineSize?.isGrayed == true)
         #expect(summary.wait?.isGrayed == false)
-        #expect(summary.busyness?.isGrayed == true)
     }
 
     @Test func freshnessSingularAndPlural() {
@@ -295,6 +287,6 @@ struct BarSummaryTests {
     @Test func outsideHours() {
         let summary = BarSummary(estimate: estimate(display: .outsideHours, freshness: .none, latestAt: nil), now: now)
         #expect(summary.status == "No live reports")
-        #expect(summary.busyness == nil)
+        #expect(summary.lineSize == nil)
     }
 }

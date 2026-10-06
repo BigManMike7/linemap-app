@@ -19,7 +19,7 @@ private var metaParameters: [String: JSONValue] {
         "p_anon_id": id(anon),
         "p_install_id": id(install),
         "p_app_version": .string("1.2.3"),
-        "p_definitions_version": .number(1),
+        "p_definitions_version": .number(2),
         "p_source": .string("app"),
     ]
 }

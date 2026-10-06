@@ -1,8 +1,10 @@
 /// Fixed answer codes (NFR-10). These raw values are stored on the server and
 /// must never change meaning. See `supabase/README.md`.
 public enum Definitions {
-    /// The answer definitions version every report carries.
-    public static let version = 1
+    /// The answer definitions version every report carries. Version 2
+    /// (2026-10-06) added line sizes 50–100 and 100+ and stopped offering 50+;
+    /// the server accepts both 1 and 2.
+    public static let version = 2
 }
 
 /// How a question was answered (FR-12). "I can't tell" is stored separately from skipped.
@@ -12,17 +14,50 @@ public enum AnswerState: String, Codable, Sendable, Hashable {
     case skipped
 }
 
-/// Line size, asked after Start line timer and in line-size updates (FR-6).
+/// Line size: the whole line, from the wait card and Report line size (FR-6,
+/// FR-11). Codes aren't in size order, since 50–100 and 100+ came later; use
+/// `rank` to compare sizes.
 public enum LineSize: Int, Codable, Sendable, Hashable, CaseIterable {
     case nobody = 0
     case oneToTen = 1
     case tenTo25 = 2
     case twentyFiveTo50 = 3
+    /// Added in definitions version 2 (2026-10-06).
+    case fiftyTo100 = 6
+    /// Added in definitions version 2 (2026-10-06).
+    case hundredPlus = 7
+    /// Offered until definitions version 2; old reports keep showing "50+".
     case fiftyPlus = 4
+    /// Not offered since 2026-10-01; the code stays reserved.
     case cantSeeEnd = 5
+
+    /// The line sizes the app offers, smallest first.
+    public static let offered: [LineSize] = [
+        .nobody, .oneToTen, .tenTo25, .twentyFiveTo50, .fiftyTo100, .hundredPlus,
+    ]
+
+    /// Size order for comparing codes: 50+, 50–100, and "Can't see the end"
+    /// share a rank, and 100+ is above them. The server's `app.line_size_rank`
+    /// matches it.
+    public var rank: Int {
+        switch self {
+        case .nobody: 0
+        case .oneToTen: 1
+        case .tenTo25: 2
+        case .twentyFiveTo50: 3
+        case .fiftyPlus, .fiftyTo100, .cantSeeEnd: 4
+        case .hundredPlus: 5
+        }
+    }
+
+    /// The rank of a stored code, or -1 for an unknown one.
+    public static func rank(code: Int) -> Int {
+        LineSize(rawValue: code)?.rank ?? -1
+    }
 }
 
-/// Busyness, relative to the bar's size (FR-11).
+/// Busyness, relative to the bar's size. Not asked or shown since 2026-10-06
+/// (Max's call); the codes stay reserved and never change meaning.
 public enum Busyness: Int, Codable, Sendable, Hashable, CaseIterable {
     case quiet = 1
     case comfortable = 2

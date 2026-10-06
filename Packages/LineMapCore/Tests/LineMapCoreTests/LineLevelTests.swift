@@ -32,6 +32,7 @@ struct LineLevelTests {
 
     @Test(arguments: [
         (0, LineLevel.short), (1, .short), (2, .some), (3, .long), (4, .long), (5, .long),
+        (6, .long), (7, .long),
     ])
     func lineSizes(code: Int, expected: LineLevel) {
         #expect(LineLevel(lineSizeCode: code) == expected)
@@ -40,7 +41,7 @@ struct LineLevelTests {
     @Test func unknownCodesHaveNoLevel() {
         #expect(LineLevel(waitCode: 0) == nil)
         #expect(LineLevel(waitCode: 6) == nil)
-        #expect(LineLevel(lineSizeCode: 6) == nil)
+        #expect(LineLevel(lineSizeCode: 8) == nil)
     }
 
     @Test func titles() {
@@ -130,6 +131,9 @@ struct LineStatusTests {
 
         let crowdOnly = HistoryPoint(at: now, people: 1, busyness: HistorySignal(code: 1))
         #expect(LineStatus(point: crowdOnly) == nil)
+
+        let hundredPlus = HistoryPoint(at: now, people: 1, lineSize: HistorySignal(code: 7))
+        #expect(LineStatus(point: hundredPlus)?.level == .long)
     }
 
     @Test func spokenText() {

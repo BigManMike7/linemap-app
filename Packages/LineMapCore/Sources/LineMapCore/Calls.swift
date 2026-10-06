@@ -161,8 +161,9 @@ public struct ReopenSessionCall: Codable, Sendable, Hashable {
     }
 }
 
-/// Report conditions (FR-11): line size and crowd, either one optional, sent
-/// once. It never touches a wait session.
+/// Report line size (FR-11): one line-size answer, sent once. The crowd answer
+/// is always skipped since 2026-10-06; the server ignores it. It never
+/// touches a wait session.
 public struct ReportConditionsCall: Codable, Sendable, Hashable {
     public var clientReportId: UUID
     public var barId: Int64

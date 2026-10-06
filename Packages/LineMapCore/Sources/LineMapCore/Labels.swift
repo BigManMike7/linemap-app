@@ -8,17 +8,10 @@ public enum Labels {
         case .oneToTen: "1–10"
         case .tenTo25: "10–25"
         case .twentyFiveTo50: "25–50"
+        case .fiftyTo100: "50–100"
+        case .hundredPlus: "100+"
         case .fiftyPlus: "50+"
         case .cantSeeEnd: "Can't see the end"
-        }
-    }
-
-    public static func option(_ value: Busyness) -> String {
-        switch value {
-        case .quiet: "Quiet"
-        case .comfortable: "Comfortable"
-        case .busy: "Busy"
-        case .packed: "Packed"
         }
     }
 
@@ -123,6 +116,8 @@ public struct PinLabel: Sendable, Hashable {
         case 2: return "~10–25 in line"
         case 3: return "~25–50 in line"
         case 4: return "50+ in line"
+        case 6: return "~50–100 in line"
+        case 7: return "100+ in line"
         case 5: return "Long line"
         default: return nil
         }
@@ -143,7 +138,6 @@ public struct BarSummary: Sendable, Hashable {
 
     public let lineSize: Line?
     public let wait: Line?
-    public let busyness: Line?
     public let freshness: String?
     public let status: String?
 
@@ -151,7 +145,6 @@ public struct BarSummary: Sendable, Hashable {
         guard let estimate else {
             lineSize = nil
             wait = nil
-            busyness = nil
             freshness = nil
             status = Labels.noLiveReports
             return
@@ -170,22 +163,15 @@ public struct BarSummary: Sendable, Hashable {
             } else {
                 wait = nil
             }
-            if let signal = estimate.busyness, let level = Busyness(rawValue: signal.code) {
-                busyness = Line(text: Labels.option(level), isGrayed: signal.freshness == .stale)
-            } else {
-                busyness = nil
-            }
         case .notEnoughData, .outsideHours:
             // Servers before logic version 2 send outside_hours.
             status = Labels.noLiveReports
             lineSize = nil
             wait = nil
-            busyness = nil
         case .closed:
             status = "Closed"
             lineSize = nil
             wait = nil
-            busyness = nil
         }
 
         if estimate.freshness != .none, let latest = estimate.latestAt {
@@ -200,7 +186,8 @@ public struct BarSummary: Sendable, Hashable {
         guard let size = LineSize(rawValue: code) else { return nil }
         switch size {
         case .nobody: return "No line"
-        case .oneToTen, .tenTo25, .twentyFiveTo50, .fiftyPlus: return "\(Labels.option(size)) in line"
+        case .oneToTen, .tenTo25, .twentyFiveTo50, .fiftyTo100, .hundredPlus, .fiftyPlus:
+            return "\(Labels.option(size)) in line"
         case .cantSeeEnd: return "Can't see the end of the line"
         }
     }

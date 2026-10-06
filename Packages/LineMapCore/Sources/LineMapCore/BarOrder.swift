@@ -4,8 +4,8 @@ import Foundation
 ///
 /// 1. Fresh estimates, then grayed-out (stale) ones.
 /// 2. Within each: bars with a wait, shortest first; then bars with only a
-///    line size, smallest first; then Uncertain bars, whose wait and line size
-///    contradict (FR-2); then bars with only a crowd answer.
+///    line size, smallest first (by size rank); then Uncertain bars, whose
+///    wait and line size contradict (FR-2).
 /// 3. Bars showing No live reports (or Closed, from servers before logic
 ///    version 3) come last.
 ///
@@ -37,7 +37,7 @@ public enum BarOrder {
     private struct Key: Comparable {
         /// 0 fresh, 1 grayed out, 2 nothing to show.
         var freshness: Int
-        /// 0 wait, 1 line size only, 2 uncertain, 3 crowd only.
+        /// 0 wait, 1 line size only, 2 uncertain.
         var kind: Int
         var value: Int
         var displayOrder: Int
@@ -55,9 +55,7 @@ public enum BarOrder {
             } else if let wait = estimate.wait {
                 (freshness, kind, value) = (Self.tier(wait), 0, BarOrder.comparableMinutes(wait))
             } else if let line = estimate.lineSize {
-                (freshness, kind, value) = (Self.tier(line), 1, line.code)
-            } else if let crowd = estimate.busyness {
-                (freshness, kind, value) = (Self.tier(crowd), 3, crowd.code)
+                (freshness, kind, value) = (Self.tier(line), 1, LineSize.rank(code: line.code))
             } else {
                 (freshness, kind, value) = (2, 0, 0)
             }

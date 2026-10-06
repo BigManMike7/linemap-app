@@ -55,13 +55,15 @@ struct MyReportDecodingTests {
 
 struct MyReportSummaryTests {
     @Test(arguments: [
-        (report(lineSize: 2, busyness: 3), "10–25 in line · Busy"),
+        (report(lineSize: 2, busyness: 3), "10–25 in line"),
         (report(lineSize: 0), "No line"),
-        (report(busyness: 4), "Packed"),
-        (report(busyness: 1, recalledWait: 2, kind: "inside"), "Quiet · Got in: 5–15 min"),
+        (report(lineSize: 7), "100+ in line"),
+        (report(lineSize: 6), "50–100 in line"),
+        (report(busyness: 4), "Report"),
+        (report(busyness: 1, recalledWait: 2, kind: "inside"), "Got in: 5–15 min"),
         (report(kind: "inside"), "I'm inside"),
         (wait(status: "entered", seconds: 1380, lineSize: 1), "Waited 23 min · 1–10 in line"),
-        (wait(status: "entered", seconds: 1410, busyness: 2), "Waited 24 min · Comfortable"),
+        (wait(status: "entered", seconds: 1410, busyness: 2), "Waited 24 min"),
         (wait(status: "gave_up"), "Gave up on the line"),
         (wait(status: "unfinished"), "Timer not finished"),
     ])
