@@ -58,8 +58,9 @@ nonisolated struct Thanks: Identifiable, Hashable {
 
     static let visible = "Thanks! Your update is now visible to everyone."
     static let offline = "Thanks! Your update will send when you're back online."
-    /// After Adjust time, which counts only once the wait ends, so it isn't visible yet.
-    static let startTime = "Saved! Your timer now includes your time in line."
+    /// After Save on Adjust time with the same time as before, usually because
+    /// Save was tapped while the wheel still spun and the wheel hadn't picked yet.
+    static let noChange = "No change. Let the wheel stop, then tap Save."
     /// After Gave up (FR-42).
     static let stopped = "Timer stopped."
 }
@@ -92,6 +93,8 @@ final class AppModel {
     var sheet: AppSheet?
     var alert: AppAlert?
     private(set) var thanks: Thanks?
+    /// Goes up on each Save on Adjust time, which confirms with a haptic only (FR-42).
+    private(set) var adjustTimeSaves = 0
     private(set) var isDeleting = false
 
     let location: LocationService
@@ -378,16 +381,17 @@ final class AppModel {
         let clamped = min(max(minutes ?? 0, 0), StartOffset.maxMinutes)
         let offset: Int? = clamped == 0 ? nil : clamped
         guard var wait = activeWait, let meta = reportMeta() else { return }
-        // Unchanged: it's already saved, so just confirm.
+        // Unchanged: say so rather than confirm, so the person can try again.
         guard wait.offsetMinutes != offset else {
-            showThanks(Thanks.startTime)
+            showThanks(Thanks.noChange)
             return
         }
         wait.offsetMinutes = offset
         setActiveWait(wait)
         var call = startCall(for: wait, meta: meta)
         call.startOffsetMinutes = clamped
-        thankWhenAccepted(call.clientReportId, text: Thanks.startTime)
+        // A haptic and no message: the wait counts only once it ends (FR-42).
+        adjustTimeSaves += 1
         enqueue(.startSession(call))
     }
 

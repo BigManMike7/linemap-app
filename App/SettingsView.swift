@@ -7,6 +7,8 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @State private var confirmsDelete = false
+    /// Shows "Copied" on the Copy ID button for a moment.
+    @State private var copiedID = false
 
     private let version = AppVersion(infoDictionary: Bundle.main.infoDictionary).label
 
@@ -55,9 +57,24 @@ struct SettingsView: View {
                             .font(.footnote.monospaced())
                             .textSelection(.enabled)
                             .accessibilityLabel("Anonymous ID")
-                        Button("Copy ID") {
+                        Button {
                             UIPasteboard.general.string = anonId
+                            copiedID = true
+                            UIAccessibility.post(notification: .announcement, argument: "ID copied")
+                        } label: {
+                            if copiedID {
+                                Label("Copied", systemImage: "checkmark")
+                            } else {
+                                Text("Copy ID")
+                            }
                         }
+                        .sensoryFeedback(.success, trigger: copiedID) { _, copied in copied }
+                        .task(id: copiedID) {
+                            guard copiedID else { return }
+                            try? await Task.sleep(for: .seconds(2))
+                            copiedID = false
+                        }
+                        .accessibilityIdentifier("copy-id-button")
                     } header: {
                         Text("Anonymous ID")
                     } footer: {

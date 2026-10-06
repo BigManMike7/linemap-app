@@ -23,7 +23,11 @@ struct RootView: View {
                 .tag(AppTab.settings)
         }
         .preferredColorScheme(AppConfig.uiTestColorScheme)
-        .sensoryFeedback(.success, trigger: model.thanks) { _, new in new != nil }
+        .sensoryFeedback(trigger: model.thanks) { _, new in
+            guard let new else { return nil }
+            return new.text == Thanks.noChange ? .warning : .success
+        }
+        .sensoryFeedback(.success, trigger: model.adjustTimeSaves)
         .sheet(item: $model.sheet) { sheet in
             sheetContent(sheet)
                 .presentationDragIndicator(.visible)

@@ -73,7 +73,8 @@ struct LineLevelDot: View {
     var body: some View {
         Group {
             if let status {
-                Circle().fill(status.color)
+                // Full color even for older reports: History is all past (FR-43).
+                Circle().fill(status.level.color)
             } else {
                 Circle().strokeBorder(.tertiary, lineWidth: 1.5)
             }

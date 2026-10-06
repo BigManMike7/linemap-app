@@ -152,14 +152,6 @@ struct BarHistoryTests {
         }
         #expect(history.busiestRow?.at == Self.quarter(6))
     }
-
-    @Test func grayedOnlyWhenEveryValueIsOlder() {
-        let at = Date(timeIntervalSince1970: 0)
-        #expect(HistoryPoint(at: at, people: 1, lineSize: HistorySignal(code: 1, freshness: .stale)).isGrayed)
-        #expect(!HistoryPoint(at: at, people: 1, lineSize: HistorySignal(code: 1, freshness: .stale),
-                              busyness: HistorySignal(code: 2)).isGrayed)
-        #expect(!HistoryPoint(at: at, people: 0).isGrayed)
-    }
 }
 
 struct NightDateTests {
@@ -205,10 +197,6 @@ struct NightDateTests {
                      NightDate(year: 2026, month: 10, day: 3)] {
             #expect(NightDate(calendarDateOf: date.noon(in: eastern), timeZone: eastern) == date)
         }
-    }
-
-    @Test func nightTitle() {
-        #expect(NightDate(year: 2026, month: 10, day: 3).nightTitle == "Saturday night, Oct 3")
     }
 
     @Test func ordersByDate() {

@@ -71,11 +71,7 @@ struct BarDetailsScreen: View {
                 .datePickerStyle(.graphical)
                 .accessibilityIdentifier("history-calendar")
 
-            Text(selectedNight == tonight ? "Tonight" : selectedNight.nightTitle)
-                .font(.headline)
-                .accessibilityAddTraits(.isHeader)
-                .accessibilityIdentifier("history-night")
-
+            // No heading for the night: the calendar above already shows it.
             if let history, history.night == selectedNight {
                 NightRows(history: history)
             } else if loadFailed {
@@ -133,7 +129,7 @@ private struct NightRows: View {
                         }
                     }
                 }
-                Text("Dots show the line: green short, orange some, red long, gray when the wait and line disagree. Grayed rows are reports 30 to 60 minutes old.")
+                Text("Dots show the line: green short, orange some, red long, gray when the wait and line disagree.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -147,18 +143,13 @@ private struct NightRows: View {
 
 /// "● 10:30 PM   25–50 in line · 30–60 min wait · Busy", with the number of
 /// people under it. The dot is the line level's color. Stacks at the largest
-/// text sizes.
+/// text sizes. Rows built from reports 30–60 minutes old look like any other:
+/// everything in History is in the past (Max's call, 2026-10-06).
 private struct QuarterHourRow: View {
     @Environment(\.dynamicTypeSize) private var typeSize
     let point: HistoryPoint
 
     private var status: LineStatus? { LineStatus(point: point) }
-
-    private var accessibilityValue: String {
-        [status?.level.title, point.isGrayed ? "Older reports" : nil]
-            .compactMap { $0 }
-            .joined(separator: ", ")
-    }
 
     var body: some View {
         let layout = typeSize.isAccessibilitySize
@@ -173,7 +164,7 @@ private struct QuarterHourRow: View {
             .frame(minWidth: typeSize.isAccessibilitySize ? nil : 92, alignment: .leading)
             VStack(alignment: .leading, spacing: 2) {
                 Text(Labels.historyRow(point))
-                    .foregroundStyle(point.hasData && !point.isGrayed ? .primary : .secondary)
+                    .foregroundStyle(point.hasData ? .primary : .secondary)
                 if point.hasData {
                     Text(Labels.people(point.people))
                         .font(.footnote)
@@ -185,7 +176,7 @@ private struct QuarterHourRow: View {
         .font(.subheadline)
         .padding(.vertical, 10)
         .accessibilityElement(children: .combine)
-        .accessibilityValue(accessibilityValue)
+        .accessibilityValue(status?.level.title ?? "")
         .accessibilityIdentifier("history-row")
     }
 }

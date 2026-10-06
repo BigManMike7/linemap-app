@@ -127,12 +127,6 @@ public struct HistoryPoint: Codable, Sendable, Hashable, Identifiable {
         lineSize != nil || wait != nil || busyness != nil
     }
 
-    /// True when every value here comes from reports 30–60 minutes old (FR-17).
-    public var isGrayed: Bool {
-        let signals = [lineSize, wait, busyness].compactMap { $0 }
-        return !signals.isEmpty && signals.allSatisfy { $0.freshness == .stale }
-    }
-
     /// Line size, then wait, then crowd, for picking the busiest quarter hour.
     fileprivate var busyness3: [Int] {
         [lineSize?.code ?? -1, wait?.code ?? -1, busyness?.code ?? -1]
@@ -251,11 +245,6 @@ public struct NightDate: Codable, Sendable, Hashable, Comparable, CustomStringCo
     /// "Thursday"
     public var weekdayName: String {
         Self.weekdays[weekday - 1]
-    }
-
-    /// "Saturday night, Oct 3"
-    public var nightTitle: String {
-        "\(weekdayName) night, \(Self.shortMonths[month - 1]) \(day)"
     }
 
     private var components: DateComponents {
