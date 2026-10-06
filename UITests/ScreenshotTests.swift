@@ -12,12 +12,12 @@ final class ScreenshotTests: XCTestCase {
         // On a failure, save the screen as it was then, so the CI artifact
         // shows what went wrong.
         if let run = testRun, run.failureCount + run.unexpectedExceptionCount > 0 {
-            MainActor.assumeIsolated {
-                let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-                attachment.name = "FAILED"
-                attachment.lifetime = .keepAlways
-                add(attachment)
-            }
+            // Only the PNG bytes leave the main actor, so `self` never crosses.
+            let png = MainActor.assumeIsolated { XCUIScreen.main.screenshot().pngRepresentation }
+            let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+            attachment.name = "FAILED"
+            attachment.lifetime = .keepAlways
+            add(attachment)
         }
         super.tearDown()
     }
