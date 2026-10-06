@@ -4,7 +4,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(29);
+select plan(32);
 
 -- Config history (FR-37) ---------------------------------------------------------------
 
@@ -52,41 +52,70 @@ select throws_ok($$select app.setting('no_such_setting')$$, 'P0001', 'missing se
   'a missing setting raises');
 
 -- Snapshots (FR-36) ----------------------------------------------------------------------
--- Friday Oct 2, 2026, 11 p.m. Eastern is live.
+-- At any hour (since 2026-10-06), one row per active non-test bar with a real
+-- report within the last hour. A bar with no snapshot was showing "No live
+-- reports".
 
 insert into app.bars (name, address, door_lat, door_lon, active)
 values ('Closed for good', 'Test address', 40.7940, -77.8610, false);
 insert into app.bars (name, address, door_lat, door_lon, is_test)
 values ('Snapshot test bar', 'Test address', 40.7940, -77.8610, true);
 
--- A test report at a real bar must not reach the snapshot.
-insert into app.reports (client_report_id, anon_id, install_id, bar_id, night_date, position, kind,
-                         line_size, line_size_state, phone_time, location_status, uncertain,
-                         app_version, definitions_version, is_test)
-select gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), b.id, '2026-10-02', 'inside', 'inside',
-       3, 'answered', '2026-10-02 22:55 America/New_York', 'denied', true, '1.0', 1, true
-from app.bars b where b.name = 'The Phyrst';
+-- A line-size report (code 3) at a bar, by name.
+create function pg_temp.rep(p_bar text, p_at timestamptz, p_is_test boolean default false)
+returns void
+language sql as $$
+  insert into app.reports (client_report_id, anon_id, install_id, bar_id, night_date, position, kind,
+                           line_size, line_size_state, phone_time, location_status, uncertain,
+                           app_version, definitions_version, is_test)
+  select gen_random_uuid(), gen_random_uuid(), gen_random_uuid(), b.id, app.night_date(p_at), 'inside', 'inside',
+         3, 'answered', p_at, 'denied', true, '1.0', 1, p_is_test
+  from app.bars b where b.name = p_bar
+$$;
 
-select is(app.take_snapshots('2026-10-02 23:00 America/New_York'), 3,
-  'a live snapshot saves one row per active non-test bar');
-select is((select count(*) from app.estimate_snapshots where taken_at = '2026-10-02 23:00 America/New_York'), 3::bigint,
-  'three snapshot rows are saved');
+-- Tuesday Oct 6, 2026, a weekday morning: a real report at Doggie's Pub at
+-- 10:50 a.m.; a test report at The Phyrst (must not reach a snapshot); real
+-- reports at an inactive bar and at a test bar (never snapshotted). Cafe 210
+-- West has a report only on Saturday Oct 3 at 2:20 a.m., after a Friday night
+-- (the old "Closed" hours).
+select pg_temp.rep('Doggie''s Pub', '2026-10-06 10:50 America/New_York');
+select pg_temp.rep('The Phyrst', '2026-10-06 10:55 America/New_York', p_is_test => true);
+select pg_temp.rep('Closed for good', '2026-10-06 10:55 America/New_York');
+select pg_temp.rep('Snapshot test bar', '2026-10-06 10:55 America/New_York');
+select pg_temp.rep('Cafe 210 West', '2026-10-03 02:20 America/New_York');
+
+select is(app.take_snapshots('2026-10-06 11:00 America/New_York'), 1,
+  'at 11 a.m. on a Tuesday, a snapshot is saved for the bar with a recent report');
 select set_eq(
-  $$select s.bar_id from app.estimate_snapshots s$$,
-  $$select b.id from app.bars b where b.active and not b.is_test$$,
-  'snapshots cover exactly the active non-test bars');
+  $$select s.bar_id from app.estimate_snapshots s where s.taken_at = '2026-10-06 11:00 America/New_York'$$,
+  $$select b.id from app.bars b where b.name = 'Doggie''s Pub'$$,
+  'only that bar: not inactive bars, test bars, or bars without a real report');
+select is(
+  (select count(*) from app.estimate_snapshots s join app.bars b on b.id = s.bar_id
+   where b.name in ('The Phyrst', 'Cafe 210 West')),
+  0::bigint, 'nothing is saved for a bar without a recent real report (snapshots never include test rows)');
 select is((select bool_and(s.logic_version = app.logic_version()) from app.estimate_snapshots s), true,
   'snapshots record the logic version');
-select is((select s.estimate ->> 'display' from app.estimate_snapshots s join app.bars b on b.id = s.bar_id
-           where b.name = 'The Phyrst'),
-  'not_enough_data', 'snapshots never include test rows');
-select is((select s.estimate ->> 'bar_id' from app.estimate_snapshots s join app.bars b on b.id = s.bar_id
-           where b.name = 'The Phyrst'),
-  (select b.id::text from app.bars b where b.name = 'The Phyrst'), 'a snapshot holds the full bar estimate');
+select is((select s.estimate ->> 'display' from app.estimate_snapshots s
+           where s.taken_at = '2026-10-06 11:00 America/New_York'),
+  'estimate', 'a saved snapshot shows an estimate');
+select is((select s.estimate ->> 'bar_id' from app.estimate_snapshots s
+           where s.taken_at = '2026-10-06 11:00 America/New_York'),
+  (select b.id::text from app.bars b where b.name = 'Doggie''s Pub'), 'a snapshot holds the full bar estimate');
+select is((select s.estimate -> 'line_size' ->> 'code' from app.estimate_snapshots s
+           where s.taken_at = '2026-10-06 11:00 America/New_York'),
+  '3', 'with its signals');
 
-select is(app.take_snapshots('2026-10-03 02:30 America/New_York'), 0, 'no snapshots while closed');
-select is(app.take_snapshots('2026-10-05 20:00 America/New_York'), 0, 'no snapshots outside hours');
-select is((select count(*) from app.estimate_snapshots), 3::bigint, 'only the live snapshot was saved');
+select is(app.take_snapshots('2026-10-06 11:35 America/New_York'), 1,
+  'a 45-minute-old report still gets a snapshot');
+select is((select s.estimate ->> 'freshness' from app.estimate_snapshots s
+           where s.taken_at = '2026-10-06 11:35 America/New_York'),
+  'stale', 'which shows it as stale, as the app did');
+select is(app.take_snapshots('2026-10-06 11:51 America/New_York'), 0,
+  'nothing is saved once the newest report is over an hour old');
+select is(app.take_snapshots('2026-10-03 02:30 America/New_York'), 1,
+  'snapshots are taken at 2:30 a.m. after a Friday night too (no more closed hours)');
+select is((select count(*) from app.estimate_snapshots), 3::bigint, 'three snapshots were saved in all');
 
 -- Scheduled jobs (PRD 7.2) ------------------------------------------------------------------
 
