@@ -1,12 +1,12 @@
 -- Security model (NFR-5) and no stored coordinates (FR-26).
--- The app reaches data only through the 16 API functions in PRD 7.2; every
+-- The app reaches data only through the 17 API functions in PRD 7.2; every
 -- table is private, has RLS on, and no role but the owner can touch it.
 
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(70);
+select plan(72);
 
 -- Schema and table lockdown ----------------------------------------------------
 
@@ -63,9 +63,9 @@ select is(
                        'update_line_size', 'end_session', 'send_feedback',
                        'register_install', 'log_view', 'delete_my_data', 'cancel_session',
                        'report_conditions', 'my_recent_reports', 'delete_report',
-                       'reopen_session', 'bar_history')),
-  16::bigint,
-  'each of the 16 API functions exists exactly once (no overloads)');
+                       'reopen_session', 'bar_history', 'my_wait_stats')),
+  17::bigint,
+  'each of the 17 API functions exists exactly once (no overloads)');
 
 -- Functions created by the migrations' owner in public that anon can run.
 select set_eq(
@@ -77,8 +77,8 @@ select set_eq(
   array['get_bars', 'get_estimates', 'submit_report', 'start_session', 'update_line_size',
         'end_session', 'send_feedback', 'register_install', 'log_view', 'delete_my_data',
         'cancel_session', 'report_conditions', 'my_recent_reports', 'delete_report',
-        'reopen_session', 'bar_history'],
-  'anon can execute exactly the 16 API functions');
+        'reopen_session', 'bar_history', 'my_wait_stats'],
+  'anon can execute exactly the 17 API functions');
 
 select is(
   (select array_agg(p.proname::text order by p.proname::text)
@@ -88,7 +88,7 @@ select is(
                        'update_line_size', 'end_session', 'send_feedback',
                        'register_install', 'log_view', 'delete_my_data', 'cancel_session',
                        'report_conditions', 'my_recent_reports', 'delete_report',
-                       'reopen_session', 'bar_history')
+                       'reopen_session', 'bar_history', 'my_wait_stats')
      and has_function_privilege('authenticated', p.oid, 'execute')),
   null::text[],
   'authenticated cannot execute any API function');
@@ -101,7 +101,7 @@ select is(
                        'update_line_size', 'end_session', 'send_feedback',
                        'register_install', 'log_view', 'delete_my_data', 'cancel_session',
                        'report_conditions', 'my_recent_reports', 'delete_report',
-                       'reopen_session', 'bar_history')
+                       'reopen_session', 'bar_history', 'my_wait_stats')
      and not p.prosecdef),
   null::text[],
   'every API function is SECURITY DEFINER');
@@ -114,7 +114,7 @@ select is(
                        'update_line_size', 'end_session', 'send_feedback',
                        'register_install', 'log_view', 'delete_my_data', 'cancel_session',
                        'report_conditions', 'my_recent_reports', 'delete_report',
-                       'reopen_session', 'bar_history')
+                       'reopen_session', 'bar_history', 'my_wait_stats')
      and not (coalesce(p.proconfig, '{}'::text[])
               && array['search_path=""', 'search_path=', $q$search_path=''$q$])),
   null::text[],
@@ -234,6 +234,10 @@ select is(
 select is(
   (public.bar_history(p_bar_id => (public.get_bars() -> 0 ->> 'id')::bigint) ->> 'logic_version')::integer, 4,
   'anon can call bar_history');
+select is(
+  public.my_wait_stats('5ec00000-0000-4000-8000-000000000001'),
+  '{"total_seconds": 0, "waits": 0, "longest_seconds": null}'::jsonb,
+  'anon can call my_wait_stats');
 
 reset role;
 
@@ -282,6 +286,9 @@ select throws_ok(
 select throws_ok(
   $$select public.bar_history(p_bar_id => 1)$$,
   '42501', null, 'authenticated cannot call bar_history');
+select throws_ok(
+  $$select public.my_wait_stats('5ec00000-0000-4000-8000-000000000001')$$,
+  '42501', null, 'authenticated cannot call my_wait_stats');
 select throws_ok('select * from app.reports', '42501', null, 'authenticated cannot select app.reports');
 
 reset role;
