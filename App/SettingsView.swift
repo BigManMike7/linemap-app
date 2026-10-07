@@ -2,11 +2,11 @@ import LineMapCore
 import UIKit
 import SwiftUI
 
-/// The Settings tab (FR-5, FR-44): Made a wrong report? (FR-41), Delete my
-/// data, the privacy policy and support pages, and the contact email.
+/// The Settings tab (FR-5, FR-44): Made a wrong report? (FR-41), Time in lines
+/// (FR-48), the privacy policy and support pages, the contact email, and the
+/// anonymous ID, which people email to support to delete their data (FR-32).
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
-    @State private var confirmsDelete = false
     /// Shows "Copied" on the Copy ID button for a moment.
     @State private var copiedID = false
 
@@ -24,23 +24,7 @@ struct SettingsView: View {
                     Text("Delete a report you made in the last 24 hours.")
                 }
 
-                Section {
-                    Button(role: .destructive) {
-                        confirmsDelete = true
-                    } label: {
-                        HStack {
-                            Text("Delete my data")
-                            if model.isDeleting {
-                                Spacer()
-                                ProgressView()
-                            }
-                        }
-                    }
-                    .disabled(model.isDeleting)
-                    .accessibilityIdentifier("delete-data-button")
-                } footer: {
-                    Text("Deletes your reports, timers, and app activity from LineMap, then gives this phone a new anonymous ID. LineMap has no accounts and never stores your exact location.")
-                }
+                TimeInLinesSection()
 
                 Section("About") {
                     Link("Privacy policy", destination: AppConfig.privacyURL)
@@ -78,20 +62,71 @@ struct SettingsView: View {
                     } header: {
                         Text("Anonymous ID")
                     } footer: {
-                        Text("A random ID that isn't linked to you. Support may ask for it.")
+                        Text("A random ID that isn't linked to you. Support may ask for it. To delete your data, email support with this ID.")
                     }
                 }
             }
             .navigationTitle("Settings")
-            .confirmationDialog("Delete your data?", isPresented: $confirmsDelete, titleVisibility: .visible) {
-                Button("Delete", role: .destructive) {
-                    Task { await model.deleteMyData() }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This permanently removes everything LineMap has from this phone. It can't be undone.")
-            }
         }
         .accessibilityIdentifier("settings")
+    }
+}
+
+/// Time in lines (FR-48): the person's total from every timed wait that ended
+/// with I'm in or Gave up, Adjust time included. It loads each time Settings
+/// shows, so a wait just finished or deleted is counted right.
+private struct TimeInLinesSection: View {
+    @Environment(AppModel.self) private var model
+    @State private var failed = false
+
+    var body: some View {
+        Section {
+            content
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("wait-stats")
+                .task {
+                    do {
+                        try await model.refreshWaitStats()
+                        failed = false
+                    } catch {
+                        failed = true
+                    }
+                }
+        } header: {
+            Text("Time in lines")
+        } footer: {
+            Text("All your timed lines from the past year, from Start line timer to I'm in or Gave up.")
+        }
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        if let stats = model.waitStats {
+            if stats.waits == 0 {
+                Label("No lines timed yet", systemImage: "hourglass")
+                    .foregroundStyle(.secondary)
+            } else {
+                HStack(spacing: 14) {
+                    Image(systemName: "hourglass")
+                        .font(.title)
+                        .foregroundStyle(.tint)
+                        .accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(stats.totalLabel)
+                            .font(.title.bold())
+                        Text(stats.detailLabel)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        } else if failed {
+            Text("Couldn't load your time. Check your connection.")
+                .foregroundStyle(.secondary)
+        } else {
+            ProgressView()
+                .frame(maxWidth: .infinity)
+        }
     }
 }

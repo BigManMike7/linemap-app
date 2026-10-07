@@ -17,8 +17,8 @@ nonisolated struct FixtureTransport: RPCTransport {
             reply = #"{"ok": true, "client_session_id": "\#(session)", "status": "open", "already_open": false}"#
         case "end_session":
             reply = #"{"ok": true, "status": "entered", "measured_wait_seconds": 600}"#
-        case "delete_my_data":
-            reply = #"{"ok": true, "rows_removed": 7}"#
+        case "my_wait_stats":
+            reply = #"{"total_seconds": 12300, "waits": 7, "longest_seconds": 2880}"#
         case "my_recent_reports":
             reply = Self.recentReports(now: Date())
         case "delete_report":

@@ -56,7 +56,7 @@ Your report waits on your phone and sends itself when you're back online.
 Tap **Does this look wrong?** on the bar's page and confirm. It helps us check the estimates.
 
 **How do I delete my data?**
-**Settings → Delete my data** removes everything LineMap has from your phone and gives it a new anonymous ID.
+Email **[line.map.support@gmail.com](mailto:line.map.support@gmail.com)** with your anonymous ID (**Settings → Copy ID**). Within 30 days, we delete everything LineMap has tied to that ID and reply to confirm. To remove just one report or timer from the last 24 hours, use **Settings → Made a wrong report?**
 
 ## Contact
 

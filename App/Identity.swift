@@ -18,13 +18,6 @@ actor AnonymousIDStore {
         return id
     }
 
-    /// A fresh ID, replacing the old one (after Delete my data, FR-32).
-    func replace() throws -> UUID {
-        let id = UUID()
-        try save(id)
-        return id
-    }
-
     private var identity: [CFString: Any] {
         [
             kSecClass: kSecClassGenericPassword,

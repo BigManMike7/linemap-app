@@ -96,7 +96,8 @@ final class AppModel {
     private(set) var thanks: Thanks?
     /// Goes up on each Save on Adjust time, which confirms with a haptic only (FR-42).
     private(set) var adjustTimeSaves = 0
-    private(set) var isDeleting = false
+    /// The time-in-lines tracker in Settings (FR-48); nil until it first loads.
+    private(set) var waitStats: WaitStats?
 
     let location: LocationService
 
@@ -460,36 +461,14 @@ final class AppModel {
         return result
     }
 
-    // MARK: - Delete my data (FR-32)
+    // MARK: - Time in lines (FR-48)
 
-    func deleteMyData() async {
-        guard let oldId = anonId, !isDeleting else { return }
-        isDeleting = true
-        defer { isDeleting = false }
-
-        // Drop queued writes first so nothing recreates data after the delete.
-        await enqueueChain?.value
-        await queue.removeAll()
-        // Let a send already in flight finish before deleting.
-        _ = await queue.flush()
-        do {
-            let removed = try await api.deleteMyData(anonId: oldId)
-            if isUITesting {
-                anonId = UUID()
-            } else {
-                anonId = try await anonStore.replace()
-            }
-            setActiveWait(nil)
-            refusedReports.removeAll()
-            registerInstall()
-            alert = AppAlert(
-                title: "Your data was deleted",
-                message: removed == 1 ? "1 item was removed." : "\(removed) items were removed.")
-        } catch {
-            alert = AppAlert(
-                title: "Couldn't delete your data",
-                message: "Check your connection and try again.")
-        }
+    /// Loads the person's total from the server. Offline it throws, and the
+    /// last total stays. (Delete my data, FR-32, left the app on 2026-10-07:
+    /// people email support, who delete everything tied to their ID.)
+    func refreshWaitStats() async throws {
+        guard let anonId else { return }
+        waitStats = try await api.myWaitStats(anonId: anonId)
     }
 
     // MARK: - Queue

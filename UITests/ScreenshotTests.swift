@@ -192,7 +192,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(imIn.waitForExistence(timeout: 5), "the wait card shows on Bars")
         saveScreenshot(named: "14-BarsWithTimer", app: app)
         app.tabBars.buttons["Settings"].tap()
-        XCTAssertTrue(app.buttons["delete-data-button"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["recent-reports-link"].waitForExistence(timeout: 5))
         XCTAssertFalse(imIn.exists, "the wait card is hidden on Settings")
         app.tabBars.buttons["Map"].tap()
 
@@ -220,9 +220,14 @@ final class ScreenshotTests: XCTestCase {
         sleep(1)
         XCTAssertFalse(imIn.exists, "a cancelled line leaves no wait card")
 
-        // Settings tab (FR-5).
+        // Settings tab (FR-5), with Time in lines (FR-48) and no Delete my data (FR-32).
         app.tabBars.buttons["Settings"].tap()
-        XCTAssertTrue(app.buttons["delete-data-button"].waitForExistence(timeout: 5))
+        let stats = app.descendants(matching: .any)["wait-stats"]
+        XCTAssertTrue(stats.waitForExistence(timeout: 5))
+        let total = NSPredicate(format: "label CONTAINS '3 hr 25 min' AND label CONTAINS '7 lines'")
+        expectation(for: total, evaluatedWith: stats)
+        waitForExpectations(timeout: 5)
+        XCTAssertFalse(app.buttons["Delete my data"].exists, "Delete my data is gone (support does it)")
         saveScreenshot(named: "17-Settings", app: app)
 
         // Made a wrong report?: delete one of the last 24 hours' reports (FR-41).
@@ -240,7 +245,7 @@ final class ScreenshotTests: XCTestCase {
         expectation(for: oneLeft, evaluatedWith: deleteButtons)
         waitForExpectations(timeout: 5)
         app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.buttons["delete-data-button"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["recent-reports-link"].waitForExistence(timeout: 5))
     }
 
     /// The main screens again in light mode at a large accessibility text size,
@@ -301,7 +306,7 @@ final class ScreenshotTests: XCTestCase {
         saveScreenshot(named: "L07-WaitCard", app: app)
 
         app.tabBars.buttons["Settings"].tap()
-        XCTAssertTrue(app.buttons["delete-data-button"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["recent-reports-link"].waitForExistence(timeout: 5))
         saveScreenshot(named: "L08-Settings", app: app)
     }
 

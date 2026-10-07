@@ -76,15 +76,10 @@ public struct APIClient: Sendable {
         return try await send("bar_history", parameters)
     }
 
-    /// Deletes everything tied to the ID (FR-32). Returns the number of rows removed.
-    public func deleteMyData(anonId: UUID) async throws -> Int {
-        // Replies read as JSONValue keep their snake_case keys, so use a plain decoder.
-        let reply: JSONValue = try await send("delete_my_data", ["p_anon_id": .uuid(anonId)],
-                                              decoder: JSONDecoder())
-        guard reply["ok"]?.boolValue == true, let rows = reply["rows_removed"]?.intValue else {
-            throw APIError.badReply
-        }
-        return rows
+    /// The person's total time in lines, for the tracker in Settings (FR-48).
+    /// (Delete my data, FR-32, left the app on 2026-10-07; support runs it now.)
+    public func myWaitStats(anonId: UUID) async throws -> WaitStats {
+        try await send("my_wait_stats", ["p_anon_id": .uuid(anonId)])
     }
 
     /// The person's own reports and finished waits from the last 24 hours, newest first (FR-41).

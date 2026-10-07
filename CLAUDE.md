@@ -92,7 +92,7 @@ These are summaries. The PRD has the details.
 
 - **Anonymous ID** lives in the Keychain, device-only, not synced, so it survives reinstalling (FR-29).
 - **Install ID** lives in regular app storage and is new on every install (FR-30).
-- **Delete my data** deletes everything tied to the anonymous ID, logs a count with no ID, then creates a new anonymous ID (FR-32).
+- **Delete my data** deletes everything tied to the anonymous ID and logs a count with no ID (FR-32). Since 2026-10-07 it is not in the app: people email support with their ID, and Max runs `public.delete_my_data` in the SQL Editor within 30 days. The phone keeps its ID. Older builds still have the button, which also made a new ID.
 - **Made a wrong report?** in Settings deletes one report or finished wait from the last 24 hours, for real. Its rate limit keeps running through a short-lived hold (anon ID, bar, kind, time only), and the deletion logs a count with no ID (FR-41).
 
 **Time**
