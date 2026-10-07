@@ -163,7 +163,9 @@ The data model before launch, the database tests, location on a real phone, that
 
 ## Where we left off (2026-10-07)
 
-**Build 22 is on TestFlight (uploaded 2026-10-07).** CI is green and `main` is clean. Next: Max tries build 22. If he hasn't yet, he adds his test ID: Settings, Copy ID, then in the Supabase SQL Editor: `update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';` Don't commit his ID.
+**Build 23 is on TestFlight (uploaded 2026-10-07).** CI is green and `main` is clean. Next: Max tries build 23. If he hasn't yet, he adds his test ID: Settings, Copy ID, then in the Supabase SQL Editor: `update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';` Don't commit his ID.
+
+**New in build 23:** History calendar dots (accent purple) under days with reports; Settings has Time in lines first with no description, then Made a wrong report?; Apple's places on the map when zoomed in about twice as close as the opening view (`Downtown.placesBelowSpan`, 0.0065° of longitude), excluding nightlife, breweries, and wineries; not tappable. Max should say whether that zoom level feels right.
 
 **What to try on build 22:** Primanti Bros. and The Shandygaff by their full names; Line size: a different size sends with "Thanks! 10–25 in line is now visible…", the same size within 5 minutes says "No change. Let the wheel stop, then tap Save." (no check mark), the same size after 5 minutes sends; Settings: Time in lines (total, lines, longest), no Delete my data, and the email note under the ID; History: "No reports this day." and "No reports today yet."
 
@@ -172,6 +174,8 @@ The data model before launch, the database tests, location on a real phone, that
 - **Wheels stay Apple's SwiftUI wheel** (Max): no custom or UIKit wheel, no graying Save. It picks only once it stops, so the app can't see a mid-spin Save. Line size: a different size always sends; the same size sends only 5+ minutes after the last send (each send restarts the 5 minutes; `LineSizeSave` in LineMapCore), otherwise No change. Adjust time: an unchanged time says No change. The Line size thank-you names the size.
 - **Full bar names** (migration `*_full_bar_names.sql`, data only): Pmans is Primanti Bros., The Gaff is The Shandygaff.
 - **Delete my data left the app** (FR-32): people email support with their ID; Max runs `select public.delete_my_data('<ID>');` in the SQL Editor within 30 days and replies. The phone keeps its ID. The function stays for this and for older builds. Privacy policy and support page updated (still waiting for Max's review).
+- **History calendar** (FR-43): Apple's UICalendarView with its own decorations (SwiftUI's DatePicker can't mark dates); dots come from `bar_history`'s `nights`, no server change.
+- **Live Activity** stays Phase 2 (Max). Decided if built: auto-start with the timer, bar name and timer, an I'm in button only; a widget extension target means new signing work.
 - **Time in lines** (FR-48): new read-only function `my_wait_stats` (security definer, anon only; no table change; Max approved the design). It counts I'm in and Gave up waits with Adjust time, skips open, unfinished, and a timer replaced by a redo that a line elsewhere closed. The app still calls 15 functions (`delete_my_data` out, `my_wait_stats` in). No index on `wait_sessions(anon_id)` yet; add one if it ever gets slow.
 
 **Decisions made 2026-10-06** (all in PRD.md):
