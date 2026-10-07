@@ -25,7 +25,8 @@ struct QuestionSheet: View {
 }
 
 /// Line size (FR-6): one wheel of the offered sizes, starting on the last
-/// answer in this wait. Save sends it; swiping the sheet away sends nothing.
+/// answer in this wait. Save sends it, unless the wheel is still where it
+/// opened (No change); swiping the sheet away sends nothing.
 struct LineSizeView: View {
     @Environment(AppModel.self) private var model
     @State private var lineSize: LineSize

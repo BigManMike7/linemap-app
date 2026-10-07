@@ -78,6 +78,14 @@ final class ScreenshotTests: XCTestCase {
         // Save confirms the answer was sent (FR-42).
         XCTAssertTrue(message(containing: "now visible to everyone", in: app).waitForExistence(timeout: 20))
 
+        // Saving the same size again sends nothing and says so, like Adjust time (FR-6, FR-42).
+        app.buttons["wait-update-line"].tap()
+        XCTAssertTrue(app.buttons["line-save"].waitForExistence(timeout: 5))
+        app.buttons["line-save"].tap()
+        XCTAssertTrue(message(containing: "No change", in: app).waitForExistence(timeout: 5),
+                      "an unchanged line size says No change")
+        saveScreenshot(named: "05b-NoChange", app: app)
+
         // Adjust time from the card (FR-7): one wheel, 0 to 90, and Save.
         let adjust = app.buttons["wait-adjust-time"]
         XCTAssertTrue(adjust.waitForExistence(timeout: 5))

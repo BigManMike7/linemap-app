@@ -58,8 +58,9 @@ nonisolated struct Thanks: Identifiable, Hashable {
 
     static let visible = "Thanks! Your update is now visible to everyone."
     static let offline = "Thanks! Your update will send when you're back online."
-    /// After Save on Adjust time with the same time as before, usually because
-    /// Save was tapped while the wheel still spun and the wheel hadn't picked yet.
+    /// After Save on Adjust time or Line size with the wheel where it opened,
+    /// usually because Save was tapped while the wheel still spun and the wheel
+    /// hadn't picked yet.
     static let noChange = "No change. Let the wheel stop, then tap Save."
     /// After Gave up (FR-42).
     static let stopped = "Timer stopped."
@@ -358,6 +359,12 @@ final class AppModel {
     func answerLineSize(_ size: LineSize) {
         sheet = nil
         guard var wait = activeWait, let meta = reportMeta() else { return }
+        // Still where the wheel opened (the last answer, or No line): say so
+        // rather than send, so the person can try again, as Adjust time does.
+        guard size != (wait.lineSize ?? .nobody) else {
+            showThanks(Thanks.noChange)
+            return
+        }
         wait.lineSize = size
         setActiveWait(wait)
         let reportId = UUID()

@@ -134,7 +134,7 @@ private struct NightRows: View {
                     .foregroundStyle(.secondary)
             }
         } else {
-            Text(history.night == history.tonight ? "No reports tonight yet." : "No reports this night.")
+            Text(history.night == history.tonight ? "No reports tonight yet." : "No reports this day.")
                 .foregroundStyle(.secondary)
                 .accessibilityIdentifier("history-empty")
         }

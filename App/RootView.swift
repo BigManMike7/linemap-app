@@ -93,10 +93,17 @@ struct ThanksMessage: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Label(thanks.text, systemImage: "checkmark.circle.fill")
-                .font(.subheadline.weight(.medium))
-                .symbolRenderingMode(.hierarchical)
-                .accessibilityIdentifier("thanks-message")
+            // No check mark on No change: nothing was sent.
+            Group {
+                if thanks.text == Thanks.noChange {
+                    Text(thanks.text)
+                } else {
+                    Label(thanks.text, systemImage: "checkmark.circle.fill")
+                }
+            }
+            .font(.subheadline.weight(.medium))
+            .symbolRenderingMode(.hierarchical)
+            .accessibilityIdentifier("thanks-message")
             // No Undo once another timer has started.
             if thanks.undo != nil && model.activeWait == nil {
                 Spacer(minLength: 0)
