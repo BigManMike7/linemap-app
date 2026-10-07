@@ -72,6 +72,9 @@ final class ScreenshotTests: XCTestCase {
         let lineWheel = app.pickerWheels.firstMatch
         XCTAssertTrue(lineWheel.waitForExistence(timeout: 5))
         lineWheel.adjust(toPickerWheelValue: "10–25")
+        // Save is gray while the wheel moves, then comes back (FR-6).
+        XCTAssertTrue(app.buttons["line-save"].wait(for: \.isEnabled, toEqual: true, timeout: 5),
+                      "Save turns back on once the wheel stops")
         saveScreenshot(named: "05-LineSize", app: app)
         app.buttons["line-save"].tap()
 
@@ -79,7 +82,7 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(message(containing: "now visible to everyone", in: app).waitForExistence(timeout: 20))
 
         // The same size again on a stopped wheel is a fresh report, not No change (FR-6).
-        // (A Save mid-spin can't be tested here: the test waits for the wheel to stop.)
+        // (A gray Save mid-spin can't be caught here: the test waits for the wheel to stop.)
         app.buttons["wait-update-line"].tap()
         XCTAssertTrue(app.buttons["line-save"].waitForExistence(timeout: 5))
         app.buttons["line-save"].tap()
@@ -96,6 +99,8 @@ final class ScreenshotTests: XCTestCase {
         let wheel = app.pickerWheels.firstMatch
         XCTAssertTrue(wheel.waitForExistence(timeout: 5))
         wheel.adjust(toPickerWheelValue: "15 min")
+        XCTAssertTrue(app.buttons["adjust-save"].wait(for: \.isEnabled, toEqual: true, timeout: 5),
+                      "Save turns back on once the wheel stops")
         saveScreenshot(named: "06-AdjustTimeWheel", app: app)
         app.buttons["adjust-save"].tap()
         // Save confirms with a haptic only, no message (FR-42).
@@ -104,12 +109,14 @@ final class ScreenshotTests: XCTestCase {
         // (Line size's thank-you can still be showing, so look for Adjust time's old one.)
         XCTAssertFalse(message(containing: "Saved", in: app).exists, "Save on Adjust time shows no message")
 
-        // Saving the same time again says nothing changed (FR-42).
+        // Saving the same time again just closes: nothing changed, and no message (FR-42).
         adjust.tap()
         XCTAssertTrue(app.buttons["adjust-save"].waitForExistence(timeout: 5))
         app.buttons["adjust-save"].tap()
-        XCTAssertTrue(message(containing: "No change", in: app).waitForExistence(timeout: 5),
-                      "an unchanged time says No change")
+        XCTAssertTrue(app.descendants(matching: .any)["question-adjustTime"].waitForNonExistence(timeout: 5),
+                      "Save closes Adjust time")
+        XCTAssertFalse(message(containing: "No change", in: app).waitForExistence(timeout: 2),
+                       "an unchanged time on a stopped wheel shows no message")
 
         // I'm in ends the timer and asks nothing, then says thanks with Undo (FR-8, FR-42, FR-47).
         XCTAssertTrue(imIn.waitForExistence(timeout: 5))

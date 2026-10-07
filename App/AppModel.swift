@@ -59,7 +59,8 @@ nonisolated struct Thanks: Identifiable, Hashable {
     static let visible = "Thanks! Your update is now visible to everyone."
     static let offline = "Thanks! Your update will send when you're back online."
     /// After Save on Line size or Adjust time while the wheel still spun (the
-    /// wheel picks only once it stops), or on Adjust time with the same time.
+    /// wheel picks only once it stops). Save is gray while the wheel moves, so
+    /// this shows only if the app can't tell whether it is moving.
     static let noChange = "No change. Let the wheel stop, then tap Save."
     /// After Gave up (FR-42).
     static let stopped = "Timer stopped."
@@ -389,10 +390,16 @@ final class AppModel {
         let clamped = min(max(minutes ?? 0, 0), StartOffset.maxMinutes)
         let offset: Int? = clamped == 0 ? nil : clamped
         guard var wait = activeWait, let meta = reportMeta() else { return }
-        // Still spinning or unchanged: say so rather than confirm, so the person
-        // can try again.
-        guard wheelMoving != true, wait.offsetMinutes != offset else {
+        guard wheelMoving != true else {
             showThanks(Thanks.noChange)
+            return
+        }
+        // Unchanged: nothing to save. If the app can't tell whether the wheel
+        // was moving, say so, in case Save came mid-spin.
+        guard wait.offsetMinutes != offset else {
+            if wheelMoving == nil {
+                showThanks(Thanks.noChange)
+            }
             return
         }
         wait.offsetMinutes = offset

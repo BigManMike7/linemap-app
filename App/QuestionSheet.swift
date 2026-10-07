@@ -25,8 +25,8 @@ struct QuestionSheet: View {
 }
 
 /// Line size (FR-6): one wheel of the offered sizes, starting on the last
-/// answer in this wait. Save sends it, even unchanged (a fresh report), unless
-/// the wheel is still spinning (No change); swiping the sheet away sends nothing.
+/// answer in this wait. Save, gray while the wheel spins, sends it, even
+/// unchanged (a fresh report); swiping the sheet away sends nothing.
 struct LineSizeView: View {
     @Environment(AppModel.self) private var model
     @State private var lineSize: LineSize
@@ -44,8 +44,8 @@ struct LineSizeView: View {
             Wheel(label: "People in line", options: LineSize.offered, selection: $lineSize,
                   title: { Labels.option($0) }, motion: motion, id: "line-wheel")
 
-            SaveButton(id: "line-save") {
-                model.answerLineSize(lineSize, wheelMoving: motion.isMoving)
+            SaveButton(id: "line-save", wheelMoving: motion.isMoving) {
+                model.answerLineSize(lineSize, wheelMoving: motion.isMovingNow)
             }
         }
         .padding(20)
@@ -74,8 +74,8 @@ struct AdjustTimeView: View {
             Wheel(label: "Minutes in line", options: Array(StartOffset.choices), selection: $minutes,
                   title: { Labels.startOffset(minutes: $0) }, motion: motion, id: "adjust-wheel")
 
-            SaveButton(id: "adjust-save") {
-                model.adjustTime(minutes: minutes, wheelMoving: motion.isMoving)
+            SaveButton(id: "adjust-save", wheelMoving: motion.isMoving) {
+                model.adjustTime(minutes: minutes, wheelMoving: motion.isMovingNow)
             }
         }
         .padding(20)
@@ -144,10 +144,12 @@ private struct QuestionHeader: View {
     }
 }
 
-/// The big Save button under a wheel. The sheet closes and a short message
+/// The big Save button under a wheel, gray until the wheel stops, since the
+/// wheel picks only then. The sheet closes and a short message or a haptic
 /// confirms the answer was sent (FR-42).
 private struct SaveButton: View {
     let id: String
+    let wheelMoving: Bool
     let action: () -> Void
 
     var body: some View {
@@ -156,6 +158,7 @@ private struct SaveButton: View {
         }
         .buttonStyle(.borderedProminent)
         .controlSize(.large)
+        .disabled(wheelMoving)
         .padding(.top, 4)
         .accessibilityIdentifier(id)
     }
