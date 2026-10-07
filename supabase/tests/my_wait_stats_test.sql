@@ -2,7 +2,8 @@
 --   Counts the person's own waits that ended as entered or gave_up, whatever
 --   ended them: ended_at - started_at + Adjust time, never below 0. Open and
 --   unfinished (timed-out) waits never count; cancelled, deleted, and
---   replaced (redo) waits are gone, so they drop out on their own.
+--   replaced (redo) waits are gone, so they drop out on their own. A wait
+--   redone by a timer that a line elsewhere closed is kept, but not counted.
 --
 -- Same conventions as redo_undo_test.sql: now() is fixed for the whole
 -- transaction, each step passes an explicit phone time in the past
@@ -14,7 +15,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = extensions, public;
 
-select plan(33);
+select plan(37);
 
 -- Helpers ----------------------------------------------------------------------------
 
@@ -199,6 +200,21 @@ insert into res values ('p5_u2', pg_temp.reopen(5, 5003));
 select is(pg_temp.r('p5_u2') ->> 'reopened', 'true', 'Undo reopens the timer');
 select is(pg_temp.stats(5), '{"total_seconds": 0, "waits": 0, "longest_seconds": null}'::jsonb,
   'a reopened timer is open again, so nothing counts');
+
+-- Person 7: a redo closed by a line at another bar (FR-14, FR-46) -------------------------
+-- end_session never runs on the redo, so the earlier timer stays; it isn't counted.
+
+insert into res values ('p7_s1', pg_temp.start(7, 7001, 7002, pg_temp.bar(1), pg_temp.ago(30)));
+insert into res values ('p7_e1', pg_temp.end_line(7, 7001, 'gave_up', pg_temp.ago(25)));
+-- The redo, 2 minutes later, with Adjust time 5 reaching back into the first timer.
+insert into res values ('p7_s2', pg_temp.start(7, 7003, 7004, pg_temp.bar(1), pg_temp.ago(23), 5));
+select is(pg_temp.r('p7_s2') ->> 'ok', 'true', 'person 7''s new timer 2 minutes after Gave up is a redo');
+-- A line at another bar closes the redo.
+insert into res values ('p7_s3', pg_temp.start(7, 7005, 7006, pg_temp.bar(2), pg_temp.ago(13)));
+select is((pg_temp.session(7003)).ended_by, 'new_line', 'the redo was ended by a line elsewhere');
+select ok(pg_temp.has_session(7001), 'so the earlier timer was never deleted');
+select is(pg_temp.stats(7), pg_temp.expect(900, 1, 900),
+  'only the redo counts: 10 minutes + 5 = 900 seconds, not the replaced 5-minute timer too');
 
 -- Person 6: older builds, test rows, and the clamp at 0 ------------------------------------
 

@@ -15,7 +15,12 @@
 -- Started by mistake (FR-39), deleted through Made a wrong report? (FR-41),
 -- and timers replaced by a redo (FR-46) are deleted rows, so they drop out on
 -- their own. A redo deletes the earlier timer in the same transaction that
--- finishes the new one, so the two are never counted together.
+-- finishes the new one through end_session. But a redo closed by a line at
+-- another bar (new_line) keeps the earlier timer (FR-46), so a wait that a
+-- later finished wait redid is skipped here, by the same rule as
+-- app.delete_replaced_sessions: same person and bar, the later one started
+-- less than redo_minutes after this one ended. Within that time the rate
+-- limit allows a second timer at the bar only as a redo.
 --
 -- Time in line is the same formula as the generated measured_wait_seconds
 -- (which covers only entered): ended_at - started_at + Adjust time, clamped
@@ -34,6 +39,7 @@ security definer
 set search_path = ''
 as $$
 declare
+  v_redo interval := app.setting_minutes('redo_minutes');
   result jsonb;
 begin
   if p_anon_id is null then perform app.bad_input('anon_id is required'); end if;
@@ -53,6 +59,17 @@ begin
     from app.wait_sessions s
     where s.anon_id = p_anon_id
       and s.status in ('entered', 'gave_up')
+      -- Not replaced by a later finished redo (see above).
+      and not exists (
+        select 1
+        from app.wait_sessions n
+        where n.anon_id = s.anon_id
+          and n.bar_id = s.bar_id
+          and n.id <> s.id
+          and n.status in ('entered', 'gave_up')
+          and s.ended_at <= n.started_at
+          and n.started_at - s.ended_at < v_redo
+      )
   ) w;
 
   return result;
