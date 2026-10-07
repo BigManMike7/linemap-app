@@ -129,13 +129,13 @@ These are summaries. The PRD has the details.
 - Contact email: line.map.support@gmail.com
 - Location permission text: "LineMap checks your location only when you send a report, to confirm you're near the bar. Your exact location is never stored."
 - Info.plist: `ITSAppUsesNonExemptEncryption` = NO.
-- Bars at launch, in display order (Max, 2026-10-06; pins geocoded with OpenStreetMap):
-  - Pmans (Primanti Bros.), 130 Heister St
+- Bars at launch, in display order (Max, 2026-10-06; pins geocoded with OpenStreetMap; full names since 2026-10-07, before Pmans and The Gaff):
+  - Primanti Bros., 130 Heister St
   - Doggie's Pub, 108 S Pugh St
   - Brothers Bar & Grill, 134 S Allen St
   - Champs Downtown, 139 S Allen St
   - Cafe 210 West, 210 W College Ave
-  - The Gaff (The Shandygaff), 212 E College Ave (rear)
+  - The Shandygaff, 212 E College Ave (rear)
   - All are in State College, PA 16801. The Phyrst (111 E Beaver Ave) stays in the data, inactive.
 
 ## Max checks these himself

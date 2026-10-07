@@ -44,11 +44,11 @@ nonisolated struct FixtureTransport: RPCTransport {
            "door_lat": 40.7937545, "door_lon": -77.8605492, "size_class": "medium", "display_order": 4},
           {"id": 3, "name": "Cafe 210 West", "address": "210 W College Ave, State College, PA 16801",
            "door_lat": 40.7931773, "door_lon": -77.8630037, "size_class": "medium", "display_order": 5},
-          {"id": 4, "name": "Pmans", "address": "130 Heister St, State College, PA 16801",
+          {"id": 4, "name": "Primanti Bros.", "address": "130 Heister St, State College, PA 16801",
            "door_lat": 40.7966833, "door_lon": -77.8569426, "size_class": "medium", "display_order": 1},
           {"id": 5, "name": "Brothers Bar & Grill", "address": "134 S Allen St, State College, PA 16801",
            "door_lat": 40.7936366, "door_lon": -77.8607833, "size_class": "medium", "display_order": 3},
-          {"id": 6, "name": "The Gaff", "address": "212 E College Ave (rear), State College, PA 16801",
+          {"id": 6, "name": "The Shandygaff", "address": "212 E College Ave (rear), State College, PA 16801",
            "door_lat": 40.7953248, "door_lon": -77.8595640, "size_class": "medium", "display_order": 6}
         ]
         """
@@ -114,9 +114,9 @@ nonisolated struct FixtureTransport: RPCTransport {
             """
     }
 
-    /// Doggie's: a fresh measured wait. Pmans: a fresh line size only. Brothers:
+    /// Doggie's: a fresh measured wait. Primanti: a fresh line size only. Brothers:
     /// a contradiction (Uncertain). Champs: older (grayed) reports. Cafe 210 and
-    /// the Gaff: no data.
+    /// the Shandygaff: no data.
     private static func estimates(now: Date) -> String {
         func ago(_ minutes: Double) -> String {
             ServerDate.format(now.addingTimeInterval(-minutes * 60))

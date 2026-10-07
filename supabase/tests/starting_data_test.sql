@@ -13,7 +13,7 @@ select plan(24);
 
 select is(
   (select array_agg(b.name order by b.display_order) from app.bars b where b.active),
-  array['Pmans', 'Doggie''s Pub', 'Brothers Bar & Grill', 'Champs Downtown', 'Cafe 210 West', 'The Gaff'],
+  array['Primanti Bros.', 'Doggie''s Pub', 'Brothers Bar & Grill', 'Champs Downtown', 'Cafe 210 West', 'The Shandygaff'],
   'the six active bars, in display order');
 select is(
   (select array_agg(b.display_order order by b.display_order) from app.bars b where b.active),

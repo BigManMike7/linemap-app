@@ -4,7 +4,7 @@ title: LineMap Support
 
 # LineMap Support
 
-LineMap shows live, community-reported lines and waits at State College bars: Pmans, Doggie's Pub, Brothers Bar & Grill, Champs Downtown, Cafe 210 West, and The Gaff. Check before you head out, and help others by reporting when you're there.
+LineMap shows live, community-reported lines and waits at State College bars: Primanti Bros., Doggie's Pub, Brothers Bar & Grill, Champs Downtown, Cafe 210 West, and The Shandygaff. Check before you head out, and help others by reporting when you're there.
 
 Questions, bugs, or ideas: **[line.map.support@gmail.com](mailto:line.map.support@gmail.com)**
 

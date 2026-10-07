@@ -7,7 +7,7 @@
 -- transaction, each step passes an explicit phone time in the past
 -- (pg_temp.ago(minutes)), and each person is a separate anonymous ID.
 -- Person n's session and report IDs are 1000 * n + k, so every ID is unique.
--- Seed bars (by display_order): 1 = Pmans, 2 = Doggie's Pub, 3 = Brothers Bar & Grill.
+-- Seed bars (by display_order): 1 = Primanti Bros., 2 = Doggie's Pub, 3 = Brothers Bar & Grill.
 
 begin;
 create extension if not exists pgtap with schema extensions;

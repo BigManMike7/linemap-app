@@ -393,7 +393,7 @@ select is((app.estimates(pg_temp.ago(0), false) ->> 'generated_at')::timestamptz
 select is(jsonb_array_length(app.estimates(pg_temp.ago(0), false) -> 'bars'), 35,
   'every active non-test bar is listed (6 real bars + 29 test scenarios)');
 select is(app.estimates(pg_temp.ago(0), false) -> 'bars' -> 0 ->> 'bar_id',
-  (select b.id::text from app.bars b where b.name = 'Pmans'),
+  (select b.id::text from app.bars b where b.name = 'Primanti Bros.'),
   'bars are listed in display order');
 
 select * from finish();
