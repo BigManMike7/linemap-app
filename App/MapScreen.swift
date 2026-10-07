@@ -14,18 +14,6 @@ struct MapScreen: View {
     /// Zoomed in to street level, where Apple's places show (FR-1).
     @State private var showsPlaces = false
     @State private var mapWidth: CGFloat = 0
-    /// Meters of ground per screen point, for the UI-test scale probe.
-    @State private var metersPerPoint: Double?
-    private let probe = AppConfig.uiTestMapProbe
-
-    init() {
-        if let probe = AppConfig.uiTestMapProbe {
-            _position = State(initialValue: .region(MKCoordinateRegion(
-                center: Downtown.region.center,
-                span: MKCoordinateSpan(latitudeDelta: probe, longitudeDelta: probe))))
-            _hasFramedBars = State(initialValue: true)
-        }
-    }
 
     var body: some View {
         Map(position: $position, selection: $selectedBarId) {
@@ -55,16 +43,13 @@ struct MapScreen: View {
         .onMapCameraChange(frequency: .onEnd) { context in
             guard mapWidth > 0 else { return }
             let across = context.rect.size.width * MKMetersPerMapPointAtLatitude(context.region.center.latitude)
-            let perPoint = across / Double(mapWidth)
-            metersPerPoint = perPoint
-            showsPlaces = perPoint < Downtown.placesBelowMetersPerPoint
+            showsPlaces = across / Double(mapWidth) < Downtown.placesBelowMetersPerPoint
         }
         .onGeometryChange(for: CGFloat.self) { proxy in
             proxy.size.width
         } action: { width in
             mapWidth = width
         }
-        .modifier(ScaleProbe(active: probe != nil, metersPerPoint: metersPerPoint, showsPlaces: showsPlaces))
         .overlay(alignment: .top) {
             if model.lastRefreshFailed {
                 OfflineBanner(hasData: !model.bars.isEmpty)
@@ -118,8 +103,9 @@ struct MapScreen: View {
 enum Downtown {
     /// Apple's places show once a screen point covers less ground than this
     /// many meters: where Apple's scale bar turns from 0–100 ft to 0–75 ft
-    /// (Max, 2026-10-07). Measured with the UI-test scale probe.
-    static let placesBelowMetersPerPoint = 0.3
+    /// (Max, 2026-10-07). Measured on the simulator: 0–75 ft at 0.209 m/pt,
+    /// 0–100 ft at 0.230.
+    static let placesBelowMetersPerPoint = 0.22
 
     static let region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 40.7942, longitude: -77.8612),
@@ -144,32 +130,6 @@ enum Downtown {
                                            longitude: (minLon + maxLon) / 2),
             span: MKCoordinateSpan(latitudeDelta: max(0.006, (maxLat - minLat) * 2.2),
                                    longitudeDelta: max(0.006, (maxLon - minLon) * 2.2)))
-    }
-}
-
-/// UI tests only: the scale bar always showing and the ground per point
-/// written on the map, to match the scale's steps to meters per point.
-private struct ScaleProbe: ViewModifier {
-    let active: Bool
-    let metersPerPoint: Double?
-    let showsPlaces: Bool
-
-    func body(content: Content) -> some View {
-        if active {
-            content
-                .mapControls {
-                    MapScaleView()
-                        .mapControlVisibility(.visible)
-                }
-                .overlay {
-                    Text(String(format: "%.3f m/pt · %@", metersPerPoint ?? -1, showsPlaces ? "places" : "no places"))
-                        .font(.headline.monospacedDigit())
-                        .padding(8)
-                        .background(.regularMaterial, in: .capsule)
-                }
-        } else {
-            content
-        }
     }
 }
 
