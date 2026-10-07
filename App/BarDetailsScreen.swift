@@ -2,7 +2,7 @@ import LineMapCore
 import SwiftUI
 
 /// History (FR-43), opened from a Bars-list card: a calendar of nights in a
-/// card. The chosen night shows as one row per quarter hour of its day, 4 a.m.
+/// card, with a dot under each night that has reports. The chosen night shows as one row per quarter hour of its day, 4 a.m.
 /// to 4 a.m., each covering only the reports in that quarter hour, with a
 /// dot colored by its line level. Only combined estimates, never individual
 /// reports. (Right now was removed on 2026-10-05: the bar sheet and Bars card
@@ -12,9 +12,11 @@ struct BarDetailsScreen: View {
     @Environment(\.dismiss) private var dismiss
     let bar: Bar
 
-    /// The calendar's selection: noon Eastern on the chosen night's date.
-    @State private var selectedDate: Date
+    @State private var selectedNight: NightDate
     @State private var history: BarHistory?
+    /// Nights with reports, from the last load, so the calendar's dots stay
+    /// while another night loads.
+    @State private var nightsWithData: Set<NightDate> = []
     @State private var loadFailed = false
 
     private let tonight: NightDate
@@ -23,16 +25,7 @@ struct BarDetailsScreen: View {
         self.bar = bar
         let tonight = NightDate(nightOf: now, timeZone: Eastern.zone)
         self.tonight = tonight
-        _selectedDate = State(initialValue: tonight.noon(in: Eastern.zone))
-    }
-
-    private var selectedNight: NightDate {
-        NightDate(calendarDateOf: selectedDate, timeZone: Eastern.zone)
-    }
-
-    /// Tonight back to one year ago, the retention limit (FR-33).
-    private var selectableDates: ClosedRange<Date> {
-        tonight.adding(days: -365).noon(in: Eastern.zone) ... tonight.noon(in: Eastern.zone)
+        _selectedNight = State(initialValue: tonight)
     }
 
     var body: some View {
@@ -67,9 +60,9 @@ struct BarDetailsScreen: View {
                 .font(.title3.bold())
                 .accessibilityAddTraits(.isHeader)
 
-            DatePicker("Night", selection: $selectedDate, in: selectableDates, displayedComponents: .date)
-                .datePickerStyle(.graphical)
-                .accessibilityIdentifier("history-calendar")
+            // Tonight back to one year ago, the retention limit (FR-33).
+            HistoryCalendar(night: $selectedNight, earliest: tonight.adding(days: -365), latest: tonight,
+                            nightsWithData: nightsWithData)
 
             // No heading for the night: the calendar above already shows it.
             if let history, history.night == selectedNight {
@@ -94,7 +87,9 @@ struct BarDetailsScreen: View {
         loadFailed = false
         let night = selectedNight
         do {
-            history = try await model.history(for: bar.id, night: night)
+            let loaded = try await model.history(for: bar.id, night: night)
+            history = loaded
+            nightsWithData = Set(loaded.nights)
         } catch {
             // A newer date was picked; its own load takes over.
             if Task.isCancelled { return }

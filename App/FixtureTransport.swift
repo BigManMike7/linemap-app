@@ -81,6 +81,8 @@ nonisolated struct FixtureTransport: RPCTransport {
         let shown = night.flatMap { NightDate($0) } ?? tonight
         // 4 a.m. Eastern daylight time is 08:00 UTC.
         let dayStart = ServerDate.parse("\(shown)T08:00:00Z") ?? Date()
+        // Days with reports, for the calendar's dots: tonight and a few before it.
+        let nights = [0, -1, -3, -6, -7].map { "\"\(tonight.adding(days: $0))\"" }
         var points: [String] = []
         for index in 0..<96 {
             let at = ServerDate.format(dayStart.addingTimeInterval(Double(index) * 900))
@@ -109,7 +111,7 @@ nonisolated struct FixtureTransport: RPCTransport {
             {"logic_version": 4, "bar_id": 1, "night": "\(shown)", "tonight": "\(tonight)",
              "start": "\(ServerDate.format(dayStart))",
              "end": "\(ServerDate.format(dayStart.addingTimeInterval(24 * 3600)))",
-             "nights": ["2026-10-02", "2026-09-26", "2026-09-25"],
+             "nights": [\(nights.joined(separator: ", "))],
              "points": [\(points.joined(separator: ","))]}
             """
     }

@@ -2,8 +2,8 @@ import LineMapCore
 import UIKit
 import SwiftUI
 
-/// The Settings tab (FR-5, FR-44): Made a wrong report? (FR-41), Time in lines
-/// (FR-48), the privacy policy and support pages, the contact email, and the
+/// The Settings tab (FR-5, FR-44): Time in lines (FR-48), Made a wrong report?
+/// (FR-41), the privacy policy and support pages, the contact email, and the
 /// anonymous ID, which people email to support to delete their data (FR-32).
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
@@ -15,6 +15,8 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                TimeInLinesSection()
+
                 Section {
                     NavigationLink("Made a wrong report?") {
                         RecentReportsView()
@@ -23,8 +25,6 @@ struct SettingsView: View {
                 } footer: {
                     Text("Delete a report you made in the last 24 hours.")
                 }
-
-                TimeInLinesSection()
 
                 Section("About") {
                     Link("Privacy policy", destination: AppConfig.privacyURL)
@@ -94,8 +94,6 @@ private struct TimeInLinesSection: View {
                 }
         } header: {
             Text("Time in lines")
-        } footer: {
-            Text("All your timed lines from the past year, from Start line timer to I'm in or Gave up.")
         }
     }
 
