@@ -240,6 +240,24 @@ final class ScreenshotTests: XCTestCase {
         XCTAssertTrue(app.buttons["recent-reports-link"].waitForExistence(timeout: 5))
     }
 
+    /// Temporary (2026-10-07): the map at a range of zooms with Apple's scale
+    /// bar showing and the ground per point written on it, to find where the
+    /// scale turns from 0–100 ft to 0–75 ft (FR-1's reference places).
+    @MainActor
+    func testMapScaleProbe() {
+        let spans = [0.0006, 0.0007, 0.0008, 0.0009, 0.0010, 0.0011, 0.0012, 0.00135,
+                     0.0015, 0.0017, 0.0019, 0.0021, 0.0024, 0.0027, 0.0030]
+        for span in spans {
+            let app = XCUIApplication()
+            app.launchArguments = ["-ui-testing", "-ui-map-probe", String(span)]
+            app.launch()
+            XCTAssertTrue(app.tabBars.buttons["Map"].waitForExistence(timeout: 15))
+            sleep(4) // map tiles and the scale bar
+            saveScreenshot(named: String(format: "P-%.5f", span), app: app)
+            app.terminate()
+        }
+    }
+
     /// The main screens again in light mode at a large accessibility text size,
     /// to review dark mode against light and Dynamic Type (NFR-3, NFR-4).
     @MainActor

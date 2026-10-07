@@ -16,6 +16,15 @@ enum AppConfig {
         ProcessInfo.processInfo.arguments.contains("-ui-testing")
     }
 
+    /// UI tests only (temporary, 2026-10-07): opens the map this many degrees of
+    /// longitude across with the scale bar always showing, to find the zoom
+    /// where Apple's scale turns from 0–100 ft to 0–75 ft.
+    static var uiTestMapProbe: Double? {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard let index = arguments.firstIndex(of: "-ui-map-probe"), index + 1 < arguments.count else { return nil }
+        return Double(arguments[index + 1])
+    }
+
     /// Light mode for the UI test's second walkthrough; otherwise nil, which
     /// follows the phone's setting.
     static var uiTestColorScheme: ColorScheme? {
