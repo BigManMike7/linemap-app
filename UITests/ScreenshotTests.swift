@@ -75,8 +75,9 @@ final class ScreenshotTests: XCTestCase {
         saveScreenshot(named: "05-LineSize", app: app)
         app.buttons["line-save"].tap()
 
-        // Save confirms the answer was sent (FR-42).
-        XCTAssertTrue(message(containing: "now visible to everyone", in: app).waitForExistence(timeout: 20))
+        // Save confirms the answer was sent, naming the size (FR-42).
+        XCTAssertTrue(message(containing: "10–25 in line is now visible to everyone", in: app)
+            .waitForExistence(timeout: 20))
 
         // Saving the same size again sends nothing and says so, like Adjust time (FR-6, FR-42).
         app.buttons["wait-update-line"].tap()

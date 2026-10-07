@@ -15,12 +15,14 @@ nonisolated struct ActiveWait: Codable, Hashable {
     var offsetMinutes: Int?
     /// The last Line size answer, so the wheel opens on it (FR-6). Only kept on the phone.
     var lineSize: LineSize?
+    /// When that answer was sent: the same size again sends only 5 minutes later (FR-6).
+    var lineSizeAt: Date?
 
     var timer: WaitTimer { WaitTimer(startedAt: startedAt, offsetMinutes: offsetMinutes ?? 0) }
 
     // "offset" is the key builds before 2026-10-04 saved, so an open wait survives the update.
     private nonisolated enum CodingKeys: String, CodingKey {
-        case clientSessionId, startReportId, barId, startedAt, lineSize
+        case clientSessionId, startReportId, barId, startedAt, lineSize, lineSizeAt
         case offsetMinutes = "offset"
     }
 }
@@ -58,9 +60,9 @@ nonisolated struct Thanks: Identifiable, Hashable {
 
     static let visible = "Thanks! Your update is now visible to everyone."
     static let offline = "Thanks! Your update will send when you're back online."
-    /// After Save on Adjust time or Line size with the wheel where it opened,
-    /// usually because Save was tapped while the wheel still spun and the wheel
-    /// hadn't picked yet.
+    /// After Save on Adjust time with the same time, or on Line size with the
+    /// same size within 5 minutes, usually because Save was tapped while the
+    /// wheel still spun and the wheel hadn't picked yet.
     static let noChange = "No change. Let the wheel stop, then tap Save."
     /// After Gave up (FR-42).
     static let stopped = "Timer stopped."
@@ -298,11 +300,12 @@ final class AppModel {
 
     /// Offline, thanks right away and says it will send later. Online, waits
     /// for the server to accept it, so "now visible" is true.
-    private func thankWhenAccepted(_ id: UUID, text: String = Thanks.visible, undo: ActiveWait? = nil) {
+    private func thankWhenAccepted(_ id: UUID, text: String = Thanks.visible,
+                                   offlineText: String = Thanks.offline, undo: ActiveWait? = nil) {
         if isOnline {
             awaitingThanks[id] = (Date(), text, undo)
         } else {
-            showThanks(Thanks.offline, undo: undo)
+            showThanks(offlineText, undo: undo)
         }
     }
 
@@ -356,21 +359,24 @@ final class AppModel {
     }
 
     /// Save on the Line size wheel. Each answer is its own line-size report in
-    /// the session (FR-13 exempt), confirmed by the thank-you (FR-42).
+    /// the session (FR-13 exempt), confirmed by a thank-you naming the size (FR-42).
     func answerLineSize(_ size: LineSize) {
         sheet = nil
         guard var wait = activeWait, let meta = reportMeta() else { return }
-        // Still where the wheel opened (the last answer, or No line): say so
-        // rather than send, so the person can try again, as Adjust time does.
-        // The wheel picks only once it stops, so a Save mid-spin looks the same.
-        guard size != (wait.lineSize ?? .nobody) else {
+        // The wheel picks only once it stops, so a Save mid-spin shows the last
+        // answer. The same size within 5 minutes says so rather than send, so the
+        // person can try again, as Adjust time does; later it is a fresh report.
+        let now = Date()
+        guard LineSizeSave.sends(size, last: wait.lineSize, lastSentAt: wait.lineSizeAt, now: now) else {
             showThanks(Thanks.noChange)
             return
         }
         wait.lineSize = size
+        wait.lineSizeAt = now
         setActiveWait(wait)
         let reportId = UUID()
-        thankWhenAccepted(reportId)
+        thankWhenAccepted(reportId, text: LineSizeSave.thanks(size, online: true),
+                          offlineText: LineSizeSave.thanks(size, online: false))
         enqueue(.updateLineSize(UpdateLineSizeCall(
             clientReportId: reportId, clientSessionId: wait.clientSessionId, phoneTime: Date(),
             location: .noFix, meta: meta, lineSize: .answered(size))), locate: true)
