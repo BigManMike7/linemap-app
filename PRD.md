@@ -246,7 +246,7 @@ Build in order, and test each milestone before starting the next.
 | M1. Setup | Repo, XcodeGen project, LineMapCore package, CI pipeline | An empty app builds in CI and installs on Max's iPhone through TestFlight |
 | M2. Backend | All tables, row-level security, functions, scheduled jobs, the three starting bars | Database tests pass; a bar and a setting can be changed from the dashboard |
 | M3. App | Screens, report flow, wait card, location, IDs, offline queue, feedback, Settings, Directions, Made a wrong report?, thank-you | The full flow works end to end on a phone |
-| M4. Polish | Tab bar (FR-44), Bars list (FR-45), History (FR-43), Redo and Undo (FR-46, FR-47), dark mode, accessibility, empty and error states, privacy policy and support pages on GitHub Pages, App Store Connect filled in | Every screen has been reviewed in CI screenshots and on the phone |
+| M4. Polish | Tab bar (FR-44), Bars list (FR-45), History (FR-43), Redo and Undo (FR-46, FR-47), Time in lines (FR-48), dark mode, accessibility, empty and error states, privacy policy and support pages on GitHub Pages, App Store Connect filled in | Every screen has been reviewed in CI screenshots and on the phone |
 | M5. Field test | Downtown on a quiet night and a busy one: location (allow, deny, approximate), offline queue, timers | No blocking bugs; Beta App Review submitted |
 | M6. Launch | Public TestFlight link; 5–10 friends report on opening nights; recruit students | The first busy weekend is live |
 
@@ -256,7 +256,7 @@ Build in order, and test each milestone before starting the next.
 - Do spot checks: count a line, time a wait, and compare with the snapshot from that moment.
 - Review weekly: unique reporters, return visits, timer completion, deletions, and reinstalls.
 - Tune freshness and agreement rules from the server.
-- Ship the Live Activity, a lock-screen version of the same wait session. It needs no push server.
+- Ship the Live Activity, a lock-screen and Dynamic Island version of the same wait session: the running timer and an I'm in button, so people always see the time and don't forget to stop it (Max, 2026-10-07). It needs no push server.
 - Add bars only when the current ones get regular reports on busy nights.
 - At the checkpoint, compare against the success metrics and decide whether to continue, change direction, or stop.
 
@@ -301,13 +301,13 @@ In order: averages across nights, then throughput-based wait predictions, then o
 | Real data only appears on busy weekends | Launch on a busy weekend |
 | TestFlight install friction for strangers | Clear install steps on the support page |
 | Apple review and real-world GPS | Review notes; field test before launch |
-| A wrong or joke report hurts trust | Distinct-people counts, majority rule, admin hide, "This looks wrong" |
+| A wrong or joke report hurts trust | Distinct-people counts, majority rule, admin hide, "Does this look wrong?" |
 | Spam, since the repo is public and there are no accounts | Accepted for the beta: admin hide now, App Attest later if needed |
 | Slow test loop without a Mac | Batch changes; rely on CI tests and screenshots |
 
 ## 11. Open items
 
-- [ ] Max's GitHub username and repo name, for the privacy and support URLs.
+- [x] Max's GitHub username and repo name, for the privacy and support URLs (BigManMike7/linemap-app).
 - [ ] Confirm "LineMap" is available when creating the app in App Store Connect.
-- [ ] Event-night dates and hours, to be added later.
+- [x] Event-night dates and hours: not needed since there is no active window (2026-10-06); `event_nights` stays unused.
 - [ ] Refine door pins on site if the address pins are off.

@@ -109,7 +109,7 @@ These are summaries. The PRD has the details.
 
 - **Rate limit.** Two separate 10-minute limits per person per bar, enforced on the server: timed lines (Start line timer) and manual reports (Report line size, called Report conditions before 2026-10-06). Neither blocks the other. Not limited: line-size updates in an open session (each its own row), I'm in, and Gave up (FR-13). Redo (FR-46) lets a person replace their own last attempt within `redo_minutes` (5); a replaced timer is deleted only when the new one finishes. Undo (FR-47) reopens a timer stopped by I'm in or Gave up.
 - **Sessions.** Only one open wait session at a time (FR-14). Report line size never touches a session; the server's I'm inside rule (FR-15) remains only for older builds. Sessions become unfinished after 90 minutes (FR-10). Adjust time moves the start back 0–90 minutes (FR-7).
-- **Answers.** Every answer can be skipped (FR-12). Line size and Adjust time send when Save is tapped (swiping away skips); Report line size sends once. Line sizes are No line, 1–10, 10–25, 25–50, 50–100, 100+ (codes 0, 1, 2, 3, 6, 7); compare them by size rank, never raw code. The app no longer offers 50+ (code 4), "I can't tell", "Can't see the end" (5), the recalled-wait question, or the crowd (busyness 1–4, removed 2026-10-06), but their stored codes stay reserved and never change meaning.
+- **Answers.** Every answer can be skipped (FR-12). Line size and Adjust time send when Save is tapped (swiping away skips); both use Apple's SwiftUI wheel, which picks only once it stops, so an unmoved wheel says No change (Line size: unless the last send was 5+ minutes ago, FR-6). Report line size sends once. Line sizes are No line, 1–10, 10–25, 25–50, 50–100, 100+ (codes 0, 1, 2, 3, 6, 7); compare them by size rank, never raw code. The app no longer offers 50+ (code 4), "I can't tell", "Can't see the end" (5), the recalled-wait question, or the crowd (busyness 1–4, removed 2026-10-06), but their stored codes stay reserved and never change meaning.
 - **Offline queue.** Every report and session event has a client-generated ID, so retries never duplicate. The queue survives restarts (FR-16).
 
 **Estimates**
@@ -146,8 +146,9 @@ The data model before launch, the database tests, location on a real phone, that
 - [x] Database tests (approved 2026-10-01, 493 pgTAP tests).
 - [ ] Location on a real phone (M3/M5)
 - [x] Delete my data removes rows (checked 2026-10-05 with the Data check workflow: 0 rows left for the deleted ID).
-- [ ] Privacy policy (M4). Draft in `docs/privacy.md` (covers Made a wrong report?, Undo and Redo, and history). Waiting for Max; GitHub Pages stays off until he approves it.
+- [ ] Privacy policy (M4). Draft in `docs/privacy.md` (covers Made a wrong report?, Undo and Redo, history, deletion by email within 30 days, and Time in lines). Waiting for Max; GitHub Pages stays off until he approves it.
 - [x] M4 data model change: the setting `redo_minutes` (5). No table, field, or answer-code change (approved 2026-10-05).
+- [ ] M4 data model change (2026-10-07, design approved, review pending): one new read-only function, `my_wait_stats` (Time in lines, FR-48), and the full bar names (data only). No table, field, or answer-code change.
 - [x] M4 data model changes (approved 2026-10-06): no active window (settings `active_nights`, `active_window_start`, `active_window_end` removed; `event_nights` kept unused), line sizes 6 and 7 (`reports.line_size` 0–7, definitions version 2), the crowd dropped (column kept, codes reserved), all data wiped, six bars. Logic version 4.
 
 ## Status
@@ -155,115 +156,54 @@ The data model before launch, the database tests, location on a real phone, that
 - [x] **M1. Setup:** repo, XcodeGen project, LineMapCore package, CI pipeline. Done when an empty app builds in CI and installs on Max's iPhone through TestFlight.
 - [x] **M2. Backend:** tables, RLS, functions, cron jobs, seed bars, pgTAP tests.
 - [x] **M3. App:** map, bar sheet, report flow, wait card, location, IDs, offline queue, feedback, Settings, Directions (FR-40), Made a wrong report? (FR-41), thank-you (FR-42).
-- [ ] **M4. Polish:** tab bar (FR-44), Bars list (FR-45), History (FR-43), Redo and Undo (FR-46, FR-47), dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
+- [ ] **M4. Polish:** tab bar (FR-44), Bars list (FR-45), History (FR-43), Redo and Undo (FR-46, FR-47), Time in lines (FR-48), dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
 - [ ] **M5. Field test:** downtown testing, then Beta App Review.
 - [ ] **M6. Launch:** public TestFlight link.
 
 **Current milestone: M4** (in progress).
 
-## Where we left off (2026-10-07)
+## Where we left off (2026-10-07, night)
 
-**Build 23 is on TestFlight (uploaded 2026-10-07).** CI is green and `main` is clean. Next: Max tries build 23. If he hasn't yet, he adds his test ID: Settings, Copy ID, then in the Supabase SQL Editor: `update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';` Don't commit his ID.
+**Build 24 is on TestFlight; Max has checked everything through build 23.** CI is green and `main` is clean. All decisions are in PRD.md; this section only says what's next and what PRD.md doesn't.
 
-**New in build 23:** History calendar dots (accent purple) under days with reports; Settings has Time in lines first with no description, then Made a wrong report?; Apple's places on the map when zoomed in to where Apple's scale bar turns from 0–100 ft to 0–75 ft (`Downtown.placesBelowMetersPerPoint`, 0.22 m per screen point, measured with a one-off UI-test probe; later changed from build 23's twice-the-opening-view), excluding nightlife, breweries, and wineries; not tappable. Max should say whether that zoom level feels right.
+**New in build 24:** Apple's places on the map appear from where the scale bar turns from 0–100 ft to 0–75 ft (Max's pick): `Downtown.placesBelowMetersPerPoint`, 0.22 m of ground per screen point, measured on the simulator (0–75 ft at 0.209, 0–100 ft at 0.230). Max should confirm it on his phone.
 
-**What to try on build 22:** Primanti Bros. and The Shandygaff by their full names; Line size: a different size sends with "Thanks! 10–25 in line is now visible…", the same size within 5 minutes says "No change. Let the wheel stop, then tap Save." (no check mark), the same size after 5 minutes sends; Settings: Time in lines (total, lines, longest), no Delete my data, and the email note under the ID; History: "No reports this day." and "No reports today yet."
+**Next steps for Max:**
 
-**Decisions made 2026-10-07** (all in PRD.md):
+1. Try build 24 (the map places' zoom level).
+2. Add his test ID if he hasn't: Settings, Copy ID, then in the Supabase SQL Editor `update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';`. Never commit his ID: anyone with it can call the functions as him. One install row from before may be real; mark it test later if so.
+3. Review the privacy policy draft (`docs/privacy.md`) and the `my_wait_stats` data model item above.
 
-- **Wheels stay Apple's SwiftUI wheel** (Max): no custom or UIKit wheel, no graying Save. It picks only once it stops, so the app can't see a mid-spin Save. Line size: a different size always sends; the same size sends only 5+ minutes after the last send (each send restarts the 5 minutes; `LineSizeSave` in LineMapCore), otherwise No change. Adjust time: an unchanged time says No change. The Line size thank-you names the size.
-- **Full bar names** (migration `*_full_bar_names.sql`, data only): Pmans is Primanti Bros., The Gaff is The Shandygaff.
-- **Delete my data left the app** (FR-32): people email support with their ID; Max runs `select public.delete_my_data('<ID>');` in the SQL Editor within 30 days and replies. The phone keeps its ID. The function stays for this and for older builds. Privacy policy and support page updated (still waiting for Max's review).
-- **History calendar** (FR-43): Apple's UICalendarView with its own decorations (SwiftUI's DatePicker can't mark dates); dots come from `bar_history`'s `nights`, no server change.
-- **Live Activity** stays Phase 2 (Max). Suggested to Max, not yet decided: auto-start with the timer, show the bar name and timer, an I'm in button only. A widget extension target means new signing work.
-- **Time in lines** (FR-48): new read-only function `my_wait_stats` (security definer, anon only; no table change; Max approved the design). It counts I'm in and Gave up waits with Adjust time, skips open, unfinished, and a timer replaced by a redo that a line elsewhere closed. The app still calls 15 functions (`delete_my_data` out, `my_wait_stats` in). No index on `wait_sessions(anon_id)` yet; add one if it ever gets slow.
+**Still to do in M4:**
 
-**Decisions made 2026-10-06** (all in PRD.md):
+1. **After the privacy policy is approved:** enable GitHub Pages from `/docs` on main (`gh api -X POST repos/BigManMike7/linemap-app/pages -f "source[branch]=main" -f "source[path]=/docs"`), then check that the Settings links open.
+2. **App Store Connect:** privacy labels, age rating, beta description, and Beta App Review notes, as in PRD section 9. Max fills these in on the web.
+3. **Before anyone but Max uses the app** (M5 field test at the latest): in the SQL Editor, mark every row so far as test (or delete it) in `app.installs`, `app.wait_sessions`, `app.reports`, `app.views`, and `app.feedback` (`update app.reports set is_test = true where not is_test;`), and make sure Max's current ID is in `test_anon_ids`.
+4. Recheck the light-mode and large-text screenshots (`L01`–`L08`) after any layout change.
 
-- **No active window** (logic version 3, PR #1): reports show at any hour; no "Closed"; snapshots every 5 minutes at any hour for bars with a report in the last hour; History covers 4 a.m. to 4 a.m., each row only its own quarter hour; coverage target dropped; `event_nights` kept, unused.
-- **Line sizes and no crowd** (logic version 4, PR #2): new codes 6 (50–100) and 7 (100+); 50+ (4) no longer offered; size rank (`app.line_size_rank`, `LineSize.rank`) for comparisons; definitions version 2 (server accepts 1 and 2). The crowd is gone from the app and estimates; the server accepts older builds' crowd answers but never stores them. Report conditions is now **Report line size**.
-- **Fresh start:** all data deleted on merge (Max's own testing). Bars: see Fixed values.
-- **Reports show at any hour** (logic version 2): "No live reports" replaced No data, Not enough data, and Outside usual hours.
-- **Pins** have two-line labels (name over status). Overlap at the opening zoom is accepted.
-- **History:** no graying, no night heading. **Adjust time:** Save gives a haptic only; an unchanged time says "No change. Let the wheel stop, then tap Save." **Copy ID** shows "✓ Copied".
-- **UI tests:** `tapDialogButton` retries dropped dialog taps; a failed test saves a `FAILED` screenshot.
-
-**Open items:**
-
-1. **Local database tests:** Max may install Docker Desktop (BIOS virtualization was off on his HP desktop: enable SVM, `wsl --install --no-distribution`, `winget install -e --id Docker.DockerDesktop`); the Supabase CLI runs through `npx supabase`.
-2. The data-check workflow prints an old deleted anonymous ID in its job env (`DELETED_ANON_ID`); it's dead, but could move to an input.
+**Phase 2, decided to wait:** the Live Activity (lock-screen timer with an I'm in button). Suggested to Max, not decided: auto-start with the timer, bar name and timer only, I'm in as the only button. A widget extension target means new signing work.
 
 **Ideas raised but not built** (Max hasn't asked for them):
 
-- The History dots stay 10 pt at the largest text sizes; they could grow with the text.
+- An index on `wait_sessions(anon_id)` if Time in lines ever gets slow (`my_wait_stats` reads the whole table now).
+- The History quarter-hour dots stay 10 pt at the largest text sizes; they could grow with the text.
 - Very short timers (under a minute) could count as started by mistake on the server.
-- A custom Adjust time wheel that saves whatever is under the center line even mid-spin (Max declined for now).
-- Collision handling for pins (Apple's own markers, or labels only when zoomed in); Max declined for now.
+- Collision handling for pins (labels only when zoomed in); Max declined for now.
+- Local database tests: Max may install Docker Desktop (enable SVM in the HP's BIOS, `wsl --install --no-distribution`, `winget install -e --id Docker.DockerDesktop`); the Supabase CLI runs through `npx supabase`.
 
 **Things to know:**
 
-- Builds up to 20 ask the crowd and offer 50+ (definitions version 1); the server still accepts them and drops the crowd. Builds up to 18 call it "Not enough data" where later builds say "No live reports". Builds 15–17 show History as half-hour rows from 4 a.m., since the server now sends the whole day. Only Max has them.
+- **Wheels:** Max wants Apple's SwiftUI wheels, nothing custom. A UIKit wrapper that grayed out Save mid-spin was built and reverted on 2026-10-07; besides Max's call, its motion watcher kept the app from looking idle to UI tests.
+- **Deletion requests:** run `select public.delete_my_data('<ID>');` in the SQL Editor, then reply. The phone keeps its ID.
+- **Older builds** (only Max has them): up to 21 have Delete my data in Settings; up to 20 ask the crowd and offer 50+ (the server accepts them and drops the crowd).
 - On the fall-back night (Nov 1), 1:00–1:45 a.m. happen twice, so History shows those rows twice, each at its real time.
-- CI often fails with "The job was not acquired by Runner" or an artifact-upload timeout. Those are GitHub capacity problems, not test failures: rerun with `gh run rerun <id> --failed`. When a UI test really fails, the "Show test failures" step prints why.
+- **Server judgment calls** (point out if they matter): Undo's 5 minutes count by server time, so a late offline Undo gets "Couldn't undo"; a timer closed by a line elsewhere can be redone but not undone; I'm inside from older builds is never redone.
+- **UI tests:** MapKit sometimes exposes the pins as its own map features on a second launch, so the light-mode walkthrough opens bars from the Bars tab. The thank-you stays 20 seconds under UI testing. `tapDialogButton` retries dropped dialog taps, and a failed test saves a `FAILED` screenshot plus a screen recording in the artifact. The test fixture's history marks tonight and a few earlier nights as having reports.
+- **CI** often fails with "The job was not acquired by Runner" or an artifact-upload timeout: GitHub capacity, not a test failure. Rerun with `gh run rerun <id> --failed`. When a UI test really fails, the "Show test failures" step prints why.
 
-**M4 is mostly built.** Done and passing CI:
-
-- Tab bar (FR-44), Bars list (FR-45), History (FR-43), Undo (FR-47), Redo on the server (FR-46), and line-level colors (FR-2).
-- Server: migration `20261005200000_redo_undo_history.sql` adds `redo_minutes`, `reopen_session`, and `bar_history`. It is deployed. Built by an Opus subagent on branch `m4-sql`, reviewed, and merged. Migration `20261005220000_history_full_day.sql` (deployed) makes `bar_history` cover 4 a.m. to 4 a.m. every 15 minutes. pgTAP: 1077 tests after the 2026-10-06 changes (logic version 4, six bars).
-- The app now calls 15 functions (`submit_report` stays for older builds only).
-- Screenshots: the main walkthrough (20 screens, dark mode) and a light-mode walkthrough at a large accessibility text size (`L01`–`L08`).
-- Docs drafted in `docs/` (privacy, support, index). Pages is not enabled.
-
-Still to do in M4:
-
-1. **Max reviews:** the privacy policy draft (updated 2026-10-06: no crowd, Report line size), and the new screens on the phone (build 21, the latest).
-2. **After the privacy policy is approved:** enable GitHub Pages from `/docs` on main (`gh api -X POST repos/BigManMike7/linemap-app/pages -f "source[branch]=main" -f "source[path]=/docs"`), then check that the Settings links open.
-3. **Review the light-mode and large-text screenshots** for anything clipped or unreadable, and fix it. Reviewed through build 21 (Bars cards, History rows, two-line map pins, Report line size); recheck after any layout change.
-4. **App Store Connect:** privacy labels, age rating, beta description, and Beta App Review notes, as in PRD section 9. Max fills these in on the web.
-5. **Test ID (done by the 2026-10-06 wipe, except adding Max's ID; see Where we left off).** The old note: Each Delete my data gives a new anonymous ID, so for now `test_anon_ids` stays empty and Max's rows are stored as real. Before anyone other than Max uses the app (the M5 field test with other people, or M6 at the latest), run one cleanup in the SQL Editor: mark every row so far as test (or delete it), then add Max's then-current ID:
-   ```sql
-   -- for each of app.installs, app.wait_sessions, app.reports, app.views, app.feedback:
-   update app.reports set is_test = true where not is_test;
-   update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';
-   ```
-   After that, a Delete my data on his phone means adding the new ID again. Don't commit his ID to this public repo: anyone with it can call the functions as him.
-
-**Judgment calls in the server work** (from the subagent's report; point them out to Max if they matter):
-
-- Undo's 5 minutes count by server time, so an Undo sent late from the offline queue gets `too_late` and the app says "Couldn't undo".
-- A timer closed by starting a line at another bar (FR-14) can be redone but not undone. Undo only reverses an I'm in or Gave up tap.
-- Redo from a deleted wait's rate-limit hold uses the wait's start time, since holds don't store an end time.
-- I'm inside from older builds is never redone.
-
-**UI test notes:** MapKit sometimes exposes the pins as its own map features on a second app launch, so the light-mode walkthrough opens bars from the Bars tab. Bars-list cards zoom the map to a 0.007° span so nearby bars stay visible.
-
-**Decisions made 2026-10-05** (already in PRD.md):
-
-- **Line-level colors** (FR-2, FR-3, FR-43, FR-45): pins, Bars cards, the bar sheet, and History rows are green, orange, or red by the wait or line size the pin shows (under 10 min or 0–10 in line; 10–25; 25+). The crowd never counts. Older reports show outlined or faded. A wait and line size that contradict (one short, one long, such as a 0-minute timer next to 50+ in line) show **Uncertain**: a gray question mark, and the bar sheet shows both values (Max's call, 2026-10-05). Cutoffs live in `LineMapCore/LineLevel.swift`, not `config`. Each level also has its own symbol. The accent color changed from amber to indigo so it doesn't clash with orange.
-- **History** (FR-43), revised again: Right now is gone (the bar sheet and Bars card show it), so the button and page are just History. It covers the night's whole day, 4 a.m. to 4 a.m., with a server point every 15 minutes, for early football crowds. Rows are quarter hours from 9:00 p.m. to 1:45 a.m., stretched to cover any quarter hour with reports; two or more empty quarter hours in a row collapse into one "No reports, 3:15 PM – 8:45 PM" row. `bar_history` keeps its fields; only its points change (no table, field, or answer-code change).
-
-- **Tab bar** (FR-44): Map, Bars, Settings, icons with short labels. Opens on Map after a full close; going to the home screen and back resumes where the person left. The Settings gear and sheet go away (FR-5).
-- **Bars list** (FR-45): simple cards, fresh before stale, shortest wait first, then line size only, then no data in `display_order`. Tapping a card switches to Map and opens that bar's sheet. No report buttons on cards.
-- **Wait card** shows on Map and Bars above the tab bar, hidden on Settings (FR-4).
-- **History & details** (FR-43, superseded by the History bullet above): a full-screen page from a **History & details button on each Bars card** (not the bar sheet), with Right now in full, then Apple's standard calendar (tonight back one year) and the chosen night as a "Busiest around" line plus one row per half hour, 9:00 p.m. to 1:30 a.m. No charts. Combined estimates only, never individual reports (Max confirmed).
-- **Does this look wrong?** (FR-35): the bar sheet's "This looks wrong" became a question with a confirmation ("Yes, it looks wrong" or Cancel), so a stray tap sends nothing.
-- **Redo** (FR-46) and **Undo** (FR-47): see the Reporting rules above. Undo is a button on the I'm in and Gave up messages for about 5 seconds; Gave up now shows "Timer stopped." (FR-42).
-- **Data model check for Max:** no table, field, or answer-code change. New: the config setting `redo_minutes` (5), and two functions the app calls, `bar_history` and `reopen_session`, which bring the app to 15 functions. `start_session`, `end_session`, and `report_conditions` change their rate-limit rules. Point these out again when building.
-
-**Decisions made 2026-10-04** (already in PRD.md):
-
-- "I'm inside" became **Report conditions**: line size and crowd on one screen, both optional, sent once, position `unspecified`, kind `conditions` (FR-11). The recalled-wait question is gone; its codes stay reserved.
-- I'm in asks nothing (FR-8). Adjust time is 0–90 minutes (FR-7). The Gave up button is gone; the ✕ asks gave up or started by mistake (FR-4, FR-9, FR-39).
-- New: Directions (FR-40), Made a wrong report? with real delete and a 10-minute rate-limit hold (FR-41), thank-you message (FR-42). History of any past night is planned for M4 and is computed from reports, never snapshots (FR-43).
-- The app calls 13 functions now; `submit_report` stays on the server for older builds only.
-- Max approved the new tables and fields (`conditions` kind, `unspecified` position, 0–90 offset, `rate_limit_holds` with its `kind`, `deletions.scope`) on 2026-10-04.
-- Two rate limits, timed and manual, instead of one (FR-13). Line size now asks "How many people are in line?" everywhere with no subtitle; older in-line answers counted people ahead. The change is noted in `supabase/README.md`, and the definitions version stays 1.
-
-**Reversible change in testing (2026-10-04): map pins use MapKit selection.** Commit `366980e` replaced the pin Buttons with `Map(selection:)` plus `.tag(bar.id)` so a pinch that starts on a label still zooms. It touches only `App/MapScreen.swift` and `UITests/ScreenshotTests.swift`. If pins misbehave on the phone (taps not opening, pins stuck selected, VoiceOver not opening a bar), undo it with `git revert 366980e`. No database or PRD change.
-
-**Handy facts**
+**Handy facts:**
 
 - Ship a build: `gh workflow run testflight.yml`. CI deploys passing migrations to Supabase automatically.
 - Supabase project ref `jjsccwmvgfzsxozhjlrt`. There is no local database access: the password lives only in GitHub Secrets, so Max runs one-off SQL in the dashboard SQL Editor.
-- **Data check:** `gh workflow run data-check.yml` runs a read-only, counts-only check of the live database (rows left for a deleted ID, recent deletions, test and real rows per day). Its logs are public, so it never prints IDs.
-- The privacy and support links in Settings point at GitHub Pages pages that M4 still has to write. The privacy policy must cover Made a wrong report? and history.
+- **Data check:** `gh workflow run data-check.yml` (optional input: a deleted anonymous ID) runs a read-only, counts-only check of the live database. Its logs are public, so it never prints IDs.
+- The app calls 15 functions (PRD 7.2). The server also keeps `submit_report` and `delete_my_data` for older builds and support.
