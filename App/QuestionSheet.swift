@@ -25,11 +25,12 @@ struct QuestionSheet: View {
 }
 
 /// Line size (FR-6): one wheel of the offered sizes, starting on the last
-/// answer in this wait. Save sends it, unless the wheel is still where it
-/// opened (No change); swiping the sheet away sends nothing.
+/// answer in this wait. Save sends it, even unchanged (a fresh report), unless
+/// the wheel is still spinning (No change); swiping the sheet away sends nothing.
 struct LineSizeView: View {
     @Environment(AppModel.self) private var model
     @State private var lineSize: LineSize
+    @State private var motion = WheelMotion()
 
     init(lineSize: LineSize?) {
         _lineSize = State(initialValue: lineSize ?? .nobody)
@@ -40,16 +41,11 @@ struct LineSizeView: View {
             // The whole line, not just the people ahead (2026-10-04, see supabase/README.md).
             QuestionHeader(title: "How many people are in line?")
 
-            Picker("People in line", selection: $lineSize) {
-                ForEach(LineSize.offered, id: \.self) { size in
-                    Text(Labels.option(size)).tag(size)
-                }
-            }
-            .pickerStyle(.wheel)
-            .accessibilityIdentifier("line-wheel")
+            Wheel(label: "People in line", options: LineSize.offered, selection: $lineSize,
+                  title: { Labels.option($0) }, motion: motion, id: "line-wheel")
 
             SaveButton(id: "line-save") {
-                model.answerLineSize(lineSize)
+                model.answerLineSize(lineSize, wheelMoving: motion.isMoving)
             }
         }
         .padding(20)
@@ -64,6 +60,7 @@ struct LineSizeView: View {
 struct AdjustTimeView: View {
     @Environment(AppModel.self) private var model
     @State private var minutes: Int
+    @State private var motion = WheelMotion()
 
     init(minutes: Int) {
         _minutes = State(initialValue: minutes)
@@ -74,16 +71,11 @@ struct AdjustTimeView: View {
             QuestionHeader(title: "Adjust time",
                            subtitle: "How long were you in line before you started the timer?")
 
-            Picker("Minutes in line", selection: $minutes) {
-                ForEach(StartOffset.choices, id: \.self) { minutes in
-                    Text(Labels.startOffset(minutes: minutes)).tag(minutes)
-                }
-            }
-            .pickerStyle(.wheel)
-            .accessibilityIdentifier("adjust-wheel")
+            Wheel(label: "Minutes in line", options: StartOffset.choices, selection: $minutes,
+                  title: { Labels.startOffset(minutes: $0) }, motion: motion, id: "adjust-wheel")
 
             SaveButton(id: "adjust-save") {
-                model.adjustTime(minutes: minutes)
+                model.adjustTime(minutes: minutes, wheelMoving: motion.isMoving)
             }
         }
         .padding(20)

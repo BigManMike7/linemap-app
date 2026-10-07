@@ -78,13 +78,15 @@ final class ScreenshotTests: XCTestCase {
         // Save confirms the answer was sent (FR-42).
         XCTAssertTrue(message(containing: "now visible to everyone", in: app).waitForExistence(timeout: 20))
 
-        // Saving the same size again sends nothing and says so, like Adjust time (FR-6, FR-42).
+        // The same size again on a stopped wheel is a fresh report, not No change (FR-6).
+        // (A Save mid-spin can't be tested here: the test waits for the wheel to stop.)
         app.buttons["wait-update-line"].tap()
         XCTAssertTrue(app.buttons["line-save"].waitForExistence(timeout: 5))
         app.buttons["line-save"].tap()
-        XCTAssertTrue(message(containing: "No change", in: app).waitForExistence(timeout: 5),
-                      "an unchanged line size says No change")
-        saveScreenshot(named: "05b-NoChange", app: app)
+        XCTAssertTrue(app.descendants(matching: .any)["question-lineSize"].waitForNonExistence(timeout: 5),
+                      "Save closes Line size")
+        XCTAssertFalse(message(containing: "No change", in: app).waitForExistence(timeout: 2),
+                       "the same line size on a stopped wheel sends")
 
         // Adjust time from the card (FR-7): one wheel, 0 to 90, and Save.
         let adjust = app.buttons["wait-adjust-time"]
