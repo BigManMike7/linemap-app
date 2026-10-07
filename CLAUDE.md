@@ -175,7 +175,7 @@ The data model before launch, the database tests, location on a real phone, that
 - **Full bar names** (migration `*_full_bar_names.sql`, data only): Pmans is Primanti Bros., The Gaff is The Shandygaff.
 - **Delete my data left the app** (FR-32): people email support with their ID; Max runs `select public.delete_my_data('<ID>');` in the SQL Editor within 30 days and replies. The phone keeps its ID. The function stays for this and for older builds. Privacy policy and support page updated (still waiting for Max's review).
 - **History calendar** (FR-43): Apple's UICalendarView with its own decorations (SwiftUI's DatePicker can't mark dates); dots come from `bar_history`'s `nights`, no server change.
-- **Live Activity** stays Phase 2 (Max). Decided if built: auto-start with the timer, bar name and timer, an I'm in button only; a widget extension target means new signing work.
+- **Live Activity** stays Phase 2 (Max). Suggested to Max, not yet decided: auto-start with the timer, show the bar name and timer, an I'm in button only. A widget extension target means new signing work.
 - **Time in lines** (FR-48): new read-only function `my_wait_stats` (security definer, anon only; no table change; Max approved the design). It counts I'm in and Gave up waits with Adjust time, skips open, unfinished, and a timer replaced by a redo that a line elsewhere closed. The app still calls 15 functions (`delete_my_data` out, `my_wait_stats` in). No index on `wait_sessions(anon_id)` yet; add one if it ever gets slow.
 
 **Decisions made 2026-10-06** (all in PRD.md):
