@@ -71,7 +71,7 @@ struct AdjustTimeView: View {
             QuestionHeader(title: "Adjust time",
                            subtitle: "How long were you in line before you started the timer?")
 
-            Wheel(label: "Minutes in line", options: StartOffset.choices, selection: $minutes,
+            Wheel(label: "Minutes in line", options: Array(StartOffset.choices), selection: $minutes,
                   title: { Labels.startOffset(minutes: $0) }, motion: motion, id: "adjust-wheel")
 
             SaveButton(id: "adjust-save") {
