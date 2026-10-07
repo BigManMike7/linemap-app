@@ -105,14 +105,18 @@ final class WheelMotion {
 
     @ObservationIgnored private weak var picker: UIPickerView?
     @ObservationIgnored private var offsetWatches: [NSKeyValueObservation] = []
-    @ObservationIgnored private var lastOffsetChange: CFTimeInterval = 0
+    @ObservationIgnored private var settleCheck: Task<Void, Never>?
 
     /// Whether the wheel is moving right now, or nil if the app can't tell.
     var isMovingNow: Bool? {
-        guard let picker else { return nil }
-        let scrollViews = Self.scrollViews(in: picker)
-        guard !scrollViews.isEmpty else { return nil }
-        return isMoving || scrollViews.contains { $0.isTracking || $0.isDragging || $0.isDecelerating }
+        guard let picker, !Self.scrollViews(in: picker).isEmpty else { return nil }
+        return isMoving || isBusy
+    }
+
+    /// A finger on the wheel, or the wheel coasting.
+    private var isBusy: Bool {
+        guard let picker else { return false }
+        return Self.scrollViews(in: picker).contains { $0.isTracking || $0.isDragging || $0.isDecelerating }
     }
 
     fileprivate func watch(_ picker: UIPickerView) {
@@ -126,31 +130,23 @@ final class WheelMotion {
     }
 
     /// Any scroll: a finger, coasting, or the last settle onto a row. The wheel
-    /// setting its own row (opening on the last answer) doesn't count.
+    /// setting its own row (opening on the last answer) doesn't start anything.
     private func offsetChanged() {
-        lastOffsetChange = CACurrentMediaTime()
-        guard !isMoving, let picker,
-              Self.scrollViews(in: picker).contains(where: { $0.isTracking || $0.isDragging || $0.isDecelerating })
-        else { return }
+        guard isMoving || isBusy else { return }
         isMoving = true
-        // Checks every frame until the wheel stops, then goes quiet.
-        // If the sheet closes mid-spin, the watcher is gone and the link stops.
-        let link = CADisplayLink(target: FrameTarget { [weak self] in self?.frame() ?? false },
-                                 selector: #selector(FrameTarget.fire(_:)))
-        link.add(to: .main, forMode: .common)
-    }
-
-    /// Stopped: no finger, no coasting, and no settling for a moment. Returns
-    /// whether to keep checking.
-    private func frame() -> Bool {
-        if let picker {
-            let busy = Self.scrollViews(in: picker).contains { $0.isTracking || $0.isDragging || $0.isDecelerating }
-            if busy || CACurrentMediaTime() - lastOffsetChange <= 0.15 {
-                return true
+        // Stopped once nothing has scrolled for a moment and no finger is on it.
+        // Each scroll starts the wait over; nothing runs once the wheel is still.
+        settleCheck?.cancel()
+        settleCheck = Task { [weak self] in
+            while true {
+                try? await Task.sleep(for: .milliseconds(150))
+                guard !Task.isCancelled, let self else { return }
+                if !self.isBusy {
+                    self.isMoving = false
+                    return
+                }
             }
         }
-        isMoving = false
-        return false
     }
 
     private static func scrollViews(in view: UIView) -> [UIScrollView] {
@@ -160,23 +156,6 @@ final class WheelMotion {
             } else {
                 scrollViews(in: subview)
             }
-        }
-    }
-}
-
-/// A display link holds its target strongly, so it calls this instead of the
-/// watcher, which can then go away with its sheet. The action returns whether
-/// to keep going.
-private final class FrameTarget: NSObject {
-    let action: () -> Bool
-
-    init(_ action: @escaping () -> Bool) {
-        self.action = action
-    }
-
-    @objc func fire(_ link: CADisplayLink) {
-        if !action() {
-            link.invalidate()
         }
     }
 }
