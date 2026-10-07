@@ -58,9 +58,9 @@ nonisolated struct Thanks: Identifiable, Hashable {
 
     static let visible = "Thanks! Your update is now visible to everyone."
     static let offline = "Thanks! Your update will send when you're back online."
-    /// After Save on Line size or Adjust time while the wheel still spun (the
-    /// wheel picks only once it stops). Save is gray while the wheel moves, so
-    /// this shows only if the app can't tell whether it is moving.
+    /// After Save on Adjust time or Line size with the wheel where it opened,
+    /// usually because Save was tapped while the wheel still spun and the wheel
+    /// hadn't picked yet.
     static let noChange = "No change. Let the wheel stop, then tap Save."
     /// After Gave up (FR-42).
     static let stopped = "Timer stopped."
@@ -356,16 +356,14 @@ final class AppModel {
     }
 
     /// Save on the Line size wheel. Each answer is its own line-size report in
-    /// the session (FR-13 exempt), confirmed by the thank-you (FR-42). The same
-    /// size again is a fresh report.
-    func answerLineSize(_ size: LineSize, wheelMoving: Bool?) {
+    /// the session (FR-13 exempt), confirmed by the thank-you (FR-42).
+    func answerLineSize(_ size: LineSize) {
         sheet = nil
         guard var wait = activeWait, let meta = reportMeta() else { return }
-        // Still spinning, so the wheel hasn't picked yet: send nothing and say so,
-        // so the person can try again. If the app can't tell, a wheel still where
-        // it opened (the last answer, or No line) counts as spinning.
-        let spinning = wheelMoving ?? (size == (wait.lineSize ?? .nobody))
-        guard !spinning else {
+        // Still where the wheel opened (the last answer, or No line): say so
+        // rather than send, so the person can try again, as Adjust time does.
+        // The wheel picks only once it stops, so a Save mid-spin looks the same.
+        guard size != (wait.lineSize ?? .nobody) else {
             showThanks(Thanks.noChange)
             return
         }
@@ -385,22 +383,15 @@ final class AppModel {
     }
 
     /// Save on the Adjust time wheel: moves the timer's start back by this many
-    /// minutes (0 to 90); nil or 0 undoes it. Confirmed by a haptic (FR-42).
-    func adjustTime(minutes: Int?, wheelMoving: Bool?) {
+    /// minutes (0 to 90); nil or 0 undoes it. Confirmed by a short message (FR-42).
+    func adjustTime(minutes: Int?) {
         sheet = nil
         let clamped = min(max(minutes ?? 0, 0), StartOffset.maxMinutes)
         let offset: Int? = clamped == 0 ? nil : clamped
         guard var wait = activeWait, let meta = reportMeta() else { return }
-        guard wheelMoving != true else {
-            showThanks(Thanks.noChange)
-            return
-        }
-        // Unchanged: nothing to save. If the app can't tell whether the wheel
-        // was moving, say so, in case Save came mid-spin.
+        // Unchanged: say so rather than confirm, so the person can try again.
         guard wait.offsetMinutes != offset else {
-            if wheelMoving == nil {
-                showThanks(Thanks.noChange)
-            }
+            showThanks(Thanks.noChange)
             return
         }
         wait.offsetMinutes = offset
