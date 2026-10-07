@@ -11,6 +11,8 @@ struct MapScreen: View {
     /// The pin MapKit selected. Pins have no buttons of their own, so a pinch or
     /// pan that starts on a pin or label still moves the map (2026-10-04).
     @State private var selectedBarId: Int64?
+    /// Zoomed in to street level, where Apple's places show (FR-1).
+    @State private var showsPlaces = false
 
     var body: some View {
         Map(position: $position, selection: $selectedBarId) {
@@ -28,7 +30,16 @@ struct MapScreen: View {
                 .tag(bar.id)
             }
         }
-        .mapStyle(.standard(pointsOfInterest: .excludingAll))
+        // Apple's places (stores, banks, campus buildings…) as reference points
+        // when zoomed in, never on the wider view. Bars and nightlife stay off so
+        // a bar isn't shown twice. They aren't tappable: the map selects only
+        // bar pins (the selection is a bar ID).
+        .mapStyle(.standard(pointsOfInterest: showsPlaces
+            ? .excluding([.nightlife, .brewery, .winery])
+            : .excludingAll))
+        .onMapCameraChange(frequency: .onEnd) { context in
+            showsPlaces = context.region.span.longitudeDelta < Downtown.placesBelowSpan
+        }
         .overlay(alignment: .top) {
             if model.lastRefreshFailed {
                 OfflineBanner(hasData: !model.bars.isEmpty)
@@ -80,6 +91,12 @@ struct MapScreen: View {
 
 /// Downtown State College.
 enum Downtown {
+    /// Apple's places show once the map is narrower than this many degrees of
+    /// longitude: about twice as close as the opening view (0.013 across on a
+    /// phone) and a little closer than a Bars-card close-up (0.007), so both
+    /// stay clean (Max, 2026-10-07).
+    static let placesBelowSpan = 0.0065
+
     static let region = MKCoordinateRegion(
         center: CLLocationCoordinate2D(latitude: 40.7942, longitude: -77.8612),
         span: MKCoordinateSpan(latitudeDelta: 0.008, longitudeDelta: 0.008))

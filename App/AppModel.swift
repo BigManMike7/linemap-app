@@ -325,7 +325,7 @@ final class AppModel {
         thanksTask?.cancel()
         // Longer with Undo, so there's time to tap it, and longer still under UI
         // testing, so the screenshot catches it after the test waits for idle.
-        let shownFor: Duration = isUITesting ? .seconds(10) : (undo == nil ? .seconds(3) : .seconds(5))
+        let shownFor: Duration = isUITesting ? .seconds(20) : (undo == nil ? .seconds(3) : .seconds(5))
         thanksTask = Task {
             try? await Task.sleep(for: shownFor)
             guard !Task.isCancelled, self.thanks?.id == thanks.id else { return }
