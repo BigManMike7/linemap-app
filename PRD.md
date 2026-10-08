@@ -271,8 +271,11 @@ In order: averages across nights, then throughput-based wait predictions, then o
 | App name | LineMap. If taken, use "LineMap: State College"; the home-screen name stays LineMap |
 | Bundle ID | `io.github.bigmanmike7.linemapapp`. Permanent after the first upload |
 | Contact and feedback email | line.map.support@gmail.com |
-| Privacy policy URL | `https://<github-username>.github.io/<repo>/privacy` |
-| Support URL | `https://<github-username>.github.io/<repo>/support` |
+| Subtitle | Live bar lines in State College |
+| Categories | Lifestyle (primary), Food & Drink (secondary) |
+| Content rights | No third-party content (Apple's maps don't count) |
+| Privacy policy URL | `https://bigmanmike7.github.io/linemap-app/privacy` (live since 2026-10-08) |
+| Support URL | `https://bigmanmike7.github.io/linemap-app/support` |
 | Export compliance | Set `ITSAppUsesNonExemptEncryption` = NO in Info.plist. The app uses standard HTTPS only |
 
 **Age rating.** The rating is a store label only; the app has no age check. Answer "Alcohol, tobacco or drug use or references" as **Infrequent**, since LineMap shows bar names and line info, not drinks or drinking. Answer everything else None or No. That includes user-generated content, since reports are taps, not posts. If drink specials are ever added, change the answer to Frequent.
@@ -291,7 +294,7 @@ In order: averages across nights, then throughput-based wait predictions, then o
 
 **TestFlight beta description:** "LineMap shows live, community-reported lines and waits at State College bars. Tap 'Start line timer' or 'Report line size' to help others, and check before you head out."
 
-**Beta App Review notes:** "No sign-in required. Reports work from anywhere. Bars show 'No live reports' until someone reports. Location is requested only when sending a report."
+**Beta App Review notes:** "No sign-in or account is needed. LineMap shows live line sizes and waits for six bars in State College, PA, reported by people at the bars. Bars show 'No live reports' until someone reports, so to see the app working: open a bar (map pin or Bars tab), tap Report line size, pick a size, and tap Send; the bar then shows that line size. Start line timer starts a timed wait, and I'm in on the timer card ends it. Location permission is requested only when the first report is sent, never at launch; reports from far away are accepted and marked as less certain. Denying location still allows everything. Users can delete a report in Settings → Made a wrong report?, and request full deletion by email (Settings shows their anonymous ID)."
 
 ## 10. Risks
 

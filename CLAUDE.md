@@ -162,24 +162,25 @@ The data model before launch, the database tests, location on a real phone, that
 
 **Current milestone: M4** (in progress).
 
-## Where we left off (2026-10-07, night)
+## Where we left off (2026-10-08)
 
-**Build 24 is on TestFlight; Max has checked everything through build 23.** CI is green and `main` is clean. All decisions are in PRD.md; this section only says what's next and what PRD.md doesn't.
+**Build 25 is on TestFlight; Max has checked everything through build 24** (the map places' zoom is good). CI is green and `main` is clean. All decisions are in PRD.md; this section only says what's next and what PRD.md doesn't.
 
-**New in build 24:** Apple's places on the map appear from where the scale bar turns from 0–100 ft to 0–75 ft (Max's pick): `Downtown.placesBelowMetersPerPoint`, 0.22 m of ground per screen point, measured on the simulator (0–75 ft at 0.209, 0–100 ft at 0.230). Max should confirm it on his phone.
+**New in build 25:** 25–50 in line is some line (orange); a Bars card zooms in to about two blocks across (span 0.0025, was 0.007); Apple's my-location button on the map once permission is granted (with the compass and scale bar listed, since listing controls replaces the defaults); History's dot-color key, the Made a wrong report? footer, and "It stops counting right away." in the delete confirmation are gone. The location button can't show in the simulator (no permission), so Max checks it on his phone.
+
+**GitHub Pages is on** (2026-10-08): https://bigmanmike7.github.io/linemap-app/ serves `/docs` from main; `/privacy` and `/support` return 200.
 
 **Next steps for Max:**
 
-1. Try build 24 (the map places' zoom level).
+1. Try build 25: the my-location button, the Bars zoom, and that Settings' privacy and support links open.
 2. Add his test ID if he hasn't: Settings, Copy ID, then in the Supabase SQL Editor `update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';`. Never commit his ID: anyone with it can call the functions as him. One install row from before may be real; mark it test later if so.
-3. Review the privacy policy draft (`docs/privacy.md`) and the `my_wait_stats` data model item above.
+3. Fill in App Store Connect on the web from PRD section 9 (App Information, age rating, App Privacy; TestFlight Test Information can wait for M5).
 
 **Still to do in M4:**
 
-1. **After the privacy policy is approved:** enable GitHub Pages from `/docs` on main (`gh api -X POST repos/BigManMike7/linemap-app/pages -f "source[branch]=main" -f "source[path]=/docs"`), then check that the Settings links open.
-2. **App Store Connect:** privacy labels, age rating, beta description, and Beta App Review notes, as in PRD section 9. Max fills these in on the web.
-3. **Before anyone but Max uses the app** (M5 field test at the latest): in the SQL Editor, mark every row so far as test (or delete it) in `app.installs`, `app.wait_sessions`, `app.reports`, `app.views`, and `app.feedback` (`update app.reports set is_test = true where not is_test;`), and make sure Max's current ID is in `test_anon_ids`.
-4. Recheck the light-mode and large-text screenshots (`L01`–`L08`) after any layout change.
+1. **App Store Connect:** Max fills it in from PRD section 9.
+2. **Before anyone but Max uses the app** (M5 field test at the latest): in the SQL Editor, mark every row so far as test (or delete it) in `app.installs`, `app.wait_sessions`, `app.reports`, `app.views`, and `app.feedback` (`update app.reports set is_test = true where not is_test;`), and make sure Max's current ID is in `test_anon_ids`.
+3. Recheck the light-mode and large-text screenshots (`L01`–`L08`) after any layout change.
 
 **Phase 2, decided to wait:** the Live Activity (lock-screen timer with an I'm in button). Suggested to Max, not decided: auto-start with the timer, bar name and timer only, I'm in as the only button. A widget extension target means new signing work.
 
