@@ -2,7 +2,7 @@ import LineMapCore
 import SwiftUI
 
 /// Colors for how hard a bar is to get into (FR-2, FR-43, FR-45): green,
-/// orange, and red, and gray when the wait and line size contradict. Plain
+/// yellow-orange, and red, and gray when the wait and line size contradict. Plain
 /// dots (Max, 2026-10-08), except that Uncertain keeps its question mark so it
 /// differs from a gray No live reports pin; the pill's words and the pin's
 /// label say the level in text. Reports 30–60 minutes old show faded or
@@ -11,7 +11,8 @@ extension LineLevel {
     var color: Color {
         switch self {
         case .short: .green
-        case .some: .orange
+        // Yellow-orange, the app icon's color (Max, 2026-10-08; .orange before).
+        case .some: Color(red: 1, green: 0.69, blue: 0.18)
         case .long: .red
         case .uncertain: .gray
         }

@@ -170,12 +170,12 @@ struct BarPin: View {
 
     private var label: PinLabel { PinLabel(estimate: estimate) }
 
-    /// Green, orange, or red by the line or wait the label shows, outlined for
+    /// Green, yellow-orange, or red by the line or wait the label shows, outlined for
     /// older reports; a gray pin for No live reports.
     private var status: LineStatus? { LineStatus(estimate: estimate) }
 
-    /// A plain dot in the level's color (Max, 2026-10-08): filled with a white
-    /// edge for fresh reports, a colored ring on white for older ones, gray for
+    /// A plain dot in the level's color (Max, 2026-10-08): filled for fresh
+    /// reports, with no edge, a colored ring on white for older ones, gray for
     /// No live reports. Only Uncertain keeps a symbol, a question mark, so it
     /// isn't mistaken for No live reports.
     @ViewBuilder
@@ -189,7 +189,6 @@ struct BarPin: View {
             } else {
                 Circle()
                     .fill(status?.level.color ?? Color.gray)
-                    .overlay(Circle().strokeBorder(.white, lineWidth: 2.5))
             }
         }
         .overlay {
