@@ -146,7 +146,7 @@ The data model before launch, the database tests, location on a real phone, that
 - [x] Database tests (approved 2026-10-01, 493 pgTAP tests).
 - [ ] Location on a real phone (M3/M5)
 - [x] Delete my data removes rows (checked 2026-10-05 with the Data check workflow: 0 rows left for the deleted ID).
-- [ ] Privacy policy (M4). Draft in `docs/privacy.md` (covers Made a wrong report?, Undo and Redo, history, deletion by email within 30 days, and Time in lines). Waiting for Max; GitHub Pages stays off until he approves it.
+- [x] Privacy policy (M4, `docs/privacy.md`). Max asked Claude to check and publish it on 2026-10-08; GitHub Pages serves `/docs` from main.
 - [x] M4 data model change: the setting `redo_minutes` (5). No table, field, or answer-code change (approved 2026-10-05).
 - [x] M4 data model change (2026-10-07): one new read-only function, `my_wait_stats` (Time in lines, FR-48), and the full bar names (data only). No table, field, or answer-code change. Reviewed by Claude at Max's request on 2026-10-08: anon-only grant, `search_path` empty, reads only the caller's own waits, 37 pgTAP tests.
 - [x] M4 data model changes (approved 2026-10-06): no active window (settings `active_nights`, `active_window_start`, `active_window_end` removed; `event_nights` kept unused), line sizes 6 and 7 (`reports.line_size` 0–7, definitions version 2), the crowd dropped (column kept, codes reserved), all data wiped, six bars. Logic version 4.

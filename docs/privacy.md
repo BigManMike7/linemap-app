@@ -8,7 +8,7 @@ title: LineMap Privacy Policy
 
 LineMap is an iPhone beta that shows live, community-reported lines and waits at State College bars. It's a student learning project, not a business. This policy explains exactly what LineMap collects, why, and how you can delete it.
 
-**The short version:** LineMap has no accounts and never asks for your name, email, phone number, or age. It uses a random anonymous ID. It checks your location only when you send a report, works out how far you were from the bar, and then throws your exact location away. You can delete a wrong report yourself in Settings, and email us to delete everything.
+**The short version:** LineMap has no accounts and never asks for your name, email, phone number, or age. It uses a random anonymous ID. It checks your location only when you send a report, works out how far you were from the bar and in which direction, and then throws your coordinates away. You can delete a wrong report yourself in Settings, and email us to delete everything.
 
 ## What LineMap collects
 
@@ -26,9 +26,9 @@ When you tap **Start line timer**, **I'm in**, **Report line size**, or save a *
 
 ### Location, only when you report
 
-LineMap asks for location permission the first time you send a report, never when you open the app. When you report, your phone sends its location to LineMap's server. The server works out only your distance and direction from the bar's door, the GPS accuracy, and how old the location fix was, and then **discards your coordinates without storing them**. If you deny permission, LineMap still works; your reports are simply marked as less certain. LineMap never uses location in the background.
+LineMap asks for location permission the first time you send a report, never when you open the app. When you report, your phone sends its location to LineMap's server. The server works out only your distance and direction from the bar's door, the GPS accuracy, and how old the location fix was, and then **discards your coordinates without storing them**. The distance and direction are kept as measured, so together with the bar's location they show roughly where you were when you reported; they're used to check that reports come from near the bar. If you deny permission, LineMap still works; your reports are simply marked as less certain. LineMap never uses location in the background.
 
-If you've already given permission, the map shows your blue location dot. That location stays on your phone.
+If you've already given permission, the map shows your blue location dot and a button that moves the map to it. That location stays on your phone.
 
 ### App activity
 
@@ -40,7 +40,7 @@ LineMap stores your app version, iOS version, and iPhone model, to find bugs tha
 
 ### What LineMap never collects
 
-No name, email, phone number, age, contacts, photos, or exact stored location. No advertising ID. No third-party analytics, advertising, or tracking tools. LineMap doesn't track you across other apps or websites.
+No name, email, phone number, age, contacts, photos, or stored coordinates. No advertising ID. No third-party analytics, advertising, or tracking tools. LineMap doesn't track you across other apps or websites.
 
 ## What other people see
 
@@ -64,7 +64,7 @@ LineMap never sells your data or uses it for advertising.
 
 ## How long data is kept
 
-Data tied to an anonymous ID is deleted automatically once it's one year old. LineMap also saves a snapshot of each bar's combined estimate every five minutes while it has recent reports, to measure accuracy; snapshots contain no IDs and are kept.
+Data tied to an anonymous ID is deleted automatically once it's one year old; your install record (app version, iOS version, iPhone model) is deleted one year after you last open the app. LineMap also saves a snapshot of each bar's combined estimate every five minutes while it has recent reports, to measure accuracy; snapshots contain no IDs and are kept.
 
 ## Where data is stored
 
