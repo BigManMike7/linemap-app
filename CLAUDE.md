@@ -164,15 +164,17 @@ The data model before launch, the database tests, location on a real phone, that
 
 ## Where we left off (2026-10-08)
 
-**Build 25 is on TestFlight; Max has checked everything through build 24** (the map places' zoom is good). CI is green and `main` is clean. All decisions are in PRD.md; this section only says what's next and what PRD.md doesn't.
+**Build 26 is on TestFlight; Max has checked build 25** (2026-10-08). CI is green and `main` is clean. All decisions are in PRD.md; this section only says what's next and what PRD.md doesn't.
 
-**New in build 25:** 25–50 in line is some line (orange); a Bars card zooms in to about two blocks across (span 0.0025, was 0.007); Apple's my-location button on the map once permission is granted (with the compass and scale bar listed, since listing controls replaces the defaults); History's dot-color key, the Made a wrong report? footer, and "It stops counting right away." in the delete confirmation are gone. The location button can't show in the simulator (no permission), so Max checks it on his phone.
+**New in build 25:** 25–50 in line is some line (orange); a Bars card zooms in to about two blocks across (span 0.0025, was 0.007); Apple's my-location button on the map once permission is granted (with the compass and scale bar listed, since listing controls replaces the defaults); History's dot-color key, the Made a wrong report? footer, and "It stops counting right away." in the delete confirmation are gone.
 
-**GitHub Pages is on** (2026-10-08): https://bigmanmike7.github.io/linemap-app/ serves `/docs` from main; `/privacy` and `/support` return 200.
+**New in build 26:** a Location section in Settings below About (FR-24); map pins redraw as soon as new estimates arrive (each `BarPin` reads its own estimate from the model, passed in rather than from the environment); Settings returns to its main page after leaving the tab; pins and level pills are plain colored dots, with Uncertain keeping a question mark. The location button and the Location row's Allowed and Not allowed yet states can't show in the simulator (location is off under UI tests), so Max checks them on his phone.
+
+**GitHub Pages is on** (2026-10-08): https://bigmanmike7.github.io/linemap-app/ serves `/docs` from main with its own dark layout (`docs/_layouts/default.html`, the icon's navy and orange, no scripts or outside fonts).
 
 **Next steps for Max:**
 
-1. Try build 25: the my-location button, the Bars zoom, and that Settings' privacy and support links open.
+1. Try build 26: the Location row (each state), the my-location button, the plain dots, and that Settings' privacy and support links open.
 2. Add his test ID if he hasn't: Settings, Copy ID, then in the Supabase SQL Editor `update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';`. Never commit his ID: anyone with it can call the functions as him. One install row from before may be real; mark it test later if so.
 3. Fill in App Store Connect on the web from PRD section 9 (App Information, age rating, App Privacy; TestFlight Test Information can wait for M5).
 
