@@ -201,6 +201,8 @@ The data model before launch, the database tests, location on a real phone, that
 - **UI tests:** MapKit sometimes exposes the pins as its own map features on a second launch, so the light-mode walkthrough opens bars from the Bars tab. The thank-you stays 20 seconds under UI testing. `tapDialogButton` retries dropped dialog taps, and a failed test saves a `FAILED` screenshot plus a screen recording in the artifact. The test fixture's history marks tonight and a few earlier nights as having reports.
 - **CI** often fails with "The job was not acquired by Runner" or an artifact-upload timeout: GitHub capacity, not a test failure. Rerun with `gh run rerun <id> --failed`. When a UI test really fails, the "Show test failures" step prints why.
 
+- **Stored location precision** (Max, 2026-10-08): distance and direction stay unrounded, though with the door pin they rebuild the spot to about a meter; Claude suggested rounding (10 m, 8 compass points) and Max declined. So **move a pin only through a migration**, which keeps the old door in git and can re-measure that bar's reports from the new door (rebuild each spot from the old door, then recompute distance, direction, and `uncertain`). Timer end distances (`distance_end_m`) have no direction and can't be rebuilt exactly.
+
 **Handy facts:**
 
 - Ship a build: `gh workflow run testflight.yml`. CI deploys passing migrations to Supabase automatically.
