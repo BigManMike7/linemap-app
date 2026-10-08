@@ -9,19 +9,20 @@ struct SettingsView: View {
     @Environment(AppModel.self) private var model
     /// Shows "Copied" on the Copy ID button for a moment.
     @State private var copiedID = false
+    /// Pages open over Settings. Cleared on leaving the tab, so Settings
+    /// always comes back on its main page (Max, 2026-10-08).
+    @State private var path: [SettingsPage] = []
 
     private let version = AppVersion(infoDictionary: Bundle.main.infoDictionary).label
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             Form {
                 TimeInLinesSection()
 
                 Section {
-                    NavigationLink("Made a wrong report?") {
-                        RecentReportsView()
-                    }
-                    .accessibilityIdentifier("recent-reports-link")
+                    NavigationLink("Made a wrong report?", value: SettingsPage.recentReports)
+                        .accessibilityIdentifier("recent-reports-link")
                 } footer: {
                     Text("Delete a report you made in the last 24 hours.")
                 }
@@ -69,9 +70,22 @@ struct SettingsView: View {
                 }
             }
             .navigationTitle("Settings")
+            .navigationDestination(for: SettingsPage.self) { page in
+                switch page {
+                case .recentReports: RecentReportsView()
+                }
+            }
+        }
+        .onChange(of: model.tab) { _, tab in
+            if tab != .settings { path.removeAll() }
         }
         .accessibilityIdentifier("settings")
     }
+}
+
+/// A page opened from Settings.
+private enum SettingsPage: Hashable {
+    case recentReports
 }
 
 /// Location access (FR-24, 2026-10-08). Before the person has been asked, a

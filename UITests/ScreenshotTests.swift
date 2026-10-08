@@ -236,8 +236,11 @@ final class ScreenshotTests: XCTestCase {
         let oneLeft = NSPredicate(format: "count == 1")
         expectation(for: oneLeft, evaluatedWith: deleteButtons)
         waitForExpectations(timeout: 5)
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(app.buttons["recent-reports-link"].waitForExistence(timeout: 5))
+        // Leaving the tab and coming back shows Settings' main page.
+        app.tabBars.buttons["Map"].tap()
+        app.tabBars.buttons["Settings"].tap()
+        XCTAssertTrue(app.buttons["recent-reports-link"].waitForExistence(timeout: 5),
+                      "Settings comes back on its main page")
     }
 
     /// The main screens again in light mode at a large accessibility text size,
