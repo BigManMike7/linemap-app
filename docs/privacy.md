@@ -4,11 +4,11 @@ title: LineMap Privacy Policy
 
 # LineMap Privacy Policy
 
-**Effective October 5, 2026**
+**Effective October 8, 2026**
 
 LineMap is an iPhone beta that shows live, community-reported lines and waits at State College bars. It's a student learning project, not a business. This policy explains exactly what LineMap collects, why, and how you can delete it.
 
-**The short version:** LineMap has no accounts and never asks for your name, email, phone number, or age. It uses a random anonymous ID. It checks your location only when you send a report, works out how far you were from the bar, and then throws your exact location away. You can delete everything from Settings at any time.
+**The short version:** LineMap has no accounts and never asks for your name, email, phone number, or age. It uses a random anonymous ID. It checks your location only when you send a report, works out how far you were from the bar, and then throws your exact location away. You can delete a wrong report yourself in Settings, and email us to delete everything.
 
 ## What LineMap collects
 
