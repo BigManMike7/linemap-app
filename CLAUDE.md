@@ -144,7 +144,7 @@ The data model before launch, the database tests, location on a real phone, that
 
 - [x] Data model (approved 2026-10-01, as built in M2). Point out any later change to tables, fields, or answer codes again.
 - [x] Database tests (approved 2026-10-01, 493 pgTAP tests).
-- [ ] Location on a real phone (M3/M5)
+- [ ] Location on a real phone (M3/M5). Deferred by Max on 2026-10-08: checked with real reports after the public launch (watch `uncertain` and distances in the data).
 - [x] Delete my data removes rows (checked 2026-10-05 with the Data check workflow: 0 rows left for the deleted ID).
 - [x] Privacy policy (M4, `docs/privacy.md`). Max asked Claude to check and publish it on 2026-10-08; GitHub Pages serves `/docs` from main.
 - [x] M4 data model change: the setting `redo_minutes` (5). No table, field, or answer-code change (approved 2026-10-05).
@@ -156,11 +156,11 @@ The data model before launch, the database tests, location on a real phone, that
 - [x] **M1. Setup:** repo, XcodeGen project, LineMapCore package, CI pipeline. Done when an empty app builds in CI and installs on Max's iPhone through TestFlight.
 - [x] **M2. Backend:** tables, RLS, functions, cron jobs, seed bars, pgTAP tests.
 - [x] **M3. App:** map, bar sheet, report flow, wait card, location, IDs, offline queue, feedback, Settings, Directions (FR-40), Made a wrong report? (FR-41), thank-you (FR-42).
-- [ ] **M4. Polish:** tab bar (FR-44), Bars list (FR-45), History (FR-43), Redo and Undo (FR-46, FR-47), Time in lines (FR-48), dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
-- [ ] **M5. Field test:** downtown testing, then Beta App Review.
+- [x] **M4. Polish:** tab bar (FR-44), Bars list (FR-45), History (FR-43), Redo and Undo (FR-46, FR-47), Time in lines (FR-48), dark mode, accessibility, empty and error states, GitHub Pages docs, App Store Connect.
+- [ ] **M5. Field test:** downtown testing, then Beta App Review. Max skipped the downtown test on 2026-10-08 (no way to test locations himself): straight to Beta App Review, and location problems get fixed in a later version. Location never rejects a report or changes an estimate (FR-27), and its thresholds are `config` settings.
 - [ ] **M6. Launch:** public TestFlight link.
 
-**Current milestone: M4** (in progress).
+**Current milestone: M5/M6** (Beta App Review, then the public TestFlight link).
 
 ## Where we left off (2026-10-08)
 
@@ -176,13 +176,14 @@ The data model before launch, the database tests, location on a real phone, that
 
 1. Try build 26: the Location row (each state), the my-location button, the plain dots, and that Settings' privacy and support links open.
 2. Add his test ID if he hasn't: Settings, Copy ID, then in the Supabase SQL Editor `update app.config set value = value || jsonb_build_array('<ID>') where key = 'test_anon_ids';`. Never commit his ID: anyone with it can call the functions as him. One install row from before may be real; mark it test later if so.
-3. Fill in App Store Connect on the web from PRD section 9 (App Information, age rating, App Privacy; TestFlight Test Information can wait for M5).
+3. App Store Connect: App Information, age rating, and App Privacy are filled in (Max, 2026-10-08). Next: an external group, Beta App Review, then the public link.
 
-**Still to do in M4:**
+**Still to do (M5/M6):**
 
-1. **App Store Connect:** Max fills it in from PRD section 9.
-2. **Before anyone but Max uses the app** (M5 field test at the latest): in the SQL Editor, mark every row so far as test (or delete it) in `app.installs`, `app.wait_sessions`, `app.reports`, `app.views`, and `app.feedback` (`update app.reports set is_test = true where not is_test;`), and make sure Max's current ID is in `test_anon_ids`.
-3. Recheck the light-mode and large-text screenshots (`L01`–`L08`) after any layout change.
+1. **Beta App Review:** in App Store Connect, TestFlight → an external group with the newest build, Test Information from PRD section 9, then submit. Apple usually answers in a day or two.
+2. **Public link:** once approved, turn on the group's public link and share it (M6).
+3. **Fresh start (2026-10-08, Max):** all data so far was his testing, so `20261008190000_fresh_start.sql` deleted it (bars, settings, and `test_anon_ids` kept). From here on, Max's own reports count as real unless his current ID is in `test_anon_ids`.
+4. Recheck the light-mode and large-text screenshots (`L01`–`L08`) after any layout change.
 
 **Phase 2, decided to wait:** the Live Activity (lock-screen timer with an I'm in button). Suggested to Max, not decided: auto-start with the timer, bar name and timer only, I'm in as the only button. A widget extension target means new signing work.
 
@@ -205,6 +206,8 @@ The data model before launch, the database tests, location on a real phone, that
 - **CI** often fails with "The job was not acquired by Runner" or an artifact-upload timeout: GitHub capacity, not a test failure. Rerun with `gh run rerun <id> --failed`. When a UI test really fails, the "Show test failures" step prints why.
 
 - **Stored location precision** (Max, 2026-10-08): distance and direction stay unrounded, though with the door pin they rebuild the spot to about a meter; Claude suggested rounding (10 m, 8 compass points) and Max declined. So **move a pin only through a migration**, which keeps the old door in git and can re-measure that bar's reports from the new door (rebuild each spot from the old door, then recompute distance, direction, and `uncertain`). Timer end distances (`distance_end_m`) have no direction and can't be rebuilt exactly.
+
+- **After launch, watch** (2026-10-08): TestFlight build 27 expires about 2027-01-06 (ship any new build before then); GitHub turns off the keepalive schedule after 60 days without commits, and Supabase pauses a week later (re-enable the workflow, or Restore the project); the free database goes read-only past 500 MB (views store the estimate shown and snapshots are kept forever, so check the size monthly); fake reports from scripted new IDs can be hidden in the dashboard (FR-37), and a per-bar flood cap was offered but not built.
 
 **Handy facts:**
 
