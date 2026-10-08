@@ -180,7 +180,7 @@ The data model before launch, the database tests, location on a real phone, that
 
 **Still to do (M5/M6):**
 
-1. **Beta App Review:** in App Store Connect, TestFlight → an external group with the newest build, Test Information from PRD section 9, then submit. Apple usually answers in a day or two.
+1. **Beta App Review:** build 27 submitted by Max on 2026-10-08 (external group, Test Information from PRD section 9). Waiting for Apple, usually a day or two. If Apple asks questions or rejects, answer from PRD section 9's review notes.
 2. **Public link:** once approved, turn on the group's public link and share it (M6).
 3. **Fresh start (2026-10-08, Max):** all data so far was his testing, so `20261008190000_fresh_start.sql` deleted it (bars, settings, and `test_anon_ids` kept). From here on, Max's own reports count as real unless his current ID is in `test_anon_ids`.
 4. Recheck the light-mode and large-text screenshots (`L01`–`L08`) after any layout change.
