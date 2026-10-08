@@ -29,7 +29,7 @@ struct RecentReportsView: View {
                 }
                 Button("Cancel", role: .cancel) {}
             } message: { _ in
-                Text("It stops counting right away. This can't be undone.")
+                Text("This can't be undone.")
             }
             .alert("Couldn't delete", isPresented: hasError) {
                 Button("OK") {}

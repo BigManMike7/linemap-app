@@ -35,6 +35,17 @@ struct MapScreen: View {
         // when zoomed in, never on the wider view. Bars and nightlife stay off so
         // a bar isn't shown twice. They aren't tappable: the map selects only
         // bar pins (the selection is a bar ID).
+        // Apple's button that moves the map to the user's location, only once
+        // permission was granted, since it would otherwise ask (FR-1, FR-24).
+        // Listing controls replaces the defaults, so the compass and scale bar
+        // are listed too.
+        .mapControls {
+            if model.location.isAuthorized {
+                MapUserLocationButton()
+            }
+            MapCompass()
+            MapScaleView()
+        }
         .mapStyle(.standard(pointsOfInterest: showsPlaces
             ? .excluding([.nightlife, .brewery, .winery])
             : .excludingAll))
