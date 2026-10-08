@@ -3,8 +3,8 @@ import UIKit
 import SwiftUI
 
 /// The Settings tab (FR-5, FR-44): Time in lines (FR-48), Made a wrong report?
-/// (FR-41), the privacy policy and support pages, the contact email, and the
-/// anonymous ID, which people email to support to delete their data (FR-32).
+/// (FR-41), the privacy policy and support pages, the contact email, location
+/// access (FR-24), and the anonymous ID, which people email to support to delete their data (FR-32).
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     /// Shows "Copied" on the Copy ID button for a moment.
@@ -34,6 +34,8 @@ struct SettingsView: View {
                     }
                     LabeledContent("Version", value: version)
                 }
+
+                LocationSection()
 
                 if let anonId = model.anonId?.uuidString {
                     Section {
@@ -69,6 +71,48 @@ struct SettingsView: View {
             .navigationTitle("Settings")
         }
         .accessibilityIdentifier("settings")
+    }
+}
+
+/// Location access (FR-24, 2026-10-08). Before the person has been asked, a
+/// tap shows Apple's prompt, since they chose to tap it; after that it opens
+/// LineMap's page in the iPhone's Settings. A red note says when location
+/// isn't allowed.
+private struct LocationSection: View {
+    @Environment(AppModel.self) private var model
+    @Environment(\.openURL) private var openURL
+
+    var body: some View {
+        let location = model.location
+        Section {
+            Button {
+                if location.needsPermission {
+                    location.requestPermission()
+                } else if let url = URL(string: UIApplication.openSettingsURLString) {
+                    openURL(url)
+                }
+            } label: {
+                LabeledContent("Location access", value: status(of: location))
+            }
+            .accessibilityIdentifier("location-settings")
+        } header: {
+            Text("Location")
+        } footer: {
+            if !location.isAuthorized {
+                Text("Location isn't allowed. Allowing it helps keep reports accurate.")
+                    .foregroundStyle(.red)
+            }
+        }
+    }
+
+    private func status(of location: LocationService) -> String {
+        if location.isAuthorized {
+            location.isApproximate ? "Approximate" : "Allowed"
+        } else if location.authorization == .notDetermined {
+            "Not allowed yet"
+        } else {
+            "Not allowed"
+        }
     }
 }
 

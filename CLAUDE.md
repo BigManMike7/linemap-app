@@ -102,7 +102,7 @@ These are summaries. The PRD has the details.
 
 **Location**
 
-- **Permission.** Ask only on the first report, never on launch. The map shows the user's location dot only if permission was already granted (FR-1, FR-24).
+- **Permission.** Ask only on the first report or a tap on Settings' Location row, never on launch. The map shows the user's location dot only if permission was already granted (FR-1, FR-24).
 - **Never reject for location.** Bad or missing location only sets the `uncertain` flag (FR-27).
 
 **Reporting**

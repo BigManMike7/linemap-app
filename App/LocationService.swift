@@ -8,6 +8,8 @@ import Observation
 @Observable
 final class LocationService: NSObject, CLLocationManagerDelegate {
     private(set) var authorization: CLAuthorizationStatus = .notDetermined
+    /// Allowed, but with Precise Location turned off.
+    private(set) var isApproximate = false
 
     @ObservationIgnored private let manager = CLLocationManager()
     @ObservationIgnored private let isEnabled: Bool
@@ -32,6 +34,14 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
         authorization = manager.authorizationStatus
+        isApproximate = manager.accuracyAuthorization == .reducedAccuracy
+    }
+
+    /// Shows Apple's permission prompt if the person hasn't been asked yet. Only
+    /// from Settings' Location row, which they tap themselves (FR-24).
+    func requestPermission() {
+        guard needsPermission else { return }
+        manager.requestWhenInUseAuthorization()
     }
 
     /// The current location for a report: precise, approximate, denied, or no fix.
@@ -75,6 +85,7 @@ final class LocationService: NSObject, CLLocationManagerDelegate {
 
     private func authorizationChanged(_ status: CLAuthorizationStatus) {
         authorization = status
+        isApproximate = manager.accuracyAuthorization == .reducedAccuracy
         guard status != .notDetermined else { return }
         let waiters = authorizationWaiters
         authorizationWaiters.removeAll()

@@ -26,7 +26,7 @@ When you tap **Start line timer**, **I'm in**, **Report line size**, or save a *
 
 ### Location, only when you report
 
-LineMap asks for location permission the first time you send a report, never when you open the app. When you report, your phone sends its location to LineMap's server. The server works out only your distance and direction from the bar's door, the GPS accuracy, and how old the location fix was, and then **discards your coordinates without storing them**. The distance and direction are kept as measured, so together with the bar's location they show roughly where you were when you reported; they're used to check that reports come from near the bar. If you deny permission, LineMap still works; your reports are simply marked as less certain. LineMap never uses location in the background.
+LineMap asks for location permission the first time you send a report (or if you tap **Location** in **Settings**), never when you open the app. When you report, your phone sends its location to LineMap's server. The server works out only your distance and direction from the bar's door, the GPS accuracy, and how old the location fix was, and then **discards your coordinates without storing them**. The distance and direction are kept as measured, so together with the bar's location they show roughly where you were when you reported; they're used to check that reports come from near the bar. If you deny permission, LineMap still works; your reports are simply marked as less certain. LineMap never uses location in the background.
 
 If you've already given permission, the map shows your blue location dot and a button that moves the map to it. That location stays on your phone.
 
