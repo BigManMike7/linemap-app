@@ -1,9 +1,12 @@
 import LineMapCore
 import SwiftUI
 
-/// Colors and symbols for how hard a bar is to get into (FR-2, FR-43, FR-45):
-/// green, orange, and red, each with its own symbol so color is never the only
-/// signal, and a gray question mark when the wait and line size contradict. Reports 30–60 minutes old show faded or outlined.
+/// Colors for how hard a bar is to get into (FR-2, FR-43, FR-45): green,
+/// orange, and red, and gray when the wait and line size contradict. Plain
+/// dots (Max, 2026-10-08), except that Uncertain keeps its question mark so it
+/// differs from a gray No live reports pin; the pill's words and the pin's
+/// label say the level in text. Reports 30–60 minutes old show faded or
+/// outlined.
 extension LineLevel {
     var color: Color {
         switch self {
@@ -11,25 +14,6 @@ extension LineLevel {
         case .some: .orange
         case .long: .red
         case .uncertain: .gray
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .short: "checkmark.circle.fill"
-        case .some: "clock.circle.fill"
-        case .long: "exclamationmark.circle.fill"
-        case .uncertain: "questionmark.circle.fill"
-        }
-    }
-
-    /// The same symbol unfilled, for pins from older reports.
-    var outlineSystemImage: String {
-        switch self {
-        case .short: "checkmark.circle"
-        case .some: "clock.circle"
-        case .long: "exclamationmark.circle"
-        case .uncertain: "questionmark.circle"
         }
     }
 }
@@ -41,17 +25,24 @@ extension LineStatus {
     }
 }
 
-/// A pill such as "✓ Short line", on Bars cards and the bar sheet.
+/// A pill such as "● Short line", on Bars cards and the bar sheet.
 struct LineLevelBadge: View {
     let status: LineStatus
+    @ScaledMetric(relativeTo: .subheadline) private var dotSize: CGFloat = 10
 
     var body: some View {
         Label {
             Text(status.level.title)
                 .foregroundStyle(status.isOlder ? .secondary : .primary)
         } icon: {
-            Image(systemName: status.level.systemImage)
-                .foregroundStyle(status.color)
+            if status.level == .uncertain {
+                Image(systemName: "questionmark.circle.fill")
+                    .foregroundStyle(status.color)
+            } else {
+                Circle()
+                    .fill(status.color)
+                    .frame(width: dotSize, height: dotSize)
+            }
         }
         .font(.subheadline.weight(.semibold))
         .lineLimit(1)

@@ -161,6 +161,7 @@ struct BarPin: View {
     let model: AppModel
     /// For VoiceOver only. Taps go through the map's own selection.
     let action: () -> Void
+    @ScaledMetric(relativeTo: .title) private var dotSize: CGFloat = 24
 
     /// The estimate is read here, not passed in: MapKit builds a pin's view once, so only the
     /// pin's own body redraws it when new estimates arrive (2026-10-08: a pin
@@ -173,20 +174,33 @@ struct BarPin: View {
     /// older reports; a gray pin for No live reports.
     private var status: LineStatus? { LineStatus(estimate: estimate) }
 
-    /// Filled for fresh reports; an outlined ring on white for older ones.
+    /// A plain dot in the level's color (Max, 2026-10-08): filled with a white
+    /// edge for fresh reports, a colored ring on white for older ones, gray for
+    /// No live reports. Only Uncertain keeps a symbol, a question mark, so it
+    /// isn't mistaken for No live reports.
     @ViewBuilder
     private var pinImage: some View {
-        if let status, status.isOlder {
-            Image(systemName: status.level.outlineSystemImage)
-                .font(.title)
-                .foregroundStyle(status.level.color)
-                .background(Circle().fill(.white).padding(2))
-        } else {
-            Image(systemName: status?.level.systemImage ?? "mappin.circle.fill")
-                .font(.title)
-                .symbolRenderingMode(.palette)
-                .foregroundStyle(.white, status?.level.color ?? Color.gray)
+        let isOlder = status?.isOlder ?? false
+        Group {
+            if let status, isOlder {
+                Circle()
+                    .fill(.white)
+                    .overlay(Circle().strokeBorder(status.level.color, lineWidth: dotSize * 0.2))
+            } else {
+                Circle()
+                    .fill(status?.level.color ?? Color.gray)
+                    .overlay(Circle().strokeBorder(.white, lineWidth: 2.5))
+            }
         }
+        .overlay {
+            if status?.level == .uncertain {
+                Image(systemName: "questionmark")
+                    .font(.system(size: dotSize * 0.5, weight: .heavy))
+                    .foregroundStyle(isOlder ? LineLevel.uncertain.color : .white)
+            }
+        }
+        .frame(width: dotSize, height: dotSize)
+        .shadow(color: .black.opacity(0.25), radius: 1.5, y: 1)
     }
 
     var body: some View {
