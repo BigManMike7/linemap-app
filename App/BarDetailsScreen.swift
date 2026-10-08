@@ -124,9 +124,6 @@ private struct NightRows: View {
                         }
                     }
                 }
-                Text("Dots show the line: green short, orange some, red long, gray when the wait and line disagree.")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
             }
         } else {
             Text(history.night == history.tonight ? "No reports today yet." : "No reports this day.")

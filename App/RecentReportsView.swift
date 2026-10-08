@@ -62,8 +62,6 @@ struct RecentReportsView: View {
                     ForEach(items) { item in
                         row(item)
                     }
-                } footer: {
-                    Text("A timer that's still running is stopped from the timer card. Reports waiting to send appear once they're sent.")
                 }
             }
         }

@@ -8,9 +8,9 @@ import Foundation
 public enum LineLevel: Int, Sendable, Hashable, CaseIterable {
     /// A wait under 10 minutes, or 0 or 1–10 in line.
     case short
-    /// A wait of 10 to 25 minutes, or 10–25 in line.
+    /// A wait of 10 to 25 minutes, or 10–25 or 25–50 in line.
     case some
-    /// A wait of 25 minutes or more, or 25 or more in line.
+    /// A wait of 25 minutes or more, or 50 or more in line.
     case long
     /// The wait and the line size contradict each other: one is short and the
     /// other long, such as a 0-minute timer next to 100+ in line. The app
@@ -56,13 +56,14 @@ public enum LineLevel: Int, Sendable, Hashable, CaseIterable {
         }
     }
 
-    /// A line size (`LineSize` code). "Can't see the end", from older builds, is long.
+    /// A line size (`LineSize` code). 25–50 is some, not long (Max, 2026-10-08).
+    /// "Can't see the end", from older builds, is long.
     public init?(lineSizeCode code: Int) {
         guard let size = LineSize(rawValue: code) else { return nil }
         switch size {
         case .nobody, .oneToTen: self = .short
-        case .tenTo25: self = .some
-        case .twentyFiveTo50, .fiftyTo100, .hundredPlus, .fiftyPlus, .cantSeeEnd: self = .long
+        case .tenTo25, .twentyFiveTo50: self = .some
+        case .fiftyTo100, .hundredPlus, .fiftyPlus, .cantSeeEnd: self = .long
         }
     }
 

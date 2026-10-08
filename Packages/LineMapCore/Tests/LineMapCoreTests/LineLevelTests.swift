@@ -31,7 +31,7 @@ struct LineLevelTests {
     }
 
     @Test(arguments: [
-        (0, LineLevel.short), (1, .short), (2, .some), (3, .long), (4, .long), (5, .long),
+        (0, LineLevel.short), (1, .short), (2, .some), (3, .some), (4, .long), (5, .long),
         (6, .long), (7, .long),
     ])
     func lineSizes(code: Int, expected: LineLevel) {
@@ -127,7 +127,7 @@ struct LineStatusTests {
         #expect(LineStatus(point: contradiction)?.level == .uncertain)
 
         let lineOnly = HistoryPoint(at: now, people: 1, lineSize: HistorySignal(code: 3))
-        #expect(LineStatus(point: lineOnly)?.level == .long)
+        #expect(LineStatus(point: lineOnly)?.level == .some)
 
         let crowdOnly = HistoryPoint(at: now, people: 1, busyness: HistorySignal(code: 1))
         #expect(LineStatus(point: crowdOnly) == nil)
