@@ -23,7 +23,7 @@ struct MapScreen: View {
             }
             ForEach(model.bars) { bar in
                 Annotation(bar.name, coordinate: bar.coordinate, anchor: .bottom) {
-                    BarPin(bar: bar, estimate: model.estimate(for: bar.id)) {
+                    BarPin(bar: bar, model: model) {
                         model.sheet = .bar(bar.id)
                     }
                 }
@@ -156,9 +156,16 @@ extension Bar {
 /// the opening view and nearby pins overlap less (2026-10-06).
 struct BarPin: View {
     let bar: Bar
-    let estimate: BarEstimate?
+    /// Passed in rather than from the environment, which MapKit may not carry
+    /// into pins.
+    let model: AppModel
     /// For VoiceOver only. Taps go through the map's own selection.
     let action: () -> Void
+
+    /// The estimate is read here, not passed in: MapKit builds a pin's view once, so only the
+    /// pin's own body redraws it when new estimates arrive (2026-10-08: a pin
+    /// stayed red after its Bars card turned orange).
+    private var estimate: BarEstimate? { model.estimate(for: bar.id) }
 
     private var label: PinLabel { PinLabel(estimate: estimate) }
 
