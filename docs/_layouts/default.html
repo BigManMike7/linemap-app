@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>{{ page.title | default: "LineMap" }}</title>
+  <style>
+    /* Dark, in the app icon's colors. No scripts, fonts, or trackers. */
+    :root {
+      --bg: #141826;
+      --card: #1c2133;
+      --text: #e8eaf0;
+      --muted: #9aa1b4;
+      --accent: #ffb02e;
+      --rule: #2b3147;
+    }
+    * { box-sizing: border-box; }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    header {
+      border-bottom: 1px solid var(--rule);
+    }
+    header nav, main, footer {
+      max-width: 720px;
+      margin: 0 auto;
+      padding: 0 16px;
+    }
+    header nav {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px 20px;
+      padding-top: 14px;
+      padding-bottom: 14px;
+    }
+    header .brand {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 19px;
+      margin-right: auto;
+    }
+    header a { color: var(--text); text-decoration: none; }
+    header a:hover { color: var(--accent); }
+    main { padding-top: 24px; padding-bottom: 40px; }
+    h1 { font-size: 30px; line-height: 1.25; margin: 0 0 12px; }
+    h2 {
+      font-size: 22px;
+      margin: 36px 0 8px;
+      padding-top: 20px;
+      border-top: 1px solid var(--rule);
+      color: var(--accent);
+    }
+    h3 { font-size: 18px; margin: 24px 0 4px; }
+    a { color: var(--accent); }
+    strong { color: #fff; }
+    ul, ol { padding-left: 22px; }
+    li { margin: 4px 0; }
+    code {
+      background: var(--card);
+      border-radius: 6px;
+      padding: 1px 6px;
+      font-size: 0.9em;
+    }
+    footer {
+      color: var(--muted);
+      font-size: 14px;
+      padding-top: 16px;
+      padding-bottom: 32px;
+      border-top: 1px solid var(--rule);
+    }
+    footer a { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <header>
+    <nav>
+      <a class="brand" href="{{ '/' | relative_url }}">LineMap</a>
+      <a href="{{ '/support' | relative_url }}">Support</a>
+      <a href="{{ '/privacy' | relative_url }}">Privacy</a>
+    </nav>
+  </header>
+  <main>
+{{ content }}
+  </main>
+  <footer>
+    <a href="mailto:line.map.support@gmail.com">line.map.support@gmail.com</a>
+  </footer>
+</body>
+</html>
