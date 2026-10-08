@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       deleted_anon_id:
-        description: "An anonymous ID that Delete my data removed (its rows should all be 0)"
-        required: true
-        default: "cb1d32c5-1a2d-4d7d-898e-dcb9871ef2d7"
+        description: "Optional: an anonymous ID that delete_my_data removed (its rows should all be 0). Hidden from the logs."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -21,8 +21,17 @@ jobs:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}
-      DELETED_ANON_ID: ${{ inputs.deleted_anon_id }}
     steps:
+      # The ID is read from the event file, never through ${{ }}, and masked
+      # before any step prints its env: since 2026-10-07 a phone keeps its ID
+      # after deletion, and anyone with it can call the functions as that person.
+      - name: Hide the ID
+        run: |
+          id=$(jq -r '.inputs.deleted_anon_id // ""' "$GITHUB_EVENT_PATH")
+          id=${id:-00000000-0000-0000-0000-000000000000}
+          echo "::add-mask::$id"
+          echo "DELETED_ANON_ID=$id" >> "$GITHUB_ENV"
+
       - uses: actions/checkout@v4
 
       - uses: supabase/setup-cli@v1

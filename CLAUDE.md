@@ -213,5 +213,5 @@ The data model before launch, the database tests, location on a real phone, that
 
 - Ship a build: `gh workflow run testflight.yml`. CI deploys passing migrations to Supabase automatically.
 - Supabase project ref `jjsccwmvgfzsxozhjlrt`. There is no local database access: the password lives only in GitHub Secrets, so Max runs one-off SQL in the dashboard SQL Editor.
-- **Data check:** `gh workflow run data-check.yml` (optional input: a deleted anonymous ID) runs a read-only, counts-only check of the live database. Its logs are public, so it never prints IDs.
+- **Data check:** `gh workflow run data-check.yml` (optional input: a deleted anonymous ID) runs a read-only, counts-only check of the live database. Its logs are public, so it prints counts only, and the ID input is masked (read from the event file, never through `${{ }}`).
 - The app calls 15 functions (PRD 7.2). The server also keeps `submit_report` and `delete_my_data` for older builds and support.
