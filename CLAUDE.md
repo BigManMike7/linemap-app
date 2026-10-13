@@ -182,7 +182,7 @@ The data model before launch, the database tests, location on a real phone, that
 
 1. **Beta App Review:** build 27 submitted by Max on 2026-10-08 (external group, Test Information from PRD section 9). Waiting for Apple, usually a day or two. If Apple asks questions or rejects, answer from PRD section 9's review notes.
 2. **Public link:** once approved, turn on the group's public link and share it (M6).
-3. **Fresh start (2026-10-08, Max):** all data so far was his testing, so `20261008190000_fresh_start.sql` deleted it (bars, settings, and `test_anon_ids` kept). From here on, Max's own reports count as real unless his current ID is in `test_anon_ids`.
+3. **Fresh start (2026-10-08, Max):** all data so far was his testing, so `20261008190000_fresh_start.sql` deleted it (bars, settings, and `test_anon_ids` kept). From here on, Max's own reports count as real unless his current ID is in `test_anon_ids`. **Second clear (2026-10-12, Max):** his Oct 8–11 testing still counted as real (`test_anon_ids` was empty), so `20261013043000_clear_last_week.sql` deleted everything created before Oct 12 Eastern and kept Oct 12 on (2 installs and 34 views that may be real testers).
 4. Recheck the light-mode and large-text screenshots (`L01`–`L08`) after any layout change.
 
 **Phase 2, decided to wait:** the Live Activity (lock-screen timer with an I'm in button). Suggested to Max, not decided: auto-start with the timer, bar name and timer only, I'm in as the only button. A widget extension target means new signing work.
